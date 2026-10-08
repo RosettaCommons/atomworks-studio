@@ -1,0 +1,1 @@
+"""PyMOL plugin integration tests."""

@@ -1,0 +1,197 @@
+[
+  {
+    "name": "antibody_design",
+    "example_id": "antibody_design",
+    "atoms": 4235,
+    "actions": [
+      {
+        "kind": "condition",
+        "key": "hotspot",
+        "query": "chain_id == 'T'",
+        "enabled": true
+      },
+      {
+        "kind": "undo"
+      },
+      {
+        "kind": "group",
+        "key": "index_group",
+        "query": "chain_id == 'H'"
+      },
+      {
+        "kind": "undo"
+      }
+    ]
+  },
+  {
+    "name": "enzyme_design",
+    "example_id": "enzyme_design",
+    "atoms": 15,
+    "actions": [
+      {
+        "kind": "condition",
+        "key": "coordinate",
+        "query": "res_name == 'ORO'",
+        "enabled": true
+      },
+      {
+        "kind": "condition",
+        "key": "hbond",
+        "query": "(res_name == 'ORO') & (element == 'O')",
+        "enabled": true,
+        "value": 2
+      },
+      {
+        "kind": "charge",
+        "query": "(res_name == 'ORO') & (element == 'O')",
+        "value": -1
+      },
+      {
+        "kind": "undo"
+      },
+      {
+        "kind": "realize"
+      },
+      {
+        "kind": "undo"
+      }
+    ]
+  },
+  {
+    "name": "inverse_folding",
+    "example_id": "inverse_folding",
+    "atoms": 481,
+    "actions": [
+      {
+        "kind": "condition",
+        "key": "sequence",
+        "query": "atom_name != ''",
+        "enabled": true
+      },
+      {
+        "kind": "undo"
+      },
+      {
+        "kind": "group",
+        "key": "coordinate_group",
+        "query": "res_id < 5"
+      },
+      {
+        "kind": "undo"
+      }
+    ]
+  },
+  {
+    "name": "motif_scaffolding",
+    "example_id": "motif_scaffolding",
+    "atoms": 32,
+    "actions": [
+      {
+        "kind": "condition",
+        "key": "sequence",
+        "query": "res_name == 'TYR'",
+        "enabled": true
+      },
+      {
+        "kind": "condition",
+        "key": "coordinate",
+        "query": "res_name == 'ASP'",
+        "enabled": true
+      },
+      {
+        "kind": "realize"
+      },
+      {
+        "kind": "undo"
+      }
+    ]
+  },
+  {
+    "name": "nanobody",
+    "example_id": "nanobody",
+    "atoms": 1547,
+    "actions": [
+      {
+        "kind": "condition",
+        "key": "hotspot",
+        "query": "chain_id == 'A'",
+        "enabled": true
+      },
+      {
+        "kind": "undo"
+      },
+      {
+        "kind": "realize"
+      },
+      {
+        "kind": "undo"
+      }
+    ]
+  },
+  {
+    "name": "partial_diffusion",
+    "example_id": "partial_diffusion",
+    "atoms": 481,
+    "actions": [
+      {
+        "kind": "condition",
+        "key": "coordinate",
+        "query": "res_id < 5",
+        "enabled": true
+      },
+      {
+        "kind": "undo"
+      },
+      {
+        "kind": "condition",
+        "key": "index",
+        "query": "atom_name != ''",
+        "enabled": true
+      }
+    ]
+  },
+  {
+    "name": "small_molecule_binder",
+    "example_id": "small_molecule_binder",
+    "atoms": 28,
+    "actions": [
+      {
+        "kind": "condition",
+        "key": "coordinate",
+        "query": "res_name == 'SAM'",
+        "enabled": true
+      },
+      {
+        "kind": "condition",
+        "key": "rasa",
+        "query": "res_name == 'SAM'",
+        "enabled": true,
+        "value": 3
+      },
+      {
+        "kind": "group",
+        "key": "index_group",
+        "query": "res_name == 'SAM'"
+      },
+      {
+        "kind": "realize"
+      },
+      {
+        "kind": "undo"
+      }
+    ]
+  },
+  {
+    "name": "unconditional",
+    "example_id": "unconditional",
+    "atoms": 1,
+    "actions": [
+      {
+        "kind": "realize"
+      },
+      {
+        "kind": "undo"
+      }
+    ]
+  }
+]

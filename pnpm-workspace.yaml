@@ -1,0 +1,12 @@
+packages:
+  - packages/web
+  - packages/vscode
+
+allowBuilds:
+  "@parcel/watcher": false
+  "@scarf/scarf": false
+  "@vscode/vsce-sign": false
+  esbuild: true
+  keytar: false
+  sharp: false
+  wasm-pack: false

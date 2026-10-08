@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "atomworks-annotation-studio-rfd4"
+version = "0.1.0"
+readme = { text = "RFD4 annotation adapter for AtomWorks Studio. Pinned RosettaCommons annotation definitions are included; no model runtime or weights are included.", content-type = "text/markdown" }
+description = "RFD4 provider adapter for AtomWorks Annotation Studio"
+requires-python = ">=3.12,<3.13"
+license = "BSD-3-Clause"
+dependencies = [
+    "atomworks-studio-editing>=0.1.0,<0.2",
+    "numpy>=1.26,<3",
+]
+
+[project.urls]
+Documentation = "https://github.com/RosettaCommons/atomworks-studio/blob/main/docs/INTEGRATIONS.md"
+Source = "https://github.com/RosettaCommons/atomworks-studio"
+
+[tool.uv.sources]
+atomworks-studio-editing = { workspace = true }
+
+[project.entry-points."atomworks_studio.annotations"]
+rfd4 = "atomworks_studio_rfd4"
+
+[tool.hatch.build.targets.wheel]
+packages = ["atomworks_studio_rfd4"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "atomworks_studio_rfd4",
+    "pyproject.toml",
+    "hatch_build.py",
+    "UPSTREAM.toml",
+]
+
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"

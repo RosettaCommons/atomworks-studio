@@ -1,0 +1,44 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import {chromium} from 'playwright-core';
+import { chromiumLaunchOptions } from '../../../scripts/browser.mjs';
+
+const base=process.env.ANNOTATION_STUDIO_URL??'http://127.0.0.1:8000/';
+const mode=process.env.VIEWER_MODE;
+assert.ok(['molstar','patinae'].includes(mode));
+const browser=await chromium.launch(chromiumLaunchOptions());
+let release;
+try {
+  const page=await browser.newPage();
+  await page.goto(`${base}?viewer=${mode}`);
+  await page.waitForFunction(()=>document.querySelector('#status')?.textContent.includes('Ready.'));
+  const fixture=fileURLToPath(new URL('../../../tests/fixtures/minimal_multichain.cif',import.meta.url));
+  await page.locator('#file-input').setInputFiles(fixture);
+  await page.waitForFunction(()=>!document.querySelector('#download').disabled);
+  let reached;
+  const requested=new Promise(resolve=>{reached=resolve;});
+  const held=new Promise(resolve=>{release=resolve;});
+  await page.route('**/sessions/*/cif',async route=>{reached();await held;await route.continue();});
+  await page.locator('#file-input').setInputFiles({name:'replacement.cif',mimeType:'chemical/x-mmcif',buffer:await readFile(fixture)});
+  await requested;
+  assert.equal(await page.locator('#download').isEnabled(),false,'Save must wait for the new document to finish loading');
+  assert.equal(await page.locator('#workspace').evaluate(el=>el.inert),true,'Editing must wait for the new document');
+  release();
+  await page.waitForFunction(()=>!document.querySelector('#viewer-mode').disabled&&!document.querySelector('#workspace').inert);
+  await page.unroute('**/sessions/*/cif');
+  await page.locator('#editor-tab-annotations').click();
+  await page.locator('#condition').selectOption('distance');
+  await page.locator('#selection-syntax').selectOption('expression');
+  await page.locator('#viewer-command').fill("chain_id == 'A'");
+  await page.locator('#run-viewer-command').click();
+  await page.waitForFunction(()=>document.querySelector('#selection-count').textContent.startsWith('2 atoms'));
+  await page.locator('#pair-use-selection').click();
+  await page.waitForFunction(()=>document.querySelector('#pair-atom-0').textContent.includes('GLY'));
+  await page.locator('#pair-distance').fill('3.5');
+  await page.locator('#pair-add').click();
+  const response=page.waitForResponse(r=>r.url().endsWith('/distance-restraints/replace'));
+  await page.locator('#pair-apply').click();
+  assert.equal((await (await response).json()).structure.condition_counts.distance,1);
+  console.log(`${mode}: delayed replacement blocks stale edits and preserves a new restraint`);
+} finally {release?.();await browser.close();}

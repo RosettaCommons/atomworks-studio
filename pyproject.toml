@@ -1,0 +1,83 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "atomworks-studio"
+version = "0.1.0"
+description = "Inspect and edit annotated molecular structures"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = "BSD-3-Clause"
+dependencies = [
+    "atomworks[ml]==3.0.1",
+    "atomworks-studio-editing>=0.1.0,<0.2",
+    "atomworks-annotation-studio-rfd4==0.1.0",
+    "fastapi>=0.115,<2",
+    "pydantic>=2.10,<3",
+    "python-multipart>=0.0.20,<1",
+    "uvicorn>=0.34,<1",
+]
+
+[project.optional-dependencies]
+gradio = ["gradio>=6.29,<7", "httpx>=0.28,<1"]
+pymol = ["atomworks-studio-pymol==0.1.0"]
+test = ["httpx2>=2.8,<3", "pytest>=8.2,<9"]
+
+[project.urls]
+Documentation = "https://github.com/RosettaCommons/atomworks-studio/blob/main/docs/index.md"
+Source = "https://github.com/RosettaCommons/atomworks-studio"
+
+[project.scripts]
+atomworks-studio = "annotation_studio.cli:main"
+
+[tool.hatch.build]
+exclude = ["packages/api/annotation_studio/web", "packages/api/annotation_studio/guide"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/atomworks_studio", "packages/api/annotation_studio"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/atomworks_studio", "packages/api/annotation_studio", "hatch_build.py", "pyproject.toml", "README.md", "LICENSE.md"]
+
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"
+
+[tool.uv.workspace]
+members = [
+    "packages/editing",
+    "packages/pymol-plugin",
+    "providers/rfd4",
+]
+
+[tool.uv.sources]
+atomworks-studio-editing = { workspace = true }
+atomworks-studio-pymol = { workspace = true }
+atomworks-annotation-studio-rfd4 = { workspace = true }
+
+[tool.ruff]
+extend-exclude = ["providers/rfd4/atomworks_studio_rfd4/_upstream"]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "N", "RUF", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# FastAPI uses calls in defaults to declare request parsing.
+"packages/api/annotation_studio/main.py" = ["B008"]
+# PyMOL/Qt plugin boundaries must contain arbitrary host and third-party plugin failures.
+"packages/pymol-plugin/*.py" = ["BLE001", "N807", "N999"]
+"packages/pymol-plugin/**/*.py" = ["BLE001", "N999"]
+# PyMOL must be initialized before importing modules that bind to its command API.
+"packages/pymol-plugin/tests/conftest.py" = ["E402"]
+# Optional RFD4 PyMOL editors follow Qt/PyMOL naming and broad-except conventions.
+"providers/rfd4/atomworks_studio_rfd4/pymol/**/*.py" = ["BLE001", "N802", "N807", "N999"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "packages/pymol-plugin/smoke", "packages/pymol-plugin/tests"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16.9",
+]

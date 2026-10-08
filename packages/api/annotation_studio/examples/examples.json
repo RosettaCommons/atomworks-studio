@@ -1,0 +1,56 @@
+[
+  {
+    "label": "Protein binder \u00b7 PD-L1",
+    "file": "protein_binder.cif",
+    "task": "unconditional",
+    "id": "protein_binder"
+  },
+  {
+    "label": "Antibody \u00b7 HER2 CDR H3",
+    "file": "antibody_design.cif",
+    "task": "antibody_design",
+    "id": "antibody_design"
+  },
+  {
+    "label": "Enzyme \u00b7 catalytic motif",
+    "file": "enzyme_design.cif",
+    "task": "enzyme_design",
+    "id": "enzyme_design"
+  },
+  {
+    "label": "Inverse folding \u00b7 2KL8",
+    "file": "inverse_folding.cif",
+    "task": "inverse_folding",
+    "id": "inverse_folding"
+  },
+  {
+    "label": "Motif scaffolding \u00b7 1QJG",
+    "file": "motif_scaffolding.cif",
+    "task": "motif_scaffolding",
+    "id": "motif_scaffolding"
+  },
+  {
+    "label": "VHH \u00b7 PD-L1 CDRs",
+    "file": "nanobody.cif",
+    "task": "antibody_design",
+    "id": "nanobody"
+  },
+  {
+    "label": "Partial diffusion \u00b7 2KL8",
+    "file": "inverse_folding.cif",
+    "task": "partial_diffusion",
+    "id": "partial_diffusion"
+  },
+  {
+    "label": "Small-molecule binder \u00b7 SAM",
+    "file": "small_molecule_binder.cif",
+    "task": "small_molecule_binder",
+    "id": "small_molecule_binder"
+  },
+  {
+    "label": "Unconditional protein",
+    "file": "unconditional.cif",
+    "task": "unconditional",
+    "id": "unconditional"
+  }
+]

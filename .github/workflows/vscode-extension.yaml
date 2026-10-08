@@ -1,0 +1,66 @@
+name: VS Code extension
+
+# Build the VS Code / Cursor extension on every push to main and publish it to a
+# rolling "vscode-latest" prerelease so there is always a stable download link:
+#   https://github.com/RosettaCommons/atomworks-studio/releases/download/vscode-latest/atomworks-annotation-studio.vsix
+# Versioned releases (on v* tags) are produced by release.yaml, which can also
+# publish to the VS Code Marketplace when a VSCE_PAT secret is configured.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vscode-extension-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version-file: .node-version, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      # Uses packages/vscode "package" script (tsc + vsce package --no-rewrite-relative-links).
+      - run: pnpm --dir packages/vscode package
+      - name: Stable-named copy for a permanent download link
+        run: cp packages/vscode/*.vsix atomworks-annotation-studio.vsix
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vscode-extension
+          path: packages/vscode/*.vsix
+      - name: Point the rolling source tag at this build
+        run: |
+          git tag --force vscode-latest "$GITHUB_SHA"
+          git push --force origin refs/tags/vscode-latest
+      - name: Update the rolling "vscode-latest" prerelease
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: vscode-latest
+          name: AtomWorks Studio — VS Code extension (latest main)
+          prerelease: true
+          body: |
+            Latest AtomWorks Studio VS Code / Cursor extension, rebuilt from `main`.
+
+            **Install**
+            1. Download `atomworks-annotation-studio.vsix` below.
+            2. `code --install-extension atomworks-annotation-studio.vsix --force`
+               (or Extensions panel → `···` → *Install from VSIX…*), then reload.
+
+            **Open Studio**
+            - Install the Studio Python wheels in your Python 3.12 environment.
+            - Run *AtomWorks: Open Studio* in the Command Palette. The extension
+              starts and stops the local backend automatically.
+            - For a hosted service,
+              use *AtomWorks: Configure Studio Server* to enter its URL.
+
+            Full setup and troubleshooting: `packages/vscode/README.md`.
+          files: |
+            atomworks-annotation-studio.vsix
+            packages/vscode/*.vsix

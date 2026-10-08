@@ -1,0 +1,20 @@
+# AtomWorks is a public Python release; uv.lock records its artifacts and hashes.
+# RFD4 annotation definitions are bundled from the revision-pinned source.
+
+[atomworks]
+package = "atomworks"
+version = "3.0.1"
+repository = "https://github.com/RosettaCommons/atomworks.git"
+
+[rfd4]
+repository = "https://github.com/RosettaCommons/RFD4-Proteina.git"
+revision = "66e4394d38a04a0b901a76507cd5528af2d7f845"
+metadata = "providers/rfd4/UPSTREAM.toml"
+runtime_variable = "ANNOTATION_STUDIO_RFD4_ROOT"
+
+[patinae]
+metadata = "vendor/patinae/UPSTREAM.toml"
+
+[molstar]
+package = "molstar"
+version = "5.11.0"

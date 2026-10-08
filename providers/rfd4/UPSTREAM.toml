@@ -1,0 +1,10 @@
+repository = "https://github.com/RosettaCommons/RFD4-Proteina.git"
+revision = "66e4394d38a04a0b901a76507cd5528af2d7f845"
+runtime_variable = "ANNOTATION_STUDIO_RFD4_ROOT"
+
+[files]
+"src/rfproteina/conditions.py" = "090df37076db941201c319379bddebfbca9548f9b8130059c2ef2a717c510e06"
+"src/rfproteina/utils/standard_annotations.py" = "fd20fc2c48e950dd882d1c4511d49ede2459450d21d551ed8d41cdc7594de052"
+"src/rfproteina/utils/parse_presets.py" = "9025683a5144380341c35f990fac915f86b9a203d63012b5a34e4159c7ab5536"
+"data/cath_label_mapping.pkl" = "9ca1ef1647034a9d46efb15cd1fa7f0b2cfb6338f0d324b7a00b43deb1b12f2e"
+"LICENSE" = "0927a01536709c20efa64834482fd4d50c9bb954353dbcf35c95a98675545470"

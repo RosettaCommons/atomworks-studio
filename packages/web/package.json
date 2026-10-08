@@ -1,0 +1,29 @@
+{
+  "name": "@rosettacommons/atomworks-studio-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:core": "wasm-pack build ../core --target web --out-dir ../web/src/wasm -- --locked",
+    "dev": "pnpm build:core && vite",
+    "build": "pnpm build:core && tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test:unit": "node --experimental-strip-types --test tests/*.test.ts",
+    "test:e2e": "node tests/smoke.mjs",
+    "test:workbench": "node tests/workbench.mjs",
+    "test:editor": "node tests/editor-qol.mjs"
+  },
+  "dependencies": {
+    "@baker-laboratory/patinae-viewer": "file:vendor/patinae-viewer-0.5.1-studio.1.tgz",
+    "molstar": "5.11.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@types/node": "^26.6.3",
+    "openapi-typescript": "^7.13.0",
+    "playwright-core": "^1.63.0",
+    "sass": "^1.103.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.2.2"
+  }
+}

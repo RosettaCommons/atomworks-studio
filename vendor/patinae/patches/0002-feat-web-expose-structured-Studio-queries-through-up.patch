@@ -1,0 +1,910 @@
+From 4519921e007c0874f929abaedb1c73887021f9a5 Mon Sep 17 00:00:00 2001
+From: AtomWorks Studio Build <atomworks-studio-build@users.noreply.github.com>
+Date: Tue, 6 Oct 2026 19:05:58 -0700
+Subject: [PATCH] feat(web): expose structured Studio queries through upstream
+ scene APIs
+
+---
+ web/package.json         |   9 +-
+ web/src/bridge.rs        |   2 +
+ web/src/studio.rs        | 540 +++++++++++++++++++++++++++++++++++++++
+ web/ts/src/core/api.ts   |  21 ++
+ web/ts/src/core/cif.ts   |  78 ++++++
+ web/ts/src/core/types.ts | 104 ++++++++
+ web/ts/src/index.ts      |   3 +
+ web/ts/tests/cif.test.ts |  47 ++++
+ 8 files changed, 800 insertions(+), 4 deletions(-)
+ create mode 100644 web/src/studio.rs
+ create mode 100644 web/ts/src/core/cif.ts
+ create mode 100644 web/ts/tests/cif.test.ts
+
+diff --git a/web/package.json b/web/package.json
+index 1adac92..992f4e2 100644
+--- a/web/package.json
++++ b/web/package.json
+@@ -5,22 +5,23 @@
+   "type": "module",
+   "main": "dist/patinae-viewer.js",
+   "module": "dist/patinae-viewer.js",
+-  "types": "dist/patinae-viewer.d.ts",
++  "types": "dist/index.d.ts",
+   "exports": {
+     ".": {
+       "import": "./dist/patinae-viewer.js",
+-      "types": "./dist/patinae-viewer.d.ts"
++      "types": "./dist/index.d.ts"
+     }
+   },
+   "files": [
+     "dist",
+-    "pkg"
++    "LICENSE"
+   ],
+   "scripts": {
+     "wasm:build": "wasm-pack build --target web --out-dir pkg --no-opt -- --locked",
+     "dev": "npm run wasm:build && vite",
+     "build": "npm run wasm:build && vite build",
+-    "preview": "vite preview"
++    "preview": "vite preview",
++    "test": "node --experimental-strip-types --test ts/tests/*.test.ts"
+   },
+   "devDependencies": {
+     "typescript": "^5.4",
+diff --git a/web/src/bridge.rs b/web/src/bridge.rs
+index 98324c3..7264902 100644
+--- a/web/src/bridge.rs
++++ b/web/src/bridge.rs
+@@ -34,6 +34,8 @@ use crate::render_loop;
+ #[path = "tasks.rs"]
+ mod tasks;
+ use tasks::browser_task_runner;
++#[path = "studio.rs"]
++mod studio;
+ 
+ /// Browser WebGPU readbacks can disturb frame pacing when every mousemove
+ /// submits a hover pick. Only large Auto-LOD scenes use this cap; small scenes
+diff --git a/web/src/studio.rs b/web/src/studio.rs
+new file mode 100644
+index 0000000..84f211b
+--- /dev/null
++++ b/web/src/studio.rs
+@@ -0,0 +1,540 @@
++//! Structured embedder queries and edits using the upstream scene/renderer.
++use super::*;
++use lin_alg::f32::Vec3;
++use patinae_mol::{Atom, AtomIndex, CoordSet, Element, ObjectMolecule};
++use patinae_scene::{
++    resolve_measurement_entity_value, AtomAnchor, LabelEntity, LabelObject, MeasurementEntry,
++    MeasurementObject, MeasurementResolveOptions, MoleculeObject,
++};
++use serde::Deserialize;
++#[derive(Serialize, Debug, PartialEq, Eq)]
++struct ObjectAtomIndices {
++    object_name: String,
++    atom_indices: Vec<usize>,
++}
++
++/// Stable atom identity plus the two orderings consumers commonly need.
++///
++/// `document_index` is the zero-based atom order across molecule objects in
++/// registry/document order. `atom_index` is Patinae's zero-based index within
++/// `object_name`, suitable for native `index` selections.
++#[derive(Serialize, Debug, PartialEq, Eq)]
++struct AtomIdentity {
++    document_index: usize,
++    object_name: String,
++    atom_index: usize,
++    source_atom_id: i32,
++    atom_name: String,
++    element: String,
++    chain_id: String,
++    residue_name: String,
++    residue_number: i32,
++    insertion_code: String,
++    alternate_location: String,
++}
++
++fn atom_identity_map(session: &Session) -> Vec<AtomIdentity> {
++    let mut document_index = 0;
++    let mut identities = Vec::new();
++    for object_name in session
++        .registry
++        .names()
++        .filter(|name| !name.starts_with("_studio_"))
++    {
++        let Some(object) = session.registry.get_molecule(object_name) else {
++            continue;
++        };
++        for (atom_index, atom) in object.molecule().atoms().enumerate() {
++            identities.push(AtomIdentity {
++                document_index,
++                object_name: object_name.to_string(),
++                atom_index,
++                source_atom_id: atom.id,
++                atom_name: atom.name.to_string(),
++                element: atom.element.symbol().to_string(),
++                chain_id: atom.residue.key.chain.clone(),
++                residue_name: atom.residue.resn.clone(),
++                residue_number: atom.residue.key.resv,
++                insertion_code: atom.residue.key.inscode.to_string(),
++                alternate_location: atom.alt.to_string(),
++            });
++            document_index += 1;
++        }
++    }
++    identities
++}
++
++#[derive(Serialize, Debug, PartialEq, Eq)]
++struct SelectionEvaluation {
++    expression: String,
++    atom_count: usize,
++    objects: Vec<ObjectAtomIndices>,
++}
++
++#[derive(Serialize)]
++struct CommandMetadata {
++    name: String,
++    aliases: Vec<String>,
++    description: String,
++    usage: String,
++    arguments: String,
++    help: String,
++    web_safe: bool,
++    unavailable_reason: Option<&'static str>,
++}
++
++#[derive(Serialize, Debug, PartialEq)]
++struct MeasurementInfo {
++    name: String,
++    enabled: bool,
++    measurements: Vec<MeasurementEntryInfo>,
++}
++
++#[derive(Serialize, Debug, PartialEq)]
++struct MeasurementEntryInfo {
++    kind: &'static str,
++    value: f64,
++    label: String,
++}
++
++#[derive(Deserialize, Debug)]
++#[serde(rename_all = "lowercase")]
++enum MeasurementRequestKind {
++    Distance,
++    Angle,
++    Dihedral,
++}
++
++#[derive(Deserialize, Debug)]
++struct MeasurementRequest {
++    kind: MeasurementRequestKind,
++    name: String,
++    #[serde(default)]
++    selections: Option<Vec<String>>,
++    #[serde(default)]
++    points: Option<Vec<[f32; 3]>>,
++    #[serde(default)]
++    color: Option<[f32; 4]>,
++    #[serde(default)]
++    label: Option<String>,
++}
++
++fn evaluate_selection(
++    session: &mut Session,
++    expression: &str,
++) -> Result<SelectionEvaluation, String> {
++    let mut needs_redraw = false;
++    let adapter = SessionAdapter {
++        session,
++        render_context: None,
++        default_size: (1, 1),
++        needs_redraw: &mut needs_redraw,
++    };
++    let (_, results) = patinae_cmd::commands::selecting::select_with_context(&adapter, expression)
++        .map_err(|e| format!("Selection error: {e}"))?;
++    let objects: Vec<_> = results
++        .into_iter()
++        .filter(|(name, _)| !name.starts_with("_studio_"))
++        .filter_map(|(object_name, result)| {
++            let atom_indices: Vec<usize> = result.raw_indices().collect();
++            (!atom_indices.is_empty()).then_some(ObjectAtomIndices {
++                object_name,
++                atom_indices,
++            })
++        })
++        .collect();
++    Ok(SelectionEvaluation {
++        expression: expression.to_string(),
++        atom_count: objects.iter().map(|object| object.atom_indices.len()).sum(),
++        objects,
++    })
++}
++
++fn command_is_web_safe(name: &str) -> (bool, Option<&'static str>) {
++    match name {
++        "load" | "load_traj" | "fetch" => (
++            false,
++            Some("use PatinaeViewer.loadData/loadUrl in the browser"),
++        ),
++        "save" | "cd" | "pwd" | "ls" | "run" => (false, Some("requires local filesystem access")),
++        "png" => (false, Some("browser capture renderer is not implemented")),
++        "quit" => (
++            false,
++            Some("application lifecycle command is not available on web"),
++        ),
++        _ => (true, None),
++    }
++}
++
++fn command_catalog(executor: &CommandExecutor) -> Vec<CommandMetadata> {
++    let registry = executor.registry();
++    let mut names: Vec<&str> = registry.names().collect();
++    names.sort_unstable();
++    names
++        .into_iter()
++        .filter_map(|name| registry.get(name))
++        .map(|command| {
++            let (web_safe, unavailable_reason) = command_is_web_safe(command.name());
++            CommandMetadata {
++                name: command.name().to_string(),
++                aliases: command
++                    .aliases()
++                    .iter()
++                    .map(|alias| (*alias).to_string())
++                    .collect(),
++                description: command.description().to_string(),
++                usage: command.usage().to_string(),
++                arguments: command.arguments().to_string(),
++                help: command.help().to_string(),
++                web_safe,
++                unavailable_reason,
++            }
++        })
++        .collect()
++}
++
++#[wasm_bindgen]
++impl WebViewer {
++    #[wasm_bindgen(js_name = getAtomIdentityMap)]
++    pub fn get_atom_identity_map(&self) -> JsValue {
++        serde_wasm_bindgen::to_value(&atom_identity_map(&self.state.borrow().session))
++            .unwrap_or(JsValue::NULL)
++    }
++
++    /// Evaluate an expression with object and named-selection context.
++    ///
++    /// Returns `{ expression, atom_count, objects: [{ object_name,
++    /// atom_indices }] }`, where atom indices are zero-based per object.
++    #[wasm_bindgen(js_name = evaluateSelection)]
++    pub fn evaluate_selection(&mut self, expression: &str) -> Result<JsValue, JsValue> {
++        let evaluation = evaluate_selection(&mut self.state.borrow_mut().session, expression)
++            .map_err(|e| JsValue::from_str(&e))?;
++        serde_wasm_bindgen::to_value(&evaluation)
++            .map_err(|e| JsValue::from_str(&format!("Serialization error: {e}")))
++    }
++
++    #[wasm_bindgen(js_name = getCommandCatalog)]
++    pub fn studio_command_catalog(&self) -> Result<JsValue, JsValue> {
++        serde_wasm_bindgen::to_value(&command_catalog(&self.state.borrow().executor))
++            .map_err(js_error)
++    }
++    #[wasm_bindgen(js_name = getMeasurementList)]
++    pub fn studio_measurements(&self) -> Result<JsValue, JsValue> {
++        serde_wasm_bindgen::to_value(&measurement_infos(&self.state.borrow().session))
++            .map_err(js_error)
++    }
++    #[wasm_bindgen(js_name = addMeasurements)]
++    pub fn studio_add_measurements(&mut self, requests: JsValue) -> Result<JsValue, JsValue> {
++        let mut state = self.state.borrow_mut();
++        let requests: Vec<MeasurementRequest> =
++            serde_wasm_bindgen::from_value(requests).map_err(js_error)?;
++        // Resolve and validate the whole batch before changing the scene.
++        let resolved = requests
++            .into_iter()
++            .map(|r| prepare_measurement(&mut state.session, r))
++            .collect::<Result<Vec<_>, _>>()
++            .map_err(js_error)?;
++        let mut names = Vec::new();
++        for (name, measurement, source, label) in resolved {
++            remove_measurement(&mut state.session, &name);
++            if let Some(source) = source {
++                state.session.registry.add(source);
++            }
++            state.session.registry.add(measurement);
++            if let Some(label) = label {
++                state.session.registry.add(label);
++            }
++            names.push(name);
++        }
++        state.needs_redraw = true;
++        let added: Vec<_> = measurement_infos(&state.session)
++            .into_iter()
++            .filter(|m| names.contains(&m.name))
++            .collect();
++        serde_wasm_bindgen::to_value(&added).map_err(js_error)
++    }
++    #[wasm_bindgen(js_name = removeMeasurements)]
++    pub fn studio_remove_measurements(&mut self, names: JsValue) -> Result<usize, JsValue> {
++        let mut state = self.state.borrow_mut();
++        let names: Vec<String> = serde_wasm_bindgen::from_value(names).map_err(js_error)?;
++        let count = names
++            .iter()
++            .filter(|name| remove_measurement(&mut state.session, name))
++            .count();
++        state.needs_redraw |= count > 0;
++        Ok(count)
++    }
++}
++fn js_error(error: impl std::fmt::Display) -> JsValue {
++    JsValue::from_str(&error.to_string())
++}
++
++fn remove_measurement(session: &mut Session, name: &str) -> bool {
++    if session.registry.get_measurement(name).is_none() {
++        return false;
++    }
++    session.registry.remove(name);
++    session.registry.remove(&format!("_studio_points_{name}"));
++    session.registry.remove(&format!("_studio_label_{name}"));
++    true
++}
++
++type PreparedMeasurement = (
++    String,
++    MeasurementObject,
++    Option<MoleculeObject>,
++    Option<LabelObject>,
++);
++fn prepare_measurement(
++    session: &mut Session,
++    request: MeasurementRequest,
++) -> Result<PreparedMeasurement, String> {
++    if request.name.trim().is_empty() || request.name.starts_with("_studio_") {
++        return Err("Measurement name is empty or reserved".into());
++    }
++    if session.registry.get(&request.name).is_some()
++        && session.registry.get_measurement(&request.name).is_none()
++    {
++        return Err("Measurement name is already used by another object".into());
++    }
++    let kind = match request.kind {
++        MeasurementRequestKind::Distance => MeasurementKind::Distance,
++        MeasurementRequestKind::Angle => MeasurementKind::Angle,
++        MeasurementRequestKind::Dihedral => MeasurementKind::Dihedral,
++    };
++    let source_name = format!("_studio_points_{}", request.name);
++    let mut source = None;
++    let anchors = match (request.selections, request.points) {
++        (Some(selections), None) if selections.len() == kind.anchor_count() => {
++            let mut anchors = Vec::new();
++            for expression in selections {
++                let mut redraw = false;
++                let adapter = SessionAdapter {
++                    session,
++                    render_context: None,
++                    default_size: (1, 1),
++                    needs_redraw: &mut redraw,
++                };
++                let selected =
++                    patinae_cmd::commands::selecting::evaluate_atom_anchors(&adapter, &expression)
++                        .map_err(|e| e.to_string())?;
++                let selected: Vec<_> = selected
++                    .into_iter()
++                    .filter(|anchor| !anchor.object_name.starts_with("_studio_"))
++                    .collect();
++                if selected.len() != 1 {
++                    return Err("Each measurement operand must select exactly one atom".into());
++                }
++                anchors.push(selected[0].clone());
++            }
++            anchors
++        }
++        (None, Some(points))
++            if points.len() == kind.anchor_count()
++                && points.iter().flatten().all(|x| x.is_finite()) =>
++        {
++            let mut molecule = ObjectMolecule::new(&source_name);
++            for _ in &points {
++                molecule.add_atom(Atom::new("X", Element::Carbon));
++            }
++            molecule.add_coord_set(CoordSet::from_vec3(
++                &points
++                    .iter()
++                    .map(|p| Vec3::new(p[0], p[1], p[2]))
++                    .collect::<Vec<_>>(),
++            ));
++            let mut object = MoleculeObject::with_name(molecule, &source_name);
++            object.disable();
++            source = Some(object);
++            (0..points.len())
++                .map(|i| AtomAnchor::new(&source_name, AtomIndex(i as u32)))
++                .collect()
++        }
++        _ => {
++            return Err(format!(
++                "Provide exactly {} selections or finite points",
++                kind.anchor_count()
++            ))
++        }
++    };
++    let mut measurement = MeasurementObject::new(&request.name, kind);
++    measurement
++        .add_entry(MeasurementEntry::new(anchors.clone()))
++        .map_err(|e| e.to_string())?;
++    if let Some(color) = request.color {
++        if !color
++            .iter()
++            .all(|c| c.is_finite() && (0.0..=1.0).contains(c))
++        {
++            return Err("Invalid measurement color".into());
++        }
++        let color_name = format!("studio_{}", request.name);
++        let index = session.named_palette.register(
++            &color_name,
++            patinae_color::Color::new(color[0], color[1], color[2]),
++        );
++        measurement.set_color(patinae_color::ColorIndex::Named(index));
++    }
++    let hide_label = request.label.is_some();
++    let label = request.label.filter(|text| !text.is_empty()).map(|text| {
++        LabelObject::with_entities(
++            format!("_studio_label_{}", request.name),
++            vec![LabelEntity::new(anchors[0].clone(), text)],
++        )
++    });
++    if hide_label {
++        measurement.presentation_mut().set_label_visible(false);
++    }
++    Ok((request.name, measurement, source, label))
++}
++
++fn measurement_infos(session: &Session) -> Vec<MeasurementInfo> {
++    let options = MeasurementResolveOptions::from_settings(&session.settings.measurement);
++    session
++        .registry
++        .names()
++        .filter_map(|name| {
++            let object = session.registry.get_measurement(name)?;
++            let measurements = object
++                .entries()
++                .iter()
++                .filter_map(|entry| {
++                    let value = resolve_measurement_entity_value(
++                        &session.registry,
++                        object.kind(),
++                        entry,
++                        options,
++                    )?;
++                    Some(MeasurementEntryInfo {
++                        kind: super::measurement_kind_name(object.kind()),
++                        value,
++                        label: session
++                            .registry
++                            .get_label(&format!("_studio_label_{name}"))
++                            .and_then(|label| label.entities().first())
++                            .map(|label| label.text().to_owned())
++                            .unwrap_or_else(|| {
++                                if object.kind() == MeasurementKind::Distance {
++                                    format!("{value:.2} Å")
++                                } else {
++                                    format!("{value:.2}°")
++                                }
++                            }),
++                    })
++                })
++                .collect();
++            Some(MeasurementInfo {
++                name: name.to_owned(),
++                enabled: object.is_enabled(),
++                measurements,
++            })
++        })
++        .collect()
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    fn insert(session: &mut Session, request: MeasurementRequest) {
++        let (_, measurement, source, label) = prepare_measurement(session, request).unwrap();
++        if let Some(source) = source {
++            session.registry.add(source);
++        }
++        session.registry.add(measurement);
++        if let Some(label) = label {
++            session.registry.add(label);
++        }
++    }
++
++    #[test]
++    fn point_markers_use_native_measurements_without_entering_document_identity_map() {
++        let mut session = Session::new();
++        insert(
++            &mut session,
++            MeasurementRequest {
++                kind: MeasurementRequestKind::Distance,
++                name: "centroid".into(),
++                selections: None,
++                points: Some(vec![[0., 0., 0.], [3., 4., 0.]]),
++                color: Some([0., 1., 1., 1.]),
++                label: Some("Center".into()),
++            },
++        );
++        let measurements = measurement_infos(&session);
++        assert_eq!(measurements.len(), 1);
++        assert_eq!(measurements[0].measurements[0].value, 5.);
++        assert!(atom_identity_map(&session).is_empty());
++        assert_eq!(
++            evaluate_selection(&mut session, "all").unwrap().atom_count,
++            0
++        );
++        assert!(session
++            .registry
++            .get_label("_studio_label_centroid")
++            .is_some());
++        assert!(remove_measurement(&mut session, "centroid"));
++        assert_eq!(session.registry.names().count(), 0);
++    }
++
++    #[test]
++    fn named_selections_and_dynamic_measurements_share_upstream_atom_identity() {
++        let mut session = Session::new();
++        let mut molecule = ObjectMolecule::new("model");
++        for name in ["N", "CA", "C", "O"] {
++            molecule.add_atom(Atom::new(name, Element::Carbon));
++        }
++        molecule.add_coord_set(CoordSet::from_vec3(&[
++            Vec3::new(1., 0., 0.),
++            Vec3::new(0., 0., 0.),
++            Vec3::new(0., 1., 0.),
++            Vec3::new(0., 1., 1.),
++        ]));
++        session
++            .registry
++            .add(MoleculeObject::with_name(molecule, "model"));
++        session.selections.define("alpha", "name CA");
++        let selected = evaluate_selection(&mut session, "alpha or name C").unwrap();
++        assert_eq!(selected.objects[0].atom_indices, vec![1, 2]);
++        let cases = [
++            (
++                MeasurementRequestKind::Distance,
++                vec!["name N", "alpha"],
++                1.,
++            ),
++            (
++                MeasurementRequestKind::Angle,
++                vec!["name N", "alpha", "name C"],
++                90.,
++            ),
++            (
++                MeasurementRequestKind::Dihedral,
++                vec!["name N", "alpha", "name C", "name O"],
++                90.,
++            ),
++        ];
++        for (i, (kind, selections, expected)) in cases.into_iter().enumerate() {
++            let name = format!("m{i}");
++            insert(
++                &mut session,
++                MeasurementRequest {
++                    kind,
++                    name: name.clone(),
++                    selections: Some(selections.into_iter().map(str::to_owned).collect()),
++                    points: None,
++                    color: None,
++                    label: None,
++                },
++            );
++            let measurements = measurement_infos(&session);
++            let value = measurements
++                .iter()
++                .find(|m| m.name == name)
++                .unwrap()
++                .measurements[0]
++                .value;
++            assert!((value.abs() - expected).abs() < 1e-5, "{name}: {value}");
++        }
++        assert_eq!(atom_identity_map(&session).len(), 4);
++    }
++}
+diff --git a/web/ts/src/core/api.ts b/web/ts/src/core/api.ts
+index 1f99864..be27825 100644
+--- a/web/ts/src/core/api.ts
++++ b/web/ts/src/core/api.ts
+@@ -1,3 +1,4 @@
++import type { AtomIdentity, SelectionEvaluation, ObjectAtomIndices, CommandMetadata, MeasurementInfo, MeasurementRequest, MeasurementPoint, MeasurementColor, MeasurementKind } from "./types.js";
+ /**
+  * Public API facade — wraps ViewerCore + panels into a clean interface.
+  */
+@@ -232,6 +233,26 @@ export class PatinaeViewer {
+     );
+   }
+ 
++
++  getAtomIdentityMap(): AtomIdentity[] {
++    return this.core.requireWasm("getAtomIdentityMap", wasm => wasm.getAtomIdentityMap() as AtomIdentity[]);
++  }
++  evaluateSelection(expression: string): SelectionEvaluation {
++    return this.core.requireWasm("evaluateSelection", wasm => wasm.evaluateSelection(expression) as SelectionEvaluation);
++  }
++  getCommandCatalog(): CommandMetadata[] {
++    return this.core.requireWasm("getCommandCatalog", wasm => wasm.getCommandCatalog() as CommandMetadata[]);
++  }
++  getMeasurementList(): MeasurementInfo[] {
++    return this.core.requireWasm("getMeasurementList", wasm => wasm.getMeasurementList() as MeasurementInfo[]);
++  }
++  addMeasurements(requests: MeasurementRequest[]): MeasurementInfo[] {
++    return this.core.requireWasm("addMeasurements", wasm => wasm.addMeasurements(requests) as MeasurementInfo[]);
++  }
++  removeMeasurements(names: string[]): number {
++    return this.core.requireWasm("removeMeasurements", wasm => wasm.removeMeasurements(names));
++  }
++
+   getSequenceData(): SequenceChain[] {
+     return this.core.queryWasm(
+       "get_sequence_data",
+diff --git a/web/ts/src/core/cif.ts b/web/ts/src/core/cif.ts
+new file mode 100644
+index 0000000..7c6b2ef
+--- /dev/null
++++ b/web/ts/src/core/cif.ts
+@@ -0,0 +1,78 @@
++type CifToken = { value: string; control: boolean };
++
++function tokenizeCif(input: string): CifToken[] {
++  const tokens: CifToken[] = [];
++  for (let index = 0; index < input.length;) {
++    if (/\s/.test(input[index])) {
++      index += 1;
++      continue;
++    }
++    if (input[index] === "#") {
++      while (index < input.length && input[index] !== "\n") index += 1;
++      continue;
++    }
++    if (input[index] === ";" && (index === 0 || input[index - 1] === "\n")) {
++      const start = ++index;
++      while (index < input.length && !(input[index] === ";" && input[index - 1] === "\n")) {
++        index += 1;
++      }
++      if (index === input.length) throw new Error("Unterminated CIF text field");
++      tokens.push({ value: input.slice(start, index), control: false });
++      index += 1;
++      continue;
++    }
++    const quote = input[index] === "'" || input[index] === '"' ? input[index++] : null;
++    const start = index;
++    if (quote) {
++      while (index < input.length && input[index] !== quote) index += 1;
++      if (index === input.length) throw new Error("Unterminated quoted CIF value");
++      tokens.push({ value: input.slice(start, index), control: false });
++      index += 1;
++    } else {
++      while (index < input.length && !/\s/.test(input[index]) && input[index] !== "#") {
++        index += 1;
++      }
++      const value = input.slice(start, index);
++      tokens.push({
++        value,
++        control: value === "loop_" || value === "stop_" || value.startsWith("data_")
++          || value.startsWith("save_") || value.startsWith("_"),
++      });
++    }
++  }
++  return tokens;
++}
++
++/**
++ * Return zero-based document rows where an `_atom_site` boolean column is true.
++ *
++ * This follows CIF token boundaries, including quoted and semicolon-delimited
++ * values, instead of assuming one whitespace-delimited atom per line.
++ */
++export function parseAtomSiteBooleanColumn(cif: string, columnName: string): number[] {
++  const tokens = tokenizeCif(cif);
++  for (let loop = 0; loop < tokens.length; loop += 1) {
++    if (!tokens[loop].control || tokens[loop].value !== "loop_") continue;
++    let cursor = loop + 1;
++    const headers: string[] = [];
++    while (cursor < tokens.length && tokens[cursor].control && tokens[cursor].value.startsWith("_")) {
++      headers.push(tokens[cursor++].value);
++    }
++    if (!headers.length || !headers.every((header) => header.startsWith("_atom_site."))) continue;
++    const column = headers.indexOf(columnName);
++    if (column < 0) return [];
++    const rows: number[] = [];
++    let valueIndex = 0;
++    while (cursor < tokens.length) {
++      if (valueIndex % headers.length === 0 && tokens[cursor].control) break;
++      if (valueIndex % headers.length === column && /^(?:true|yes|1)$/i.test(tokens[cursor].value)) {
++        rows.push(Math.floor(valueIndex / headers.length));
++      }
++      valueIndex += 1;
++      cursor += 1;
++    }
++    if (valueIndex % headers.length !== 0) throw new Error("Ragged _atom_site loop");
++    return rows;
++  }
++  return [];
++}
+diff --git a/web/ts/src/core/types.ts b/web/ts/src/core/types.ts
+index 206608a..1ea89a9 100644
+--- a/web/ts/src/core/types.ts
++++ b/web/ts/src/core/types.ts
+@@ -277,3 +277,107 @@ export const MOD_SHIFT = 1;
+ export const MOD_CTRL = 2;
+ export const MOD_ALT = 4;
+ export const MOD_META = 8;
++
++export interface ObjectAtomIndices {
++  object_name: string;
++  /** Zero-based atom indices within this object. */
++  atom_indices: number[];
++}
++
++/**
++ * Stable atom identity and explicit document-order to Patinae-index mapping.
++ *
++ * `document_index` is zero-based across molecule objects in registry order.
++ * `atom_index` is zero-based within `object_name` and is the value accepted by
++ * Patinae's native `index` selection operator.
++ */
++export interface AtomIdentity {
++  document_index: number;
++  object_name: string;
++  atom_index: number;
++  source_atom_id: number;
++  atom_name: string;
++  element: string;
++  chain_id: string;
++  residue_name: string;
++  residue_number: number;
++  insertion_code: string;
++  alternate_location: string;
++}
++
++export interface SelectionEvaluation {
++  expression: string;
++  atom_count: number;
++  objects: ObjectAtomIndices[];
++}
++
++
++export interface CommandMetadata {
++  name: string;
++  aliases: string[];
++  description: string;
++  usage: string;
++  arguments: string;
++  help: string;
++  web_safe: boolean;
++  unavailable_reason: string | null;
++}
++
++export interface MeasurementEntryInfo {
++  kind: "distance" | "angle" | "dihedral";
++  value: number;
++  label: string;
++}
++
++export interface MeasurementInfo {
++  name: string;
++  enabled: boolean;
++  measurements: MeasurementEntryInfo[];
++}
++
++
++export type MeasurementPoint = [number, number, number];
++export type MeasurementColor = [number, number, number, number];
++export type MeasurementKind = "distance" | "angle" | "dihedral";
++
++interface MeasurementRequestBase {
++  name: string;
++  color?: MeasurementColor;
++  /** Overrides the generated numeric label, including with an empty string. */
++  label?: string;
++}
++
++type MeasurementSource<S extends readonly string[], P extends readonly MeasurementPoint[]> =
++  | { selections: S; points?: never }
++  | { points: P; selections?: never };
++
++export type DistanceMeasurement = MeasurementRequestBase
++  & { kind: "distance" }
++  & MeasurementSource<
++    [string, string],
++    [MeasurementPoint, MeasurementPoint]
++  >;
++
++export type AngleMeasurement = MeasurementRequestBase
++  & { kind: "angle" }
++  & MeasurementSource<
++    [string, string, string],
++    [MeasurementPoint, MeasurementPoint, MeasurementPoint]
++  >;
++
++export type DihedralMeasurement = MeasurementRequestBase
++  & { kind: "dihedral" }
++  & MeasurementSource<
++    [string, string, string, string],
++    [MeasurementPoint, MeasurementPoint, MeasurementPoint, MeasurementPoint]
++  >;
++
++/**
++ * Exactly one of `selections` or `points` must be supplied. Selection entries
++ * resolve to the first matching atom in scene/render order.
++ */
++export type MeasurementRequest =
++  | DistanceMeasurement
++  | AngleMeasurement
++  | DihedralMeasurement;
++
+diff --git a/web/ts/src/index.ts b/web/ts/src/index.ts
+index d9d6b1d..7efdba1 100644
+--- a/web/ts/src/index.ts
++++ b/web/ts/src/index.ts
+@@ -143,3 +143,6 @@ export function registerElement(tagName = "patinae-viewer"): void {
+     }
+   );
+ }
++
++export { parseAtomSiteBooleanColumn } from "./core/cif.js";
++export type { AtomIdentity, SelectionEvaluation, ObjectAtomIndices, CommandMetadata, MeasurementInfo, MeasurementRequest, MeasurementPoint, MeasurementColor, MeasurementKind } from "./core/types.js";
+diff --git a/web/ts/tests/cif.test.ts b/web/ts/tests/cif.test.ts
+new file mode 100644
+index 0000000..0594440
+--- /dev/null
++++ b/web/ts/tests/cif.test.ts
+@@ -0,0 +1,47 @@
++import assert from "node:assert/strict";
++import test from "node:test";
++
++import { parseAtomSiteBooleanColumn } from "../src/core/cif.ts";
++
++const COLUMN = "_atom_site.mask_coordinate_1_atom";
++
++test("parses boolean atom-site values by document row", () => {
++  const cif = `data_test
++loop_
++_atom_site.id
++_atom_site.label_atom_id
++${COLUMN}
++17 'C A' False
++4 N True
++99 O 1
++#
++`;
++
++  assert.deepEqual(parseAtomSiteBooleanColumn(cif, COLUMN), [1, 2]);
++});
++
++test("does not treat quoted control words as loop terminators", () => {
++  const cif = `data_test
++loop_
++_atom_site.id
++_atom_site.label_atom_id
++${COLUMN}
++1 'loop_' yes
++2 C no
++#
++`;
++
++  assert.deepEqual(parseAtomSiteBooleanColumn(cif, COLUMN), [0]);
++});
++
++test("rejects ragged atom-site loops", () => {
++  const cif = `data_test
++loop_
++_atom_site.id
++${COLUMN}
++1
++#
++`;
++
++  assert.throws(() => parseAtomSiteBooleanColumn(cif, COLUMN), /Ragged/);
++});
+-- 
+2.55.0
+

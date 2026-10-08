@@ -1,0 +1,115 @@
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - name: Verify the release tag and all package versions
+        id: version
+        run: |
+          test "$GITHUB_REF_TYPE" = tag
+          uv run --no-project --python 3.12 python scripts/verify_distribution.py \
+            --tag "$GITHUB_REF_NAME" --github-output
+
+  checks:
+    needs: verify
+    uses: ./.github/workflows/ci.yaml
+    secrets: inherit
+
+  publish:
+    needs: [verify, checks]
+    if: github.repository == 'RosettaCommons/atomworks-studio'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/atomworks-studio
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: packages
+          path: artifacts
+      - name: Publish the verified wheels and source archives
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          packages-dir: artifacts/dist/
+          skip-existing: true
+
+  release:
+    needs: [verify, checks, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: packages
+          path: artifacts
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: documentation
+          path: documentation
+      - name: Assemble release downloads
+        run: |
+          mkdir release
+          cp artifacts/dist/* artifacts/packages/vscode/*.vsix release/
+          tar -czf release/atomworks-studio-docs.tar.gz -C documentation .
+          cd release
+          sha256sum *.whl *.tar.gz *.vsix > SHA256SUMS
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: release/*
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          generate_release_notes: true
+          prerelease: ${{ contains(needs.verify.outputs.version, '-') }}
+          make_latest: legacy
+          files: release/*
+      - name: Publish the verified VSIX when Marketplace credentials are configured
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          if [ -n "${VSCE_PAT:-}" ]; then
+            npx --yes @vscode/vsce@3.9.2 publish --packagePath release/*.vsix
+          fi
+
+  docs:
+    needs: [verify, checks, publish]
+    if: vars.STUDIO_PUBLISH_DOCS == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: studio-versioned-docs
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: documentation
+          path: documentation
+      - name: Publish this version without replacing older documentation
+        uses: peaceiris/actions-gh-pages@329bcc8f12caed2cefe5a5b80781499a6f3b361b # v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: documentation
+          destination_dir: ${{ github.ref_name }}
+          keep_files: true

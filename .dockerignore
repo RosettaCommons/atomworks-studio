@@ -1,0 +1,11 @@
+.git
+.github
+.cache
+artifacts
+**/__pycache__
+**/.pytest_cache
+**/node_modules
+**/target
+**/dist
+**/*.vsix
+.env*

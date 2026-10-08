@@ -1,0 +1,13 @@
+[package]
+name = "patinae-annotation-studio"
+version = "0.1.0"
+edition = "2021"
+license = "BSD-3-Clause"
+description = "Patinae desktop launcher for the shared AtomWorks Annotation Studio"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+patinae-plugin = { git = "https://github.com/zmactep/patinae", rev = "ba03133e59243394a9c425d0538ca5d2f33d528d" }
+webbrowser = "1.2"

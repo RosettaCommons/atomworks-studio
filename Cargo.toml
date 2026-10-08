@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "packages/core",
+    "packages/patinae-plugin",
+]
+resolver = "2"

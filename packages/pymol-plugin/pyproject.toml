@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "atomworks-studio-pymol"
+version = "0.1.0"
+description = "PyMOL interface for authoring AtomWorks annotated CIF files"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = "BSD-3-Clause"
+dependencies = [
+    "atomworks[ml]==3.0.1",
+    "atomworks-studio-editing>=0.1.0,<0.2",
+    "atomworks-annotation-studio-rfd4==0.1.0",
+]
+
+[project.urls]
+Documentation = "https://github.com/RosettaCommons/atomworks-studio/blob/main/docs/PYMOL.md"
+Source = "https://github.com/RosettaCommons/atomworks-studio"
+
+[tool.uv.sources]
+atomworks-studio-editing = { workspace = true }
+atomworks-annotation-studio-rfd4 = { workspace = true }
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.2,<9",
+]
+# PyPI PyMOL/Qt for pip-only environments (CI). Do NOT install these into a conda
+# PyMOL environment -- pymol_env.yaml already supplies PyMOL and Qt there, and the
+# PyPI wheels would clobber the conda build. `uv sync --all-extras` picks these up in CI.
+pymol-pip = [
+    "pymol-open-source>=3.2.0a0",
+    "pyqt5>=5.15.11",
+]
+
+[project.scripts]
+atomworks-studio-pymol = "atomworks_studio_pymol.installation:main"
+
+[project.entry-points."pymol.plugins"]
+atomworks_studio = "atomworks_studio_pymol:__init_plugin__"
+
+[tool.setuptools]
+packages = [
+    "atomworks_studio_pymol",
+    "atomworks_studio_pymol.editors",
+]
+include-package-data = true
+
+[tool.setuptools.package-dir]
+"atomworks_studio_pymol" = "."
+"atomworks_studio_pymol.editors" = "editors"
+
+[tool.setuptools.package-data]
+"atomworks_studio_pymol" = ["pymol_env.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["smoke", "tests"]

@@ -1,0 +1,111 @@
+{
+  "name": "atomworks-annotation-studio",
+  "displayName": "AtomWorks Studio",
+  "description": "Inspect and edit molecular structures with AtomWorks Studio inside VS Code.",
+  "icon": "icon.png",
+  "version": "0.1.0",
+  "publisher": "rfd4-proteina-team",
+  "author": {
+    "name": "RFD4-Proteina Team"
+  },
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RosettaCommons/atomworks-studio.git",
+    "directory": "packages/vscode"
+  },
+  "homepage": "https://github.com/RosettaCommons/atomworks-studio/tree/main/packages/vscode",
+  "bugs": {
+    "url": "https://github.com/RosettaCommons/atomworks-studio/issues"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "extensionKind": [
+    "workspace",
+    "ui"
+  ],
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "mmCIF",
+    "AtomWorks",
+    "Molstar",
+    "Patinae",
+    "protein design",
+    "computational chemistry"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "annotationStudio.open",
+        "title": "AtomWorks: Open Studio"
+      },
+      {
+        "command": "annotationStudio.configureServer",
+        "title": "AtomWorks: Configure Studio Server"
+      },
+      {
+        "command": "annotationStudio.selectViewer",
+        "title": "AtomWorks: Select Studio Renderer"
+      },
+      {
+        "command": "annotationStudio.selectPython",
+        "title": "AtomWorks: Select Python Interpreter"
+      }
+    ],
+    "configuration": {
+      "title": "AtomWorks Studio",
+      "properties": {
+        "annotationStudio.serverUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Leave empty to start Studio automatically. Set a URL to connect to an existing server instead."
+        },
+        "annotationStudio.viewerBackend": {
+          "type": "string",
+          "enum": [
+            "patinae",
+            "molstar"
+          ],
+          "enumDescriptions": [
+            "Use Patinae/WebGPU.",
+            "Use Mol*/WebGL."
+          ],
+          "default": "molstar",
+          "description": "Viewer used when opening Studio. Change it with AtomWorks: Select Studio Renderer."
+        },
+        "annotationStudio.pythonPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "description": "Python executable with atomworks-studio installed. Empty uses the selected Python environment, or the atomworks-studio command on PATH. Changes take effect on the next backend start."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p tsconfig.json",
+    "package": "pnpm compile && vsce package --no-dependencies --no-rewrite-relative-links",
+    "test": "pnpm compile && node --test tests/*.test.cjs"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "@types/vscode": "^1.95.0",
+    "@vscode/vsce": "^3.9.2",
+    "ovsx": "^1.2.0",
+    "typescript": "^7.0.2"
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Automatic backend startup requires a trusted workspace. Existing servers can still be opened.",
+      "restrictedConfigurations": [
+        "annotationStudio.pythonPath"
+      ]
+    }
+  }
+}

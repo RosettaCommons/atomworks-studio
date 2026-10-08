@@ -1,0 +1,7 @@
+repository = "https://github.com/zmactep/patinae.git"
+revision = "ba03133e59243394a9c425d0538ca5d2f33d528d"
+studio_revision = "4519921e007c0874f929abaedb1c73887021f9a5"
+package = "@baker-laboratory/patinae-viewer"
+version = "0.5.1-studio.1"
+artifact_sha256 = "fe6fce837a87be6528c82d513feefa3c7c1a7c9617ed6c5f44be7f04af83844c"
+license = "BSD-3-Clause"

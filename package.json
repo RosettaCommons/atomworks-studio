@@ -1,0 +1,11 @@
+{
+  "name": "@rosettacommons/atomworks-studio",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.16.0",
+  "scripts": {
+    "build": "pnpm --dir packages/web build && pnpm --dir packages/vscode compile",
+    "test": "pnpm --dir packages/web test:unit && pnpm --dir packages/vscode test",
+    "typecheck": "pnpm --dir packages/web build:core && pnpm --dir packages/web exec tsc --noEmit && pnpm --dir packages/vscode compile"
+  }
+}

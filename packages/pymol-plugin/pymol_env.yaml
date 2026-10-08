@@ -1,0 +1,12 @@
+name: atomworks
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12.10
+  - uv
+  - pip
+  - pymol-open-source
+  # Keep NumPy/SciPy compatible with Conda PyMOL and PyTorch's bundled OpenMP.
+  - libopenblas=*=*pthreads*
+  - numpy<2
+  - scipy<1.17

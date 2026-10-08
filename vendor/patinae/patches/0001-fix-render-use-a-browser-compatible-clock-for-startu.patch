@@ -1,0 +1,96 @@
+From b41a764bd4d4bce99598b8c0de441006ffceaa15 Mon Sep 17 00:00:00 2001
+From: AtomWorks Studio Build <atomworks-studio-build@users.noreply.github.com>
+Date: Tue, 6 Oct 2026 19:05:58 -0700
+Subject: [PATCH 1/2] fix(render): use a browser-compatible clock for startup
+ and instrumentation
+
+---
+ Cargo.lock                                             | 1 +
+ crates/patinae-render/Cargo.toml                       | 1 +
+ crates/patinae-render/src/render_state/construction.rs | 4 ++--
+ crates/patinae-render/src/stats.rs                     | 4 ++--
+ web/Cargo.lock                                         | 1 +
+ 5 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/Cargo.lock b/Cargo.lock
+index 7312f05..ddfa568 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -4331,6 +4331,7 @@ dependencies = [
+  "pollster",
+  "rayon",
+  "thiserror 2.0.18",
++ "web-time",
+  "wgpu",
+  "winit",
+ ]
+diff --git a/crates/patinae-render/Cargo.toml b/crates/patinae-render/Cargo.toml
+index b00d3c2..d655c0f 100644
+--- a/crates/patinae-render/Cargo.toml
++++ b/crates/patinae-render/Cargo.toml
+@@ -18,6 +18,7 @@ default = []
+ stats = []
+ 
+ [dependencies]
++web-time = "1"
+ patinae-mol = { workspace = true }
+ patinae-settings = { workspace = true }
+ patinae-algos = { workspace = true }
+diff --git a/crates/patinae-render/src/render_state/construction.rs b/crates/patinae-render/src/render_state/construction.rs
+index c2b3e97..137e196 100644
+--- a/crates/patinae-render/src/render_state/construction.rs
++++ b/crates/patinae-render/src/render_state/construction.rs
+@@ -95,14 +95,14 @@ impl RenderState {
+         viewport: (u32, u32),
+         config: RenderConfig,
+     ) -> PreparedRenderState {
+-        let startup_started = std::time::Instant::now();
++        let startup_started = web_time::Instant::now();
+         let mut stage_started = startup_started;
+         let mut report_stage = |name: &str| {
+             log::info!(
+                 "Viewport stage {name}: {:.3} ms",
+                 stage_started.elapsed().as_secs_f64() * 1000.0
+             );
+-            stage_started = std::time::Instant::now();
++            stage_started = web_time::Instant::now();
+         };
+         let memory_policy = config.memory;
+         let mut memory_warnings = Vec::new();
+diff --git a/crates/patinae-render/src/stats.rs b/crates/patinae-render/src/stats.rs
+index 55c3838..7510b90 100644
+--- a/crates/patinae-render/src/stats.rs
++++ b/crates/patinae-render/src/stats.rs
+@@ -3,7 +3,7 @@
+ //!
+ //! Two data paths:
+ //!
+-//! - **CPU markers** — `std::time::Instant` captures around the major
++//! - **CPU markers** — `web_time::Instant` captures around the major
+ //!   spans of `RenderState::sync` / `RenderState::render`. Always
+ //!   available when the feature is on.
+ //! - **GPU timestamps** — `wgpu::Features::TIMESTAMP_QUERY` (also gated
+@@ -20,7 +20,7 @@ use std::sync::{
+     atomic::{AtomicU8, Ordering},
+     Arc, Mutex,
+ };
+-use std::time::Instant;
++use web_time::Instant;
+ 
+ /// Result of one fully-resolved frame's instrumentation. All times in
+ /// **milliseconds**. `-1.0` means the pass did not run that frame (e.g.
+diff --git a/web/Cargo.lock b/web/Cargo.lock
+index a3bf749..cac9448 100644
+--- a/web/Cargo.lock
++++ b/web/Cargo.lock
+@@ -875,6 +875,7 @@ dependencies = [
+  "pollster",
+  "rayon",
+  "thiserror 2.0.18",
++ "web-time",
+  "wgpu",
+ ]
+ 
+-- 
+2.55.0
+

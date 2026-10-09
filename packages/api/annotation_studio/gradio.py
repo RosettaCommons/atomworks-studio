@@ -82,7 +82,7 @@ class StudioHandoff:
         return (
             f'<iframe src="{self.editor_path}?{query}" title="AtomWorks Studio" '
             'style="width:100%;height:76vh;min-height:620px;border:0" '
-            'allow="clipboard-write; fullscreen"></iframe>'
+            'allow="clipboard-write; fullscreen; webgpu"></iframe>'
         )
 
     async def export(self, session_id: str, warning_checks: frozenset[str]) -> dict:

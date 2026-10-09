@@ -18,6 +18,7 @@ import { MeshBuilder } from "molstar/lib/mol-geo/geometry/mesh/mesh-builder";
 import { addSphere } from "molstar/lib/mol-geo/geometry/mesh/builder/sphere";
 import { Vec3 } from "molstar/lib/mol-math/linear-algebra";
 import "molstar/lib/mol-plugin-ui/skin/dark.scss";
+import { unpositionedAtomIndices } from "./unpositioned-atoms";
 
 import {
   ANNOTATION_PALETTE,
@@ -75,6 +76,7 @@ export class MolstarAdapter implements ViewerAdapter {
   private comparisonColors = new Map<string, number>();
   private measurements: ViewerMeasurement[] = [];
   private markerRepresentation: ShapeRepresentation<ViewerMarker[], Mesh, typeof Mesh.Params> | null = null;
+  private unpositionedAtoms: number[] = [];
 
   constructor(private readonly context: ViewerAdapterContext) {}
 
@@ -130,6 +132,12 @@ export class MolstarAdapter implements ViewerAdapter {
     this.annotationGroups = [];
     await this.viewer.plugin.clear();
     await this.viewer.loadStructureFromData(cif, "mmcif", { dataLabel: name });
+    this.unpositionedAtoms = unpositionedAtomIndices(cif);
+    if (this.unpositionedAtoms.length) {
+      this.selectedAtomIndices = this.unpositionedAtoms;
+      await this.setRepresentation("everything", "selection", "hide");
+      this.clearSelection();
+    }
   }
 
   trajectoryFrameCount(): number {
@@ -148,6 +156,7 @@ export class MolstarAdapter implements ViewerAdapter {
 
   async loadCifs(structures: ViewerStructure[]): Promise<void> {
     if (!this.viewer) throw new Error("Mol* is not initialized");
+    this.unpositionedAtoms = [];
     this.displayComponents.clear();
     this.comparisonColors.clear();
     this.annotationGroups = [];
@@ -272,8 +281,13 @@ export class MolstarAdapter implements ViewerAdapter {
       if (target === "selection" && index > 0) continue;
       const structure = reference.cell.obj?.data;
       if (!structure) continue;
-      const selected = target === "all" ? StructureElement.Loci.all(structure) :
+      let selected = target === "all" ? StructureElement.Loci.all(structure) :
         StructureElement.Schema.toLoci(structure, { items: { atom_index: this.selectedAtomIndices } });
+      if (action !== "hide" && this.unpositionedAtoms.length && index === 0) {
+        selected = StructureElement.Loci.subtract(selected, StructureElement.Schema.toLoci(structure, {
+          items: { atom_index: this.unpositionedAtoms },
+        }));
+      }
       const root = reference.cell.transform.ref;
       let components = this.displayComponents.get(root);
       if (!components) {

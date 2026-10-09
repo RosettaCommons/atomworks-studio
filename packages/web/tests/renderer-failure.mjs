@@ -58,12 +58,15 @@ try {
       const original = await snapshot();
       for (const mode of ["molstar", "patinae"]) {
         await page.locator('[data-menu="overflow"]').evaluate(menu => { menu.open = true; });
-        await page.locator("#viewer-mode").selectOption(mode);
+        if (mode === "patinae") await page.locator("#command-catalog button").click();
+        else await page.locator("#viewer-mode").selectOption(mode);
         await page.waitForFunction(() => !document.querySelector("#viewer-mode").disabled);
       }
       await page.waitForFunction(() => document.querySelector("#status").textContent.includes("Renderer switch failed")
         && !document.querySelector("#viewer-mode").disabled);
       assert.equal(await page.locator("#viewer-mode").inputValue(), "molstar");
+      assert.equal(await page.locator("#renderer-notice").isVisible(), true,
+        "a failed switch must explain the fallback where the viewer is visible");
       assert.equal(await page.locator("#viewer canvas").first().isVisible(), true,
         "an unavailable renderer must not leave the working view blank");
       assert.equal(await page.locator("#download").isEnabled(), true);

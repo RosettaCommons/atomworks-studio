@@ -262,8 +262,11 @@ export class ViewerToolbarController {
   }
 
   async switchRenderer(mode: ViewerMode): Promise<void> {
+    closeToolbarMenus();
     await this.options.runViewerUpdate(async () => {
       const viewer = this.options.viewer();
+      const notice = element("renderer-notice");
+      notice.hidden = true;
       const hadRenderer = viewer.initialized;
       const previousMode = (viewer.initialized ? viewer.backend : this.options.requestedMode()) ?? "molstar";
       try {
@@ -286,6 +289,10 @@ export class ViewerToolbarController {
           }
         }
         this.viewerModeSelect.value = viewer.initialized ? viewer.backend : "";
+        notice.textContent = mode === "patinae" && !("gpu" in navigator)
+          ? "Patinae needs WebGPU in this browser. Mol* is still available."
+          : `Could not start ${mode === "patinae" ? "Patinae" : "Mol*"}. See the Activity log for details.`;
+        notice.hidden = false;
         this.options.log(`Renderer switch failed: ${String(error)}`);
       }
     });
@@ -402,9 +409,19 @@ export class ViewerToolbarController {
     );
     container.replaceChildren();
     if (!commands.length) {
-      container.textContent = viewer.capabilities.commandCatalog
-        ? "No matching commands."
-        : "Choose Patinae to browse commands.";
+      if (viewer.capabilities.commandCatalog) {
+        container.textContent = "No matching commands.";
+      } else {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "secondary compact";
+        button.textContent = "Switch to Patinae for PyMOL commands";
+        button.addEventListener("click", () => {
+          this.viewerModeSelect.value = "patinae";
+          void this.switchRenderer("patinae");
+        });
+        container.append(button);
+      }
       return;
     }
     for (const command of commands) {

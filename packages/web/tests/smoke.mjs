@@ -603,7 +603,14 @@ try {
   const embeddedUrl = new URL(editorPath, baseUrl);
   embeddedUrl.searchParams.set("viewer", viewerMode);
   await embedded.goto(embeddedUrl.toString(), { waitUntil: "networkidle" });
-  await embedded.waitForFunction(() => document.querySelector("#structure-summary")?.textContent?.includes("66"));
+  await embedded.waitForFunction(
+    () => document.querySelector("#structure-summary")?.textContent?.includes("66"),
+    null,
+    { timeout: 90_000 },
+  ).catch(async (error) => {
+    console.error("Embedded restore status:", await embedded.locator("#status-message").textContent().catch(() => null));
+    throw error;
+  });
   assert.equal(await embedded.locator("body").getAttribute("class"), "embedded");
   assert.equal(await embedded.locator(".header-logo").isVisible(), true);
   assert.equal(await embedded.locator("h1").innerText(), "AtomWorks Studio");

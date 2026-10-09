@@ -7,6 +7,7 @@ import {
 } from "@baker-laboratory/patinae-viewer";
 
 import { documentAtomIndices, nativeAtomIndices } from "./atom-identity";
+import { unpositionedAtomIndices } from "./unpositioned-atoms";
 import {
   ANNOTATION_PALETTE,
   annotationRenderResult,
@@ -162,6 +163,8 @@ export class PatinaeAdapter implements ViewerAdapter {
     if (coordinateRows.length) {
       this.viewer.execute(`show sticks, ${this.nativeSelection(coordinateRows)}`);
     }
+    const unpositioned = unpositionedAtomIndices(this.cif);
+    if (unpositioned.length) this.viewer.execute(`hide everything, ${this.nativeSelection(unpositioned)}`);
     this.viewer.execute("zoom all");
     await new Promise((resolve) => setTimeout(resolve, 250));
     this.viewer.getObjectNames(); // Surface deferred WebGPU/render errors.
@@ -207,6 +210,10 @@ export class PatinaeAdapter implements ViewerAdapter {
         this.viewer.execute(
           `show sticks, ${structure.objectName} and index ${compressIndices(nativeRows)}`,
         );
+      }
+      const unpositioned = nativeAtomIndices(identities, unpositionedAtomIndices(structure.cif));
+      if (unpositioned.length) {
+        this.viewer.execute(`hide everything, ${structure.objectName} and index ${compressIndices(unpositioned)}`);
       }
     }
     this.viewer.execute("zoom all");

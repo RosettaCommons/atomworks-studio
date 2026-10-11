@@ -13,7 +13,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main() -> None:
     web = json.loads((ROOT / "packages/web/package.json").read_text())
-    assert web["dependencies"]["molstar"] == "5.11.0", "Mol* must be exact-pinned"
+    manifest = tomllib.loads((ROOT / "dependencies.toml").read_text())
+    molstar_version = manifest["molstar"]["version"]
+    assert re.fullmatch(r"\d+\.\d+\.\d+", molstar_version), "Mol* must be exact-pinned"
+    assert web["dependencies"]["molstar"] == molstar_version
     patinae = tomllib.loads((ROOT / "vendor/patinae/UPSTREAM.toml").read_text())
     assert re.fullmatch(r"[0-9a-f]{40}", patinae["revision"])
     launcher = tomllib.loads((ROOT / "packages/patinae-plugin/Cargo.toml").read_text())
@@ -23,7 +26,6 @@ def main() -> None:
     patches = sorted((ROOT / "vendor/patinae/patches").glob("*.patch"))
     assert patches, "Patinae patch series is empty"
 
-    manifest = tomllib.loads((ROOT / "dependencies.toml").read_text())
     atomworks_requirement = f"atomworks[ml]=={manifest['atomworks']['version']}"
     dependency_manifests = (
         ROOT / "pyproject.toml",

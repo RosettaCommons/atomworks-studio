@@ -22,7 +22,7 @@ dependencies = [
 [project.optional-dependencies]
 gradio = ["gradio>=6.29,<7", "httpx>=0.28,<1"]
 pymol = ["atomworks-studio-pymol==0.1.0"]
-test = ["httpx2>=2.8,<3", "pytest>=8.2,<9"]
+test = ["httpx2>=2.8,<3", "pytest>=8.2,<10"]
 
 [project.urls]
 Documentation = "https://github.com/RosettaCommons/atomworks-studio/blob/main/docs/index.md"

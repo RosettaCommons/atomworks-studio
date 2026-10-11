@@ -15,15 +15,15 @@
   },
   "dependencies": {
     "@baker-laboratory/patinae-viewer": "file:vendor/patinae-viewer-0.5.1-studio.1.tgz",
-    "molstar": "5.11.0"
+    "molstar": "5.13.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
-    "@types/node": "^26.6.3",
+    "@types/node": "^26.6.4",
     "openapi-typescript": "^7.13.0",
     "playwright-core": "^1.63.0",
-    "sass": "^1.103.1",
+    "sass": "^1.105.1",
     "typescript": "^5.9.3",
-    "vite": "^8.2.2"
+    "vite": "^8.3.3"
   }
 }

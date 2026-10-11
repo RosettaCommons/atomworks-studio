@@ -17,4 +17,4 @@ metadata = "vendor/patinae/UPSTREAM.toml"
 
 [molstar]
 package = "molstar"
-version = "5.11.0"
+version = "5.13.0"

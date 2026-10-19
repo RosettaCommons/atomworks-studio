@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Development &#8212; AtomWorks Studio</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="_static/studio.css?v=e5508dc1" />
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/studio.js?v=a7d9f6d2"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Releasing Studio" href="RELEASE.html" />
+    <link rel="prev" title="Use Studio in a workflow" href="INTEGRATIONS.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="development">
+<h1>Development<a class="headerlink" href="#development" title="Link to this heading">¶</a></h1>
+<p>Use Python 3.12, the Node version in <code class="docutils literal notranslate"><span class="pre">.node-version</span></code>, pnpm from <code class="docutils literal notranslate"><span class="pre">package.json</span></code>,
+and Rust from <code class="docutils literal notranslate"><span class="pre">rust-toolchain.toml</span></code>. Install <code class="docutils literal notranslate"><span class="pre">wasm-pack</span></code> 0.13.1.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>bootstrap
+make<span class="w"> </span><span class="nb">test</span>
+make<span class="w"> </span>build
+make<span class="w"> </span>run
+</pre></div>
+</div>
+<p>The pinned RFD4 source is used only for scientific annotation definitions.
+No checkpoints or model environment are needed. Both browser renderers are built
+into the release wheel. <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">bootstrap</span></code> verifies and reuses the bundled Patinae
+viewer; rebuilding it is only needed when its upstream source or patches change.</p>
+<p><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">run</span></code> uses the installed Studio command and existing web assets. After editing
+the frontend, run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">build</span></code> again. For a frontend development server with live
+updates, use <code class="docutils literal notranslate"><span class="pre">pnpm</span> <span class="pre">--dir</span> <span class="pre">packages/web</span> <span class="pre">dev</span></code>.</p>
+<section id="checks">
+<h2>Checks<a class="headerlink" href="#checks" title="Link to this heading">¶</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>lint
+make<span class="w"> </span>typecheck
+make<span class="w"> </span><span class="nb">test</span>
+make<span class="w"> </span>accept-local
+make<span class="w"> </span>docs
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">typecheck</span></code> regenerates API types before checking TypeScript.
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">accept-local</span></code> tests the API and browser workflows in both renderers,
+including selections, annotations, protonation, Undo, save/reopen, embedding,
+responsive layouts, and accessibility. It writes logs to <code class="docutils literal notranslate"><span class="pre">artifacts/local/</span></code>.
+Browser automation uses <code class="docutils literal notranslate"><span class="pre">CHROME_PATH</span></code> when supplied; see <code class="docutils literal notranslate"><span class="pre">scripts/browser.mjs</span></code>.
+CI installs the Chromium revision matched to the locked Playwright version.
+Linux runs it under Xvfb with SwiftShader so WebGPU screenshots contain the
+rendered frame. Reproduce that setup with <code class="docutils literal notranslate"><span class="pre">CI=1</span> <span class="pre">xvfb-run</span> <span class="pre">-a</span> <span class="pre">make</span> <span class="pre">accept-local</span></code>.</p>
+<p>Native PyMOL tests need PyMOL and Qt. Create the environment described in the
+<a class="reference internal" href="PYMOL.html"><span class="std std-doc">PyMOL guide</span></a>, install the source packages there, then run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">QT_QPA_PLATFORM</span><span class="o">=</span>offscreen<span class="w"> </span>python<span class="w"> </span>scripts/run_pytest.py<span class="w"> </span>-q<span class="w"> </span>packages/pymol-plugin/tests<span class="w"> </span>tests/test_pymol_conformance.py
+</pre></div>
+</div>
+<p>Use the wrapper so PyMOL shutdown cannot hide a failing test exit code.</p>
+</section>
+<section id="vs-code-extension">
+<h2>VS Code extension<a class="headerlink" href="#vs-code-extension" title="Link to this heading">¶</a></h2>
+<p>Run <code class="docutils literal notranslate"><span class="pre">pnpm</span> <span class="pre">--dir</span> <span class="pre">packages/vscode</span> <span class="pre">package</span></code> after bootstrap to build the VSIX in
+<code class="docutils literal notranslate"><span class="pre">packages/vscode/</span></code>. Install it using <strong>Extensions → Install from VSIX…</strong>, then run <strong>AtomWorks: Open Studio</strong>.
+The extension starts the installed Python backend. <code class="docutils literal notranslate"><span class="pre">pnpm</span> <span class="pre">--dir</span> <span class="pre">packages/vscode</span> <span class="pre">test</span></code>
+checks startup, reuse, failure recovery, and process cleanup.</p>
+</section>
+<section id="annotation-changes">
+<h2>Annotation changes<a class="headerlink" href="#annotation-changes" title="Link to this heading">¶</a></h2>
+<p>Keep scientific definitions upstream. Studio adapts their editing metadata into
+controls and delegates mutation to the shared document. A new or changed editor
+needs coverage for stored values, scope, invalid input, Undo, and CIF round-trips
+across native PyMOL and HTTP. UI controls must report errors without losing selection.</p>
+<p>The same annotation loader is used by PyMOL and the API. Public AtomWorks conditions
+remain usable when developing the editing library without the RFD4 adapter.
+A broken installed adapter fails visibly instead of silently omitting annotations.</p>
+<p>See <a class="reference internal" href="ARCHITECTURE.html"><span class="std std-doc">architecture</span></a> for package boundaries and
+<a class="reference internal" href="RELEASE.html"><span class="std std-doc">releases</span></a> for distribution builds.</p>
+<p>Condition edits always broadcast to the declared AtomWorks level (atom, token,
+residue, or chain) in <code class="docutils literal notranslate"><span class="pre">StudioDocument.set_condition</span></code>, including removal and group
+actions. Explicit selection scope can expand an edit further. Token broadcasting
+uses AtomWorks token boundaries, including atomization.</p>
+<p>Sequence probability channels share one editor group, with residue choices and
+numeric limits supplied by the condition schema. Web and PyMOL use the same
+metadata: two decimal places, a 0.1 step, and values from zero to one. Stored
+probabilities retain their precision; rounding applies only to GUI input.</p>
+<p>New-chain segments use <code class="docutils literal notranslate"><span class="pre">StudioDocument.next_chain_id()</span></code> when no ID is supplied;
+both interfaces show that suggestion. IDs progress A–Z, AA–AZ, and so on.
+Salt-bridge and metal-coordination roles use the bundled RFD4 enum definitions.</p>
+</section>
+<section id="workflow-checks">
+<h2>Workflow checks<a class="headerlink" href="#workflow-checks" title="Link to this heading">¶</a></h2>
+<p>The browser acceptance suite runs the PPI, enzyme-motif and ligand cases in
+<code class="docutils literal notranslate"><span class="pre">tests/fixtures/workflow_cases.json</span></code> and the eight NIM cases in
+<code class="docutils literal notranslate"><span class="pre">tests/fixtures/nim_workflow_cases.json</span></code> through both viewers. It compares exported
+atom identities, coordinates, bonds, charges, segment bounds, and all annotation
+values and masks. Segment expansion uses random lengths; the comparison checks
+the state restored by Undo, while each workflow checks expansion separately.</p>
+<p>With PyMOL available in the test Python environment, run the same cases through
+the native controls and compare their exports:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">STUDIO_WORKFLOW_OUTPUT</span><span class="o">=</span>artifacts/local/workflows<span class="w"> </span><span class="nv">QT_QPA_PLATFORM</span><span class="o">=</span>offscreen<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>python<span class="w"> </span>scripts/run_pytest.py<span class="w"> </span>-q<span class="w"> </span>tests/test_design_workflows.py
+python<span class="w"> </span>scripts/check_workflow_outputs.py<span class="w"> </span>artifacts/local/workflows<span class="w"> </span>--hosts<span class="w"> </span>molstar<span class="w"> </span>patinae
+</pre></div>
+</div>
+<p>These tests prepare design inputs; they do not validate model inference.</p>
+<p>To test authoring the shipped examples from CIFs with their annotations removed,
+prepare temporary inputs, run the shared GUI driver, then compare saved and
+reopened CIFs with the originals. <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">accept-local</span></code> runs this for both viewers.
+Against an already running standalone Studio server:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>scripts/reconstruct_examples.py<span class="w"> </span>artifacts/reconstruction
+<span class="nv">STUDIO_RECONSTRUCTION</span><span class="o">=</span><span class="nv">$PWD</span>/artifacts/reconstruction/cases.json<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="nv">STUDIO_WORKFLOW_OUTPUT</span><span class="o">=</span><span class="nv">$PWD</span>/artifacts/reconstruction<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="nv">ANNOTATION_STUDIO_URL</span><span class="o">=</span>http://127.0.0.1:8000/<span class="w"> </span><span class="nv">VIEWER_MODE</span><span class="o">=</span>molstar<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>node<span class="w"> </span>packages/web/tests/design-workflows.mjs
+python<span class="w"> </span>scripts/reconstruct_examples.py<span class="w"> </span>artifacts/reconstruction<span class="w"> </span>--check<span class="w"> </span>molstar
+</pre></div>
+</div>
+<p>Repeat with <code class="docutils literal notranslate"><span class="pre">VIEWER_MODE=patinae</span></code> and <code class="docutils literal notranslate"><span class="pre">--check</span> <span class="pre">patinae</span></code>. The unconditional
+case has no target structure, so the test uses a temporary atom to create its
+segment through the GUI, then deletes that atom.</p>
+<p>The optional Gradio host uses the same workflow driver. Against a running host:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">ANNOTATION_STUDIO_URL</span><span class="o">=</span>http://127.0.0.1:8791/<span class="w"> </span><span class="nv">VIEWER_MODE</span><span class="o">=</span>patinae<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="nv">STUDIO_STRICT_RENDERER</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>node<span class="w"> </span>packages/web/tests/gradio-workflows.mjs
+<span class="nv">ANNOTATION_STUDIO_URL</span><span class="o">=</span>http://127.0.0.1:8791/<span class="w"> </span><span class="nv">GRADIO_URL</span><span class="o">=</span>http://127.0.0.1:8791/design/<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="nv">VIEWER_MODE</span><span class="o">=</span>molstar<span class="w"> </span>node<span class="w"> </span>packages/web/tests/editor-qol.mjs
+</pre></div>
+</div>
+<p>Repeat with the other viewer. <code class="docutils literal notranslate"><span class="pre">STUDIO_TEST_GENERATE=1</span></code> also submits one antibody
+input, reopens the result, and checks that switching examples clears old results;
+use an echo runner locally or explicitly enable it against a model deployment.
+For private Spaces, supply <code class="docutils literal notranslate"><span class="pre">HF_TOKEN</span></code> through the environment and set
+<code class="docutils literal notranslate"><span class="pre">STUDIO_PARENT_ORIGIN=https://huggingface.co</span></code> to reproduce the Hub’s nested iframe.
+The test sends authentication only to the configured Studio origin.</p>
+</section>
+<section id="selection-invariants">
+<h2>Selection invariants<a class="headerlink" href="#selection-invariants" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">SelectionController</span></code> owns the selected atom set. A toggle changes only its target:
+remove the target when every target atom is selected; otherwise add the target.
+Selection behavior depends on the current set and explicit operation, never on
+which residue was clicked previously. Renderer focus, camera movement, and local
+sticks are display state. In Atoms mode, cartoon hits only change that display.</p>
+<p>Canvas picks and query results use <code class="docutils literal notranslate"><span class="pre">applyResolved</span></code> to commit in request order.
+Clear, replacement selections, mode changes, and document changes invalidate
+pending work. Keep those rules in the controller rather than adding per-renderer
+selection exceptions. The unit suite checks set invariants and delayed requests;
+<code class="docutils literal notranslate"><span class="pre">tests/picking.mjs</span></code> checks actual Mol* hits and <code class="docutils literal notranslate"><span class="pre">tests/selections.mjs</span></code> checks both
+renderers and query cancellation.</p>
+<p>Mol* renders a root structure containing only positioned atoms, preserving their original
+source indices. Missing coordinates and design placeholders stay in the editable document;
+they must never enter geometry, focus surroundings, camera bounds, or picking. The shared
+coordinate filter also constrains Patinae representation changes. The close/reopen regression
+in <code class="docutils literal notranslate"><span class="pre">packages/web/tests/unresolved-rendering.mjs</span></code> checks scene isolation and sequence coverage.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">AtomWorks Studio</a></h1>
+
+
+
+<p class="blurb">Structure editing</p>
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Using Studio</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="INSTALLATION.html">Installation and packaging</a></li>
+<li class="toctree-l1"><a class="reference internal" href="TUTORIAL.html">Edit, save, and reopen a structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="SELECTIONS.html">Selecting atoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="WEB.html">Browser guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PYMOL.html">AtomWorks Studio for PyMOL</a></li>
+<li class="toctree-l1"><a class="reference internal" href="VSCODE.html">VS Code and Cursor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="INTEGRATIONS.html">Use Studio in a workflow</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Development</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="RELEASE.html">Releasing Studio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ARCHITECTURE.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="INPUTS.html">ConditionSpec and Studio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ACCEPTANCE.html">Acceptance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PROVENANCE.html">Source provenance</a></li>
+</ul>
+
+
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

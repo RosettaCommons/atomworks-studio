@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#202124" />
+    <link rel="icon" href="./annotation-studio.svg" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <title>AtomWorks Studio</title>
+    <script type="module" crossorigin src="/assets/index-8XREOdZx.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DCmII2EW.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header>
+        <div class="header-identity">
+          <img src="./annotation-studio.svg" alt="" class="header-logo" />
+          <h1>AtomWorks <span>Studio</span></h1>
+        </div>
+        <span id="document-name" class="document-name">No structure open</span>
+        <div class="header-actions">
+          <label class="file-button primary">
+            Open CIF
+            <input id="file-input" type="file" accept=".cif,.mmcif,chemical/x-mmcif" />
+          </label>
+          <details class="load-options">
+            <summary>Import options</summary>
+            <div class="load-options-popover">
+              <div id="import-settings">
+                <label>Parse settings
+                  <select id="parse-preset">
+                    <option value="auto">Infer</option>
+                    <option value="rcsb">Unannotated input</option>
+                    <option value="minimal">Annotated CIF</option>
+                    <option value="manual">Custom</option>
+                  </select>
+                </label>
+                <p id="parse-description"></p>
+                <div id="parse-manual" hidden>
+                  <label>Assembly<input id="parse-assembly" value="1" placeholder="1, first, all, or asym" /></label>
+                  <div id="parse-fields"></div>
+                </div>
+              </div>
+            </div>
+          </details>
+          <label class="file-button secondary">
+            Combine CIF
+            <input id="combine-input" type="file" accept=".cif,.mmcif,chemical/x-mmcif" disabled />
+          </label>
+          <button id="download" aria-label="Download annotated CIF" disabled>Save CIF</button>
+        </div>
+      </header>
+
+      <div id="error-banner" role="alert" hidden>
+        <strong>Error</strong><span id="error-message"></span>
+        <button id="dismiss-error" class="secondary" aria-label="Dismiss error">Dismiss</button>
+      </div>
+      <section id="workspace" class="workspace">
+        <div class="viewer-column">
+          <div id="viewer-toolbar" class="viewer-toolbar">
+            <details id="style-menu" class="viewer-menu" data-menu="style">
+              <summary>Style</summary>
+              <div class="viewer-menu-popover viewer-menu-popover-wide">
+                <p id="style-unavailable" class="muted">No atoms have coordinates to display.</p>
+                <label>Target
+                  <select id="viewer-action-target">
+                    <option value="all">All atoms</option>
+                    <option value="selection">Selection</option>
+                  </select>
+                </label>
+                <fieldset class="representation-mode" data-capability="representations">
+                  <legend>Representation</legend>
+                  <label><input type="radio" name="representation-action" value="show" checked />Show</label>
+                  <label><input type="radio" name="representation-action" value="hide" />Hide</label>
+                  <label><input type="radio" name="representation-action" value="replace" />Show only</label>
+                </fieldset>
+                <div class="viewer-menu-grid" id="representation-actions" data-capability="representations">
+                  <button type="button" data-representation="cartoon" disabled>Cartoon</button>
+                  <button type="button" data-representation="ribbon" disabled>Ribbon</button>
+                  <button type="button" data-representation="lines" disabled>Lines</button>
+                  <button type="button" data-representation="sticks" disabled>Sticks</button>
+                  <button type="button" data-representation="spheres" disabled>Spheres</button>
+                  <button type="button" data-representation="surface" disabled>Surface</button>
+                  <button type="button" data-representation="everything" data-action="hide" class="representation-hide-all" disabled>Hide everything</button>
+                </div>
+                <div class="viewer-menu-grid" id="color-actions" data-capability="colors">
+                  <button type="button" data-color="atomic" disabled>Atom</button>
+                  <button type="button" data-color="chain" disabled>Chain</button>
+                  <button type="button" data-color="ss" disabled>Secondary</button>
+                  <button type="button" data-color="residue" disabled>Residue</button>
+                  <button type="button" data-color="rainbow" disabled>Rainbow</button>
+                  <button type="button" data-color="cyan" disabled>Cyan</button>
+                  <button type="button" data-color="yellow" disabled>Yellow</button>
+                  <button type="button" data-color="magenta" disabled>Magenta</button>
+                </div>
+              </div>
+            </details>
+            <details class="viewer-menu" data-menu="analyze">
+              <summary>Analyze</summary>
+              <div class="viewer-menu-popover viewer-menu-popover-wide">
+                <fieldset class="interaction-types">
+                  <legend>Interactions</legend>
+                  <label><input type="checkbox" name="interaction-type" value="hbond" checked /> H-bonds</label>
+                  <label><input type="checkbox" name="interaction-type" value="hydrophobic" checked /> Hydrophobic</label>
+                  <label><input type="checkbox" name="interaction-type" value="pistacking" checked /> π-stacking</label>
+                  <label><input type="checkbox" name="interaction-type" value="pication" checked /> π-cation</label>
+                  <label><input type="checkbox" name="interaction-type" value="saltbridge" checked /> Salt bridges</label>
+                  <label><input type="checkbox" name="interaction-type" value="halogen" checked /> Halogen</label>
+                  <label><input type="checkbox" name="interaction-type" value="metal" checked /> Metal</label>
+                </fieldset>
+                <div class="inline-fields">
+                  <label>H-bond model
+                    <select id="hbond-model"><option value="rosetta">Rosetta</option><option value="plip">PLIP</option></select>
+                  </label>
+                  <label>Scope
+                    <select id="interaction-scope">
+                      <option value="all">Whole structure</option>
+                      <option value="touches-selection">Touches selection</option>
+                      <option value="within-selection">Within selection</option>
+                      <option value="selection-to-rest">Selection ↔ rest</option>
+                    </select>
+                  </label>
+                </div>
+                <label class="checkbox"><input id="inter-chain-only" type="checkbox" checked /> Inter-chain only</label>
+                <label class="checkbox"><input id="visualize-interactions" type="checkbox" checked /> Visualize dashed contacts</label>
+                <label>Maximum visualized contacts
+                  <input id="interaction-visual-limit" type="number" min="1" max="500" value="25" />
+                </label>
+                <button id="run-analysis" type="button" class="compact" disabled>Find and visualize</button>
+                <button id="clear-analysis-visuals" type="button" class="secondary compact" data-capability="interactionOverlays">Clear contacts</button>
+                <hr />
+                <label>Measurement
+                  <select id="measurement-kind">
+                    <option value="distance">Distance · 2 atoms</option>
+                    <option value="angle">Angle · 3 atoms</option>
+                    <option value="dihedral">Dihedral · 4 atoms</option>
+                  </select>
+                </label>
+                <button id="add-measurement" type="button" class="secondary compact" data-capability="measurements" disabled>Add measurement</button>
+
+              </div>
+            </details>
+            <details class="viewer-menu" data-menu="overflow">
+              <summary>Backend</summary>
+              <div class="viewer-menu-popover viewer-menu-popover-wide">
+            <label class="viewer-choice compact-choice">Renderer
+              <select id="viewer-mode">
+                <option value="">Choose renderer</option>
+                <option value="molstar">Mol* · WebGL</option>
+                <option value="patinae">Patinae · WebGPU</option>
+              </select>
+            </label>
+
+                <div data-capability="commandCatalog" hidden>
+                  <label>Patinae command catalog
+                    <input id="command-search" type="search" placeholder="Search commands…" />
+                  </label>
+                  <div id="command-catalog" class="command-catalog muted"></div>
+                </div>
+              </div>
+            </details>
+            <span id="viewer-backend" class="viewer-backend">Choose renderer</span>
+            <div class="picking-toolbar" role="group" aria-label="Selection controls">
+              <label class="pick-mode" data-capability="picking">Pick
+                <select id="pick-scope" aria-label="Picking mode">
+                  <option value="atom" selected>Atoms</option>
+                  <option value="residue">Residues</option>
+                  <option value="chain">Chains</option>
+                </select>
+              </label>
+              <span id="selection-count" class="selection-count">0 atoms selected</span>
+              <span id="picking-help" class="selection-help">Click to add · Click again to remove</span>
+              <div class="selection-actions">
+                <button id="clear-selection" class="secondary compact" type="button">Clear selection</button>
+              </div>
+            </div>
+          </div>
+          <div id="sequence-dock" class="sequence-dock">
+            <div class="sequence-dock-heading">
+              <strong>Sequence</strong>
+              <span class="sequence-help">Click to toggle · Drag · Shift range</span>
+              <div class="button-row">
+                <button id="sequence-toggle" class="secondary compact" type="button" aria-expanded="true">
+                  Hide sequence
+                </button>
+              </div>
+            </div>
+            <div id="sequence-view" class="sequence-view muted">
+              Open a structure to select residues.
+            </div>
+          </div>
+          <div class="viewer-stage">
+          <div id="renderer-notice" class="renderer-notice" role="alert" hidden></div>
+          <div id="viewer">
+            <div id="renderer-prompt" class="renderer-prompt" hidden>
+              <p class="eyebrow">Choose a renderer</p>
+              <strong>Open the Studio with Patinae or Mol*</strong>
+              <p>Both use the same annotations and editing tools.</p>
+              <div class="button-row">
+                <button class="renderer-prompt-choice" data-renderer="patinae">Use Patinae · WebGPU</button>
+                <button class="renderer-prompt-choice secondary" data-renderer="molstar">Use Mol* · WebGL</button>
+              </div>
+            </div>
+          </div>
+          <div id="unpositioned-state" class="empty-state" role="status" hidden>
+            <div class="empty-state-inner">
+              <h2>No 3D coordinates to display</h2>
+              <p>This input contains only unpositioned atoms or expandable segments. Its sequence, bonds, and conditions remain editable.</p>
+              <p>Style controls need positioned atoms. Load a structure with coordinates to see it here.</p>
+            </div>
+          </div>
+          <div id="empty-state" class="empty-state">
+            <div class="empty-state-inner">
+              <h2>Open a structure</h2>
+              <p>Choose a CIF file to inspect and annotate.<br />Or start with an example in the Edit panel.</p>
+              <button id="empty-open" class="secondary" type="button">Open CIF…</button>
+            </div>
+          </div>
+          </div>
+          <div id="trajectory-bar" class="trajectory-bar" hidden>
+            <button id="trajectory-toggle" class="secondary compact" aria-pressed="false">Show trajectory</button>
+            <div id="trajectory-controls" hidden>
+              <button id="trajectory-play" class="secondary compact">Play</button>
+              <input id="trajectory-frame" type="range" min="0" max="0" value="0" step="1" aria-label="Trajectory frame" />
+              <output id="trajectory-position" aria-live="off"></output>
+              <span class="muted">Backbone · view only</span>
+            </div>
+          </div>
+          <form id="viewer-command-form" class="viewer-command-bar">
+              <select id="selection-syntax" aria-label="Input syntax">
+                <option value="expression">AtomWorks query</option>
+              </select>
+              <input
+                id="viewer-command"
+                aria-label="PyMOL command or AtomWorks query"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="Enter command or selection"
+              />
+              <button id="run-viewer-command" type="submit" class="secondary compact">Run</button>
+          </form>
+        </div>
+
+        <aside id="atomworks-studio-popover" class="studio-menu-popover" aria-label="Studio controls">
+          <details id="examples-panel" class="card quick-start-card" data-editor-card="main" open>
+            <summary>Examples</summary>
+            <p class="muted">Annotated NIM inputs. Loading an example opens a new document.</p>
+            <div id="example-list" class="example-list"></div>
+          </details>
+
+          <section class="card editor-document">
+            <h2>Structure</h2>
+            <div id="structure-summary" class="muted">Open an annotated CIF to begin.</div>
+            <p id="coordinate-summary" class="muted" hidden></p>
+            <p id="structure-edit-feedback" class="inline-feedback muted" aria-live="polite">
+              Open a structure to begin.
+            </p>
+            <div class="button-row">
+              <button id="validate" disabled>Validate</button>
+              <button id="undo" class="secondary" disabled>Undo</button>
+              <button id="reset-conditions" class="secondary" hidden disabled>Reset conditions to defaults</button>
+              <button id="close-structure" class="secondary" disabled>Close structure</button>
+            </div>
+          </section>
+
+          <section class="card" data-editor-card="annotations">
+            <h2>Annotations</h2>
+            <label>Type<select id="condition"></select></label>
+            <label class="checkbox"><input id="enabled" type="checkbox" checked /> Enable condition</label>
+            <div id="condition-value"></div>
+            <p id="condition-feedback" class="inline-feedback muted" aria-live="polite">Select one or more atoms.</p>
+            <button id="apply-condition" disabled>Apply to selection</button>
+            <hr />
+            <div class="card-title-row">
+              <h3>Conditions on this structure</h3>
+              <button id="clear-annotation-view" class="secondary compact" disabled>Clear colors</button>
+            </div>
+            <p class="muted">Click a condition to highlight it and see its values. Click again to restore the previous colors. This only changes the view.</p>
+            <div id="annotation-list" class="annotation-list muted">
+              Open a structure to see its conditions.
+            </div>
+            <div id="annotation-detail" class="annotation-detail muted">
+              Choose a condition above, or click an atom to see its conditions.
+            </div>
+          </section>
+
+          <details class="card" data-editor-card="structure">
+            <summary>Charges</summary>
+            <div class="inline-fields">
+              <label>Charge action
+                <select id="charge-action"><option value="value">Set</option><option value="delta">Add delta</option></select>
+              </label>
+              <label>Charge<input id="charge" type="number" min="-10" max="10" value="0" /></label>
+            </div>
+            <button id="apply-charge" disabled>Apply charge</button>
+          </details>
+
+          <details class="card" data-editor-card="structure">
+            <summary>Protonation</summary>
+            <div class="inline-fields protonation-fields">
+              <label>pH<input id="protonation-ph" type="number" min="0" max="14" step="0.1" value="7.4" /></label>
+              <button id="protonate" disabled>Protonate structure</button>
+            </div>
+            <p class="muted">Updates hydrogens and formal charges for the whole structure. Undo restores the previous state.</p>
+          </details>
+
+          <details class="card" data-editor-card="structure">
+            <summary>Bonds</summary>
+            <p class="muted">Select exactly two atoms to add or remove a bond.</p>
+            <label>Bond type<select id="bond-type"></select></label>
+            <div class="button-row">
+              <button id="add-bond" disabled>Add bond</button>
+              <button id="remove-bond" class="secondary" disabled>Remove bond</button>
+            </div>
+            <div class="button-row">
+              <button id="inspect-bonds" class="secondary" aria-expanded="false" aria-controls="bond-list" disabled>Inspect bonds</button>
+              <button id="infer-bonds" class="secondary" disabled>Infer CCD bonds</button>
+            </div>
+            <div id="bond-list" class="drawer-list muted" aria-live="polite" hidden></div>
+          </details>
+
+          <details class="card" data-editor-card="main">
+            <summary>Structure editing</summary>
+            <div class="button-row">
+              <button id="delete-atoms" class="danger" disabled>Delete selection</button>
+              <button id="reset-residues" class="secondary" disabled>Reset residue IDs</button>
+            </div>
+            <label class="checkbox"><input id="close-residue-gaps" type="checkbox" /> Close residue-ID gaps after delete</label>
+          </details>
+
+          <details class="card" data-editor-card="main">
+            <summary>Expandable segments</summary>
+            <div class="inline-fields">
+              <label>Min<input id="segment-min" type="number" min="1" value="5" /></label>
+              <label>Max<input id="segment-max" type="number" min="1" value="10" /></label>
+            </div>
+            <label class="checkbox"><input id="segment-before" type="checkbox" checked /> Insert before picked atom</label>
+            <label class="checkbox"><input id="segment-new-chain" type="checkbox" /> Create as a new chain</label>
+            <div id="segment-chain-options" class="inline-fields" hidden>
+              <label>Chain ID<input id="segment-chain-id" maxlength="8" placeholder="Next available" /></label>
+              <label>Chain type
+                <select id="segment-chain-type">
+                  <option value="polypeptide(L)">Polypeptide (L)</option>
+                  <option value="polypeptide(D)">Polypeptide (D)</option>
+                  <option value="polydeoxyribonucleotide">DNA</option>
+                  <option value="polyribonucleotide">RNA</option>
+                </select>
+              </label>
+            </div>
+            <button id="insert-segment" disabled>Insert expandable segment</button>
+          </details>
+
+          <section class="drawer-stack" data-editor-card="main" aria-label="Viewer data drawers">
+            <details id="objects-drawer" class="card drawer">
+              <summary>Objects</summary>
+              <div id="object-list" class="drawer-list muted">Open a structure to list objects.</div>
+            </details>
+            <details id="selections-drawer" class="card drawer">
+              <summary>Selections</summary>
+              <div id="active-selection-count" class="muted">0 atoms in active selection</div>
+              <div id="selection-list" class="drawer-list muted"></div>
+            </details>
+            <details id="measurements-drawer" class="card drawer">
+              <summary>Measurements</summary>
+              <div id="measurement-list" class="drawer-list muted">No measurements.</div>
+            </details>
+            <details id="interactions-drawer" class="card drawer">
+              <summary>Interactions</summary>
+              <div id="analysis-results" class="drawer-list"></div>
+            </details>
+          </section>
+
+          <details class="card log-card" data-editor-card="main">
+            <summary>Activity log</summary>
+            <pre id="status" tabindex="0">Starting Studio…</pre>
+          </details>
+        </aside>
+      </section>
+      <footer class="status-bar">
+        <span id="status-message" role="status">Starting Studio…</span>
+        <a id="guide-link" href="/guide/" target="_blank" rel="noopener">Guide</a>
+      </footer>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Edit, save, and reopen a structure &#8212; AtomWorks Studio</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="_static/studio.css?v=e5508dc1" />
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/studio.js?v=a7d9f6d2"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Selecting atoms" href="SELECTIONS.html" />
+    <link rel="prev" title="Installation and packaging" href="INSTALLATION.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="edit-save-and-reopen-a-structure">
+<h1>Edit, save, and reopen a structure<a class="headerlink" href="#edit-save-and-reopen-a-structure" title="Link to this heading">¶</a></h1>
+<p>This walkthrough uses the bundled NIM inverse-folding example (2KL8). Run Studio using the
+<a class="reference internal" href="INSTALLATION.html"><span class="std std-doc">installation guide</span></a>, then open its URL in your browser.
+No GPU is needed to edit or save a structure.</p>
+<section id="try-it-here">
+<h2>Try it here<a class="headerlink" href="#try-it-here" title="Link to this heading">¶</a></h2>
+<p>The installed guide can open the same editor used by the browser and VS Code.
+Choose <strong>Open 2KL8 example</strong>, then follow the steps below. On a narrow screen,
+use the editor’s <strong>Guide</strong> link to keep the instructions in a separate tab.</p>
+<div class="studio-example">
+  <button type="button" data-studio-example="inverse_folding">Open 2KL8 example</button>
+  <p role="status">Interactive editing is available when this guide is served by Studio at /guide/.</p>
+</div></section>
+<section id="open-and-select">
+<h2>Open and select<a class="headerlink" href="#open-and-select" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p>In <strong>Edit → Main → Examples</strong>, choose <strong>Inverse folding · 2KL8</strong>. Wait for the molecule and sequence to appear.</p></li>
+<li><p>Set the command bar to <strong>AtomWorks query</strong>, enter <code class="docutils literal notranslate"><span class="pre">atom_name</span> <span class="pre">==</span> <span class="pre">'CA'</span></code>, and
+choose <strong>Select</strong>. The selection count should read <strong>59 atoms</strong> for the bundled example.</p></li>
+<li><p>In the same <strong>AtomWorks query</strong> mode, enter <code class="docutils literal notranslate"><span class="pre">sel('*/*/*/CA')</span></code>. It selects the same atoms.</p></li>
+<li><p>Click a residue in the sequence to replace the selection. Ctrl/Cmd-click
+toggles a residue; Shift-click extends a range.</p></li>
+</ol>
+<p>The <a class="reference internal" href="SELECTIONS.html"><span class="std std-doc">selection reference</span></a> includes chain, residue, and atom lists.
+Viewer styling and selection do not edit the CIF.</p>
+</section>
+<section id="apply-an-annotation-and-undo-it">
+<h2>Apply an annotation and undo it<a class="headerlink" href="#apply-an-annotation-and-undo-it" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p>With a residue selected, open <strong>Edit → Annotations</strong> and choose <strong>Sequence conditioning</strong>.</p></li>
+<li><p>Leave <strong>Enable condition</strong> checked and choose <strong>Apply to selection</strong>.
+The confirmation reports the affected atoms; successful edits clear the selection.</p></li>
+<li><p>Under <strong>Conditions on this structure</strong>, choose the Sequence conditioning row to color its atoms.</p></li>
+<li><p>Choose <strong>Undo</strong> to restore the preceding document state. Select the residue
+again and repeat the edit if you want to keep it.</p></li>
+</ol>
+<p>Sequence, coordinate, index, terminal, and distance conditions are included in
+the default installation. All three interfaces also include hotspots, coordinate
+groups, and CATH labels from the same RFD4 definitions registered with AtomWorks.</p>
+<p>To remove a condition, select its atoms again, uncheck <strong>Enable condition</strong>, and
+choose <strong>Remove from selection</strong>. <strong>Clear colors</strong> only clears the visualization;
+it does not remove saved annotations. If an edit fails, the message beside the
+controls explains why and the selection remains available for correction.</p>
+</section>
+<section id="save-and-reopen">
+<h2>Save and reopen<a class="headerlink" href="#save-and-reopen" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p>Choose <strong>Save CIF</strong> and keep the downloaded file.</p></li>
+<li><p>Choose <strong>Open CIF</strong> and load that file with the annotated-CIF preset.</p></li>
+<li><p>Inspect the Sequence annotation again. It should retain the edit you saved.</p></li>
+<li><p>To continue in PyMOL, open <strong>Plugin → AtomWorks Studio</strong>, use <strong>Load CIF</strong>,
+and choose the downloaded file. Select its <strong>Active</strong> object before editing.</p></li>
+</ol>
+<p>Use Studio’s save action in each interface. PyMOL’s own molecule export does not
+preserve AtomWorks annotations.</p>
+</section>
+<section id="edit-a-ligand">
+<h2>Edit a ligand<a class="headerlink" href="#edit-a-ligand" title="Link to this heading">¶</a></h2>
+<p>Choose <strong>Small-molecule binder · SAM</strong> from the NIM examples to work with a ligand.</p>
+<ul class="simple">
+<li><p><strong>Protonation:</strong> in <strong>Charges</strong>, set pH and choose <strong>Protonate structure</strong>.
+It updates the whole structure, including hydrogens, and can be undone.</p></li>
+<li><p><strong>Charges:</strong> select an atom, enter its formal charge, and apply. This changes
+the stored formal charge, not a partial charge or a display label.</p></li>
+<li><p><strong>Bonds:</strong> select two atoms and add or remove their bond. Inspect the bond table
+afterward; a line drawn by the viewer is not proof of a stored bond.</p></li>
+<li><p><strong>Chains:</strong> select atoms, assign the destination chain, and check the resulting
+chain list. Use Undo to reverse a mistaken assignment.</p></li>
+</ul>
+<p>Save and reopen after editing. Bond inference from CCD needs a configured
+<code class="docutils literal notranslate"><span class="pre">CCD_MIRROR_PATH</span></code>; loading existing stored bonds does not require inference.</p>
+</section>
+<section id="groups-and-segments">
+<h2>Groups and segments<a class="headerlink" href="#groups-and-segments" title="Link to this heading">¶</a></h2>
+<p>Use groups and expandable segments to describe an RFD4 input.
+Group actions operate on the current selection. Save expandable segments
+collapsed when their length should remain unspecified. Editing these annotations
+does not run a model.</p>
+<p>Generic AtomWorks distance restraints are not supported RFD4 design conditions.
+RFD4’s editor excludes them; Analyze can measure current distances without adding conditions.</p>
+<p>For native PyMOL workflows, continue with the <a class="reference internal" href="PYMOL.html"><span class="std std-doc">panel guide</span></a>.
+For the same browser editor inside VS Code, see <a class="reference internal" href="VSCODE.html"><span class="std std-doc">VS Code and Cursor</span></a>.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">AtomWorks Studio</a></h1>
+
+
+
+<p class="blurb">Structure editing</p>
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Using Studio</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="INSTALLATION.html">Installation and packaging</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Edit, save, and reopen a structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="SELECTIONS.html">Selecting atoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="WEB.html">Browser guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PYMOL.html">AtomWorks Studio for PyMOL</a></li>
+<li class="toctree-l1"><a class="reference internal" href="VSCODE.html">VS Code and Cursor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="INTEGRATIONS.html">Use Studio in a workflow</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Development</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="DEVELOPMENT.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="RELEASE.html">Releasing Studio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ARCHITECTURE.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="INPUTS.html">ConditionSpec and Studio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ACCEPTANCE.html">Acceptance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PROVENANCE.html">Source provenance</a></li>
+</ul>
+
+
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

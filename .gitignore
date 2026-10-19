@@ -15,7 +15,6 @@ artifacts/
 .coverage
 .env
 packages/web/src/wasm/
-packages/api/annotation_studio/web/
 !packages/web/public/annotation-studio.svg
 
 .venv/
@@ -23,5 +22,4 @@ packages/api/annotation_studio/web/
 docs/_build/
 
 external/
-packages/api/annotation_studio/guide/
 examples/space/wheels/

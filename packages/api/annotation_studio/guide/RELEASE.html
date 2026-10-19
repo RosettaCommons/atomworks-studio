@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Releasing Studio &#8212; AtomWorks Studio</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="_static/studio.css?v=e5508dc1" />
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/studio.js?v=a7d9f6d2"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Architecture" href="ARCHITECTURE.html" />
+    <link rel="prev" title="Development" href="DEVELOPMENT.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="releasing-studio">
+<h1>Releasing Studio<a class="headerlink" href="#releasing-studio" title="Link to this heading">¶</a></h1>
+<p>Studio follows the tag-and-artifact approach used by
+<a class="reference external" href="https://github.com/RosettaCommons/atomworks/blob/production/.github/workflows/release_and_docs.yaml">AtomWorks</a>
+and <a class="reference external" href="https://github.com/uw-ipd/tmol/blob/master/.github/workflows/publish.yml">tmol</a>:
+build once, test the installed packages, then publish those artifacts in a separate job.
+Documentation builds separately, as in RFD4, and is included in every release.</p>
+<p>The editor keeps <code class="docutils literal notranslate"><span class="pre">atomworks[ml]==3.0.1</span></code>, including Torch. Native PyMOL is an optional host application; inference is outside Studio.</p>
+<section id="one-time-setup">
+<h2>One-time setup<a class="headerlink" href="#one-time-setup" title="Link to this heading">¶</a></h2>
+<p>The publishing repository is <code class="docutils literal notranslate"><span class="pre">RosettaCommons/atomworks-studio</span></code>.
+Development history stays in the private <code class="docutils literal notranslate"><span class="pre">baker-laboratory/atomworks-studio-dev</span></code> repository.
+Only reviewed source snapshots are copied to RosettaCommons; its Git history starts
+with one initial commit. Repository visibility is managed separately from releases.</p>
+<p>Create a GitHub environment named <code class="docutils literal notranslate"><span class="pre">pypi</span></code>. Register a
+<a class="reference external" href="https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/">PyPI Trusted Publisher</a>
+for each distribution below, using owner <code class="docutils literal notranslate"><span class="pre">RosettaCommons</span></code>, repository
+<code class="docutils literal notranslate"><span class="pre">atomworks-studio</span></code>, workflow <code class="docutils literal notranslate"><span class="pre">release.yaml</span></code>, and environment <code class="docutils literal notranslate"><span class="pre">pypi</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">atomworks-studio</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">atomworks-studio-editing</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">atomworks-studio-pymol</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">atomworks-annotation-studio-rfd4</span></code></p></li>
+</ul>
+<p>No PyPI API token or private dependency token is needed. CI uses the bundled,
+hash-verified scientific definitions.</p>
+<p>Optional destinations:</p>
+<ul class="simple">
+<li><p>Set <code class="docutils literal notranslate"><span class="pre">VSCE_PAT</span></code> to publish the already-built VSIX to the VS Code Marketplace.
+The VSIX is always attached to the GitHub release.</p></li>
+<li><p>Enable GitHub Pages from <code class="docutils literal notranslate"><span class="pre">gh-pages</span></code> and set the repository variable
+<code class="docutils literal notranslate"><span class="pre">STUDIO_PUBLISH_DOCS=true</span></code> to publish docs under <code class="docutils literal notranslate"><span class="pre">/v&lt;version&gt;/</span></code>.
+Earlier versions are retained. The documentation archive is always attached
+to the GitHub release, even when Pages is disabled.</p></li>
+</ul>
+</section>
+<section id="cut-a-release">
+<h2>Cut a release<a class="headerlink" href="#cut-a-release" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p>Update <code class="docutils literal notranslate"><span class="pre">VERSION</span></code> and the Python, JavaScript, and Rust package versions.
+Run <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">scripts/verify_distribution.py</span></code> and update the lockfiles.</p></li>
+<li><p>Merge the reviewed change after CI passes.</p></li>
+<li><p>Push the matching <code class="docutils literal notranslate"><span class="pre">v&lt;version&gt;</span></code> tag. A manual workflow run must also select
+that tag; branch refs and the rolling <code class="docutils literal notranslate"><span class="pre">vscode-latest</span></code> tag are rejected.</p></li>
+</ol>
+<p>The workflow runs the full CI suite for the tagged commit. The package job
+builds all four wheels and source archives, rejects missing or stale artifacts,
+checks package metadata with Twine, and installs the built Studio wheel in a
+fresh environment outside the checkout. It exercises CLI startup, bundled
+browser/WASM assets, CIF loading, protonation, selections, export, and Undo.
+CI also checks the native PyMOL plugin, browser workflows and docs.</p>
+<p>Only after those jobs succeed does the <code class="docutils literal notranslate"><span class="pre">publish</span></code> job upload the eight Python
+artifacts to PyPI through OIDC. The GitHub release then receives the same
+packages, VSIX, docs archive, checksums, and build provenance.</p>
+<p>If an upload fails partway through, rerun the failed jobs while the build
+artifacts remain available. PyPI uploads skip files already present. Published
+versions are immutable: use a new version and tag for changed code.</p>
+<p>For local builds, start with an empty output directory so the artifact check
+can catch stale packages:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pnpm<span class="w"> </span>build
+make<span class="w"> </span>docs
+uv<span class="w"> </span>build<span class="w"> </span>--all-packages<span class="w"> </span>--out-dir<span class="w"> </span>dist
+uv<span class="w"> </span>run<span class="w"> </span>scripts/check_distribution_assets.py<span class="w"> </span>dist
+uv<span class="w"> </span>run<span class="w"> </span>--no-project<span class="w"> </span>--with<span class="w"> </span>twine<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>twine<span class="w"> </span>check<span class="w"> </span>--strict<span class="w"> </span>dist/*
+</pre></div>
+</div>
+<p>The RFD4 adapter bundles the definition files listed with SHA-256 hashes in
+<code class="docutils literal notranslate"><span class="pre">providers/rfd4/UPSTREAM.toml</span></code>. They come from the pinned
+<a class="reference external" href="https://github.com/RosettaCommons/RFD4-Proteina">RosettaCommons RFD4 repository</a>,
+including its BSD license. The build verifies every file; wheel and source
+archive checks verify the bundled copies. Users need no checkout to annotate.</p>
+</section>
+<section id="promote-development-to-rosettacommons">
+<h2>Promote development to RosettaCommons<a class="headerlink" href="#promote-development-to-rosettacommons" title="Link to this heading">¶</a></h2>
+<p>Work in <code class="docutils literal notranslate"><span class="pre">atomworks-studio-dev</span></code> first. Merge reviewed changes to <code class="docutils literal notranslate"><span class="pre">main</span></code>, then
+fast-forward <code class="docutils literal notranslate"><span class="pre">release/rosettacommons</span></code> to that exact commit. Wait for its <strong>CI</strong>
+workflow to pass, including package, Docker Space, browser, and documentation
+checks. Never substitute an older green run for the release commit.</p>
+<p>Copy only that branch’s tracked files into a clean RosettaCommons checkout and
+commit them there. Compare the two <code class="docutils literal notranslate"><span class="pre">HEAD^{tree}</span></code> hashes before pushing; they
+must match. Keep the RosettaCommons commit history linear and do not rewrite
+published release tags. After pushing, wait for its <strong>CI</strong> and <strong>VS Code
+extension</strong> workflows before tagging a PyPI release.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">AtomWorks Studio</a></h1>
+
+
+
+<p class="blurb">Structure editing</p>
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Using Studio</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="INSTALLATION.html">Installation and packaging</a></li>
+<li class="toctree-l1"><a class="reference internal" href="TUTORIAL.html">Edit, save, and reopen a structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="SELECTIONS.html">Selecting atoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="WEB.html">Browser guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PYMOL.html">AtomWorks Studio for PyMOL</a></li>
+<li class="toctree-l1"><a class="reference internal" href="VSCODE.html">VS Code and Cursor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="INTEGRATIONS.html">Use Studio in a workflow</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Development</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="DEVELOPMENT.html">Development</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Releasing Studio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ARCHITECTURE.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="INPUTS.html">ConditionSpec and Studio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ACCEPTANCE.html">Acceptance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PROVENANCE.html">Source provenance</a></li>
+</ul>
+
+
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

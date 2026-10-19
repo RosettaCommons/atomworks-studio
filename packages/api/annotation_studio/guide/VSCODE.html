@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>VS Code and Cursor &#8212; AtomWorks Studio</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="_static/studio.css?v=e5508dc1" />
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/studio.js?v=a7d9f6d2"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Use Studio in a workflow" href="INTEGRATIONS.html" />
+    <link rel="prev" title="AtomWorks Studio for PyMOL" href="PYMOL.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="vs-code-and-cursor">
+<h1>VS Code and Cursor<a class="headerlink" href="#vs-code-and-cursor" title="Link to this heading">¶</a></h1>
+<p>Studio runs in an editor tab and follows your VS Code theme. It uses the same
+application and Python server as the browser.</p>
+<section id="local-setup">
+<h2>Local setup<a class="headerlink" href="#local-setup" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p>Install Studio from the <a class="reference internal" href="INSTALLATION.html#install-built-wheels"><span class="std std-ref">wheel bundle</span></a>
+in a Python 3.12 environment.</p></li>
+<li><p>Install the matching <code class="docutils literal notranslate"><span class="pre">.vsix</span></code>: <strong>Extensions → ··· → Install from VSIX…</strong>.
+Alternatively, run <code class="docutils literal notranslate"><span class="pre">code</span> <span class="pre">--install-extension</span> <span class="pre">path/to/extension.vsix</span></code>.</p></li>
+<li><p>Run <strong>AtomWorks: Open Studio</strong> from the Command Palette.</p></li>
+</ol>
+<p>Studio starts in the background on an available local port. No terminal or manual
+server command is needed. The extension uses your selected Python environment
+when the Microsoft Python extension is available; otherwise it runs
+<code class="docutils literal notranslate"><span class="pre">atomworks-studio</span></code> from PATH. To use another installation, run
+<strong>AtomWorks: Select Python Interpreter</strong> and enter that environment’s Python
+executable. The extension does not install Python packages automatically.</p>
+<p>Use <strong>Open CIF</strong>, then follow the <a class="reference internal" href="TUTORIAL.html"><span class="std std-doc">walkthrough</span></a>. Repeated Open
+commands reuse the backend and existing tab. Changing renderers also reuses the
+backend. Closing an editor tab keeps the backend available until the VS Code
+window closes or reloads; then the extension stops only the process it started.
+Save your CIF before closing or reloading the window.</p>
+<p>Automatic startup requires a trusted workspace. The same setup works in Cursor.</p>
+</section>
+<section id="download-the-extension">
+<h2>Download the extension<a class="headerlink" href="#download-the-extension" title="Link to this heading">¶</a></h2>
+<p>Use the VSIX supplied with your Studio build. CI also provides a
+<a class="reference external" href="https://github.com/RosettaCommons/atomworks-studio/releases/download/vscode-latest/atomworks-annotation-studio.vsix">build from main</a>
+and attaches versioned builds to <a class="reference external" href="https://github.com/RosettaCommons/atomworks-studio/releases">GitHub releases</a>.
+The repository currently requires GitHub access; Studio is not listed on the
+VS Code Marketplace yet.</p>
+</section>
+<section id="another-server-or-renderer">
+<h2>Another server or renderer<a class="headerlink" href="#another-server-or-renderer" title="Link to this heading">¶</a></h2>
+<p>To use an existing server, run <strong>AtomWorks: Configure Studio Server</strong> and enter
+its URL, then <strong>AtomWorks: Open Studio</strong>. The extension connects without starting
+or stopping that server. Clear the URL to return to automatic startup.
+For example, an independently managed server on port 8001 can be started with
+<code class="docutils literal notranslate"><span class="pre">atomworks-studio</span> <span class="pre">--vscode</span> <span class="pre">--port</span> <span class="pre">8001</span></code>.</p>
+<p>Mol*/WebGL is selected by default. <strong>AtomWorks: Select Studio Renderer</strong>
+lets you choose Patinae/WebGPU instead. Run Open Studio to open the chosen
+renderer. Both provide the same structure-editing operations.</p>
+<p>With Remote SSH, install Studio in the remote Python environment. Automatic
+startup runs on the extension host; VS Code forwards its address to the webview. Hosted services must allow the
+editor’s webview origin and its parent in <code class="docutils literal notranslate"><span class="pre">ANNOTATION_STUDIO_FRAME_ANCESTORS</span></code>.
+The local <code class="docutils literal notranslate"><span class="pre">--vscode</span></code> option supplies the desktop/editor origins. Browser-hosted
+VS Code may additionally need its specific top-level HTTPS origin.</p>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>Startup failed:</strong> use <strong>Show logs</strong>, or open <strong>Output → AtomWorks Studio</strong>.
+Check that Studio is installed in the selected Python environment. Use
+<strong>AtomWorks: Select Python Interpreter</strong> to choose another Python executable.</p></li>
+<li><p><strong>Server unreachable:</strong> check the configured URL. Clear it for automatic startup.</p></li>
+<li><p><strong>Blank tab on an existing server:</strong> start it with <code class="docutils literal notranslate"><span class="pre">--vscode</span></code> or check its embedding policy.</p></li>
+<li><p><strong>Viewer unavailable:</strong> select Mol* when the editor cannot use WebGPU.</p></li>
+<li><p><strong>Old extension:</strong> reinstall the matching VSIX and reload the editor window.</p></li>
+</ul>
+<p>See <a class="reference internal" href="DEVELOPMENT.html"><span class="std std-doc">development</span></a> to build the extension.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">AtomWorks Studio</a></h1>
+
+
+
+<p class="blurb">Structure editing</p>
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Using Studio</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="INSTALLATION.html">Installation and packaging</a></li>
+<li class="toctree-l1"><a class="reference internal" href="TUTORIAL.html">Edit, save, and reopen a structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="SELECTIONS.html">Selecting atoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="WEB.html">Browser guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PYMOL.html">AtomWorks Studio for PyMOL</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">VS Code and Cursor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="INTEGRATIONS.html">Use Studio in a workflow</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Development</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="DEVELOPMENT.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="RELEASE.html">Releasing Studio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ARCHITECTURE.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="INPUTS.html">ConditionSpec and Studio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ACCEPTANCE.html">Acceptance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PROVENANCE.html">Source provenance</a></li>
+</ul>
+
+
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Acceptance &#8212; AtomWorks Studio</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="_static/studio.css?v=e5508dc1" />
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/studio.js?v=a7d9f6d2"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Source provenance" href="PROVENANCE.html" />
+    <link rel="prev" title="ConditionSpec and Studio" href="INPUTS.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="acceptance">
+<h1>Acceptance<a class="headerlink" href="#acceptance" title="Link to this heading">¶</a></h1>
+<p>Run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">bootstrap</span></code>, <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">test</span></code>, <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">accept-local</span></code>, and <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">docs</span></code> from a
+clean checkout. No model runtime, weights, database, or GPU worker is required.</p>
+<p>A release must pass:</p>
+<ul class="simple">
+<li><p>Python editing, API, selection, validation, and native PyMOL tests.</p></li>
+<li><p>Browser workflows in Patinae and Mol*: annotations, protonation, Undo,
+selection syntax, save/reopen, renderer switching, and embedded views.</p></li>
+<li><p>Responsive and accessibility checks, plus the 80 KB gzip browser-shell budget.</p></li>
+<li><p>TypeScript, Rust, Python lint, package metadata, and strict documentation builds.</p></li>
+<li><p>Installation of built wheels outside the checkout, including bundled annotation
+definitions, browser assets, and WASM.</p></li>
+</ul>
+<p>Check the installed VSIX in VS Code as well as a normal browser. Save confirmations
+must work inside its sandbox. Inspect a representative structure in native PyMOL
+before release. Automation does not replace that final visual check.</p>
+<p>Artifacts are written under <code class="docutils literal notranslate"><span class="pre">artifacts/</span></code>; generated output is not committed.</p>
+<section id="compare-the-three-backends">
+<h2>Compare the three backends<a class="headerlink" href="#compare-the-three-backends" title="Link to this heading">¶</a></h2>
+<p>With Studio running and the browser bundle built, use a Python environment
+containing PyMOL, Qt, pytest, Studio and its PyMOL plugin:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>scripts/test_backend_parity.py<span class="w"> </span>--url<span class="w"> </span>http://127.0.0.1:8000/
+</pre></div>
+</div>
+<p>This runs the same PPI, enzyme and ligand cases from
+<code class="docutils literal notranslate"><span class="pre">tests/fixtures/workflow_cases.json</span></code> through native PyMOL controls and the actual
+Patinae and Mol* browser controls. It compares selected atom indices and every
+deterministic edit, then saves and reopens each CIF. Comparisons cover atom
+identity, coordinates, stored bonds, charges, segment bounds, and all condition
+values and masks. Generic AtomWorks pair editing and segment realization are covered
+separately from the shared web/native authoring workflows.</p>
+<p>Each run writes a fresh directory under <code class="docutils literal notranslate"><span class="pre">artifacts/parity/</span></code>. Missing PyMOL,
+missing exports, or a renderer fallback fail the run. The separate renderer
+recovery tests still exercise fallback deliberately. GitHub’s <code class="docutils literal notranslate"><span class="pre">backend-parity</span></code>
+job runs the strict comparison with an actual PyMOL installation; it does not
+count optional native-test skips as success.</p>
+<p>To include the installed VS Code extension, start the test server with
+<code class="docutils literal notranslate"><span class="pre">atomworks-studio</span> <span class="pre">--vscode</span> <span class="pre">--port</span> <span class="pre">8000</span></code> to allow its webview and parent origins.
+Start an isolated VS Code profile
+with <code class="docutils literal notranslate"><span class="pre">--remote-debugging-port=9222</span></code>. Install the built VSIX into that profile;
+set <code class="docutils literal notranslate"><span class="pre">annotationStudio.serverUrl</span></code> to the same test server and
+<code class="docutils literal notranslate"><span class="pre">annotationStudio.viewerBackend</span></code> to the renderer being tested. Then run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">CDP_PORT</span><span class="o">=</span><span class="m">9222</span><span class="w"> </span><span class="nv">VIEWER_MODE</span><span class="o">=</span>molstar<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="nv">ANNOTATION_STUDIO_URL</span><span class="o">=</span>http://127.0.0.1:8000/<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="nv">STUDIO_WORKFLOW_OUTPUT</span><span class="o">=</span>artifacts/parity/run-EXACT_DIRECTORY<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>node<span class="w"> </span>packages/web/tests/vscode-workflows.mjs
+</pre></div>
+</div>
+<p>Repeat with a fresh profile using <code class="docutils literal notranslate"><span class="pre">patinae</span></code>, then compare all five hosts:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>scripts/check_workflow_outputs.py<span class="w"> </span>artifacts/parity/run-EXACT_DIRECTORY<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--strict-renderers
+</pre></div>
+</div>
+<p>This drives the actual VS Code webview and its download handling through the
+same shared workflow driver. The hosted <code class="docutils literal notranslate"><span class="pre">backend-parity</span></code> job covers the three
+rendering backends; these installed-extension runs are an additional local check.
+Use a test profile, since the driver opens Studio and loads the bundled examples.</p>
+</section>
+<section id="example-action-audit">
+<h2>Example action audit<a class="headerlink" href="#example-action-audit" title="Link to this heading">¶</a></h2>
+<p>Run the common-control audit against a separate server and session directory:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">ANNOTATION_STUDIO_SESSION_DIR</span><span class="o">=</span>artifacts/local/audit-sessions<span class="w"> </span><span class="nv">ANNOTATION_STUDIO_PORT</span><span class="o">=</span><span class="m">8001</span><span class="w"> </span>./run.sh
+<span class="nv">ANNOTATION_STUDIO_URL</span><span class="o">=</span>http://127.0.0.1:8001/<span class="w"> </span>pnpm<span class="w"> </span>--dir<span class="w"> </span>packages/web<span class="w"> </span>test:example-actions
+</pre></div>
+</div>
+<p>The audit opens every bundled example in independent Mol* and Patinae browser
+contexts. It checks validation, sequence selection, styles, condition highlighting
+and editing, protonation and CIF export, charges, bonds, segments, deletion,
+renumbering, interaction analysis, reset, Undo, and closing documents. Actions
+requiring real residues are reported as inapplicable to the segment-only example.
+JSON reports and failure/protonation screenshots are saved under
+<code class="docutils literal notranslate"><span class="pre">artifacts/local/example-actions/</span></code> in the working directory.</p>
+<p><code class="docutils literal notranslate"><span class="pre">pnpm</span> <span class="pre">--dir</span> <span class="pre">packages/web</span> <span class="pre">test:interactions</span></code> checks the antibody with 25 and 100
+contacts in both renderers, separate measurement lists, preservation of user
+measurements when clearing contacts, disabling visualization, and closing the
+structure. Molstar must render the contacts as one geometry object.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">AtomWorks Studio</a></h1>
+
+
+
+<p class="blurb">Structure editing</p>
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Using Studio</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="INSTALLATION.html">Installation and packaging</a></li>
+<li class="toctree-l1"><a class="reference internal" href="TUTORIAL.html">Edit, save, and reopen a structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="SELECTIONS.html">Selecting atoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="WEB.html">Browser guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PYMOL.html">AtomWorks Studio for PyMOL</a></li>
+<li class="toctree-l1"><a class="reference internal" href="VSCODE.html">VS Code and Cursor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="INTEGRATIONS.html">Use Studio in a workflow</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Development</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="DEVELOPMENT.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="RELEASE.html">Releasing Studio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ARCHITECTURE.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="INPUTS.html">ConditionSpec and Studio</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Acceptance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PROVENANCE.html">Source provenance</a></li>
+</ul>
+
+
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

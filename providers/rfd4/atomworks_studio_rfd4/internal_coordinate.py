@@ -37,11 +37,19 @@ def edit_absolute_coordinates(array, indices, enabled, value) -> None:
 
 
 def edit_coordinate_group(array, indices, enabled, value) -> None:
-    """Assign groups using the same reserved-coordinate rules as upstream PyMOL."""
+    """Assign internal groups, clearing selected absolute targets in the same edit."""
     group = value if enabled else C_CRDGRP.UNKNOWN_COORDS
     if isinstance(group, bool) or not isinstance(group, int):
         raise ValueError("coordinate_group requires an integer value")
+    if enabled and group <= C_CRDGRP.KNOWN_ABSOLUTE_COORDS:
+        raise ValueError(
+            "Choose a positive internal coordinate group; absolute coordinates are managed by Coordinate conditioning."
+        )
     groups = C_CRDGRP.annotation(array, default="generate").copy()
+    if enabled:
+        coordinates = C_CRD.annotation(array, default="generate").copy()
+        coordinates[indices] = C_CRD.default_annotation(array)[indices]
+        C_CRD.set_annotation(array, coordinates)
     groups[indices] = C_CRDGRP.default_annotation(array)[indices] if not enabled else group
     C_CRDGRP.set_annotation(array, groups, on_internal_coord_mismatch="clear")
 

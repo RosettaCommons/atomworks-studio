@@ -37,7 +37,7 @@ export interface ViewerToolbarControllerOptions {
   requestedMode: () => ViewerMode | null;
   runViewerUpdate: (operation: () => Promise<void>) => Promise<void>;
   mutate: (path: string, body?: unknown) => Promise<void>;
-  log: (message: string) => void;
+  log: (message: string, level?: "info" | "error") => void;
 }
 
 export class ViewerToolbarController {
@@ -45,33 +45,31 @@ export class ViewerToolbarController {
   private readonly selectionSyntax = element<HTMLSelectElement>("selection-syntax");
   private readonly viewerCommand = element<HTMLInputElement>("viewer-command");
   private readonly viewerActionTarget = element<HTMLSelectElement>("viewer-action-target");
-  private readonly studioMenu = element<HTMLDetailsElement>("atomworks-studio-menu");
-  private readonly studioPopover = element<HTMLElement>("atomworks-studio-popover");
-  private readonly workspace = element<HTMLElement>("workspace");
 
   constructor(private readonly options: ViewerToolbarControllerOptions) {}
+
+  private positionOpenMenu(): void {
+    const menu = document.querySelector<HTMLDetailsElement>(".viewer-menu[open]");
+    if (!menu) return;
+    const anchor = menu.querySelector("summary")!.getBoundingClientRect();
+    const popover = menu.querySelector<HTMLElement>(".viewer-menu-popover")!;
+    popover.style.setProperty("--menu-top", `${anchor.bottom + 5}px`);
+    popover.style.left = `${Math.max(8, Math.min(anchor.left, window.innerWidth - popover.offsetWidth - 8))}px`;
+  }
 
   bind(): void {
     for (const menu of document.querySelectorAll<HTMLDetailsElement>(".viewer-menu")) {
       menu.addEventListener("toggle", () => {
-        // Keep the docked editor independent of transient viewer menus.
-        const studioTab = menu.dataset.studioTab;
         if (menu.open) {
           closeToolbarMenus(menu);
-          if (studioTab) this.showStudioTab(studioTab, menu.querySelector("summary")?.textContent?.trim() ?? "");
-        } else if (
-          studioTab === this.workspace.dataset.studioTab
-          && !document.querySelector(".studio-menu[open]")
-        ) {
-          delete this.workspace.dataset.studioTab;
+          this.positionOpenMenu();
         }
       });
     }
-    this.studioMenu.open = true;
-    this.showStudioTab("atomworks", "Edit");
+    window.addEventListener("resize", () => this.positionOpenMenu());
     document.addEventListener("keydown", (event) => {
       if (event.key !== "Escape") return;
-      const openMenu = document.querySelector<HTMLDetailsElement>(".viewer-menu:not(.studio-menu)[open], .load-options[open]");
+      const openMenu = document.querySelector<HTMLDetailsElement>(".viewer-menu[open], .load-options[open]");
       if (openMenu) {
         openMenu.open = false;
         openMenu.querySelector<HTMLElement>("summary")?.focus();
@@ -88,7 +86,7 @@ export class ViewerToolbarController {
           await this.options.runViewerUpdate(() => this.options.viewer().setRepresentation(representation, target, action));
           this.options.log(`${action === "replace" ? "Show only" : action === "hide" ? "Hide" : "Show"} ${representation} · ${target === "all" ? "all atoms" : "selection"}.`);
         } catch (error) {
-          this.options.log(`Display action failed: ${String(error)}`);
+          this.options.log(`Display action failed: ${String(error)}`, "error");
         }
       });
     }
@@ -100,42 +98,8 @@ export class ViewerToolbarController {
             this.viewerActionTarget.value as ViewerTarget,
           );
         } catch (error) {
-          this.options.log(`Color action failed: ${String(error)}`);
+          this.options.log(`Color action failed: ${String(error)}`, "error");
         }
-      });
-    }
-    for (const button of document.querySelectorAll<HTMLButtonElement>("[data-camera]")) {
-      button.addEventListener("click", () => {
-        try {
-          this.options.viewer().camera(button.dataset.camera as "reset" | "zoom" | "center" | "orient");
-        } catch (error) {
-          this.options.log(`View action failed: ${String(error)}`);
-        }
-      });
-    }
-    for (const button of document.querySelectorAll<HTMLButtonElement>("[data-background]")) {
-      button.addEventListener("click", () => {
-        try {
-          this.options.viewer().setBackground(button.dataset.background as "black" | "white");
-        } catch (error) {
-          this.options.log(`Background action failed: ${String(error)}`);
-        }
-      });
-    }
-    const selectionExpressions: Record<string, string> = {
-      all: "is_polymer | ~is_polymer",
-      polymer: "is_polymer",
-      ligand: "~is_polymer",
-    };
-    for (const button of document.querySelectorAll<HTMLButtonElement>("[data-selection]")) {
-      button.addEventListener("click", () => {
-        const preset = button.dataset.selection ?? "";
-        if (preset === "none") {
-          this.options.selection.clear();
-          return;
-        }
-        void this.selectByExpression(selectionExpressions[preset], `Select ${preset}`)
-          .catch((error) => this.options.log(`Selection failed: ${String(error)}`));
       });
     }
     element("command-search").addEventListener("input", () => this.renderCommandCatalog());
@@ -148,15 +112,8 @@ export class ViewerToolbarController {
         .then(() => {
           this.viewerCommand.value = "";
         })
-        .catch((error) => this.options.log(`Command failed: ${String(error)}`));
+        .catch((error) => this.options.log(`Command failed: ${String(error)}`, "error"));
     });
-    for (const [buttonId, drawerId] of [
-      ["open-objects", "objects-drawer"],
-      ["open-selections", "selections-drawer"],
-      ["open-measurements", "measurements-drawer"],
-    ] as const) {
-      element(buttonId).addEventListener("click", () => this.openDrawer(drawerId));
-    }
     this.viewerModeSelect.addEventListener("change", () => {
       const selected = this.parseMode(this.viewerModeSelect.value);
       if (selected) void this.switchRenderer(selected);
@@ -176,11 +133,12 @@ export class ViewerToolbarController {
     const capabilities = this.options.viewer().capabilities;
     applyCapabilities(capabilities);
     element("style-menu").hidden = !capabilities.representations && !capabilities.colors;
-    element("picking-fallback").hidden = !capabilities.softwarePicking;
     element<HTMLSelectElement>("pick-scope").disabled = !capabilities.picking;
-    this.selectionSyntax.querySelector<HTMLOptionElement>('option[value="patinae"]')!.disabled =
-      !capabilities.commands;
-    if (!capabilities.commands && this.selectionSyntax.value === "patinae") {
+    const commandsOption = this.selectionSyntax.querySelector('option[value="patinae"]');
+    if (capabilities.commands) {
+      if (!commandsOption) this.selectionSyntax.add(new Option("PyMOL commands", "patinae"), 0);
+    } else {
+      commandsOption?.remove();
       this.selectionSyntax.value = "expression";
     }
     this.updateCommandHint();
@@ -195,7 +153,7 @@ export class ViewerToolbarController {
     this.viewerCommand.placeholder = hint;
     this.viewerCommand.setAttribute("aria-label", hint);
     this.viewerCommand.title = syntax === "patinae"
-      ? "PyMOL-style selection and display commands; remove edits the document with Undo. See More for commands."
+      ? "PyMOL-style selection and display commands; remove edits the document with Undo. See Backend for commands."
       : "AtomWorks expressions or selection paths: sel('A/*/[10-20]/CA').";
     element("run-viewer-command").textContent = syntax === "patinae" ? "Run" : "Select";
   }
@@ -238,13 +196,11 @@ export class ViewerToolbarController {
           try {
             this.options.selection.replace(viewer.evaluateSelection(selection.name), true);
           } catch (error) {
-            this.options.log(`Named selection failed: ${String(error)}`);
+            this.options.log(`Named selection failed: ${String(error)}`, "error");
           }
         });
         selectionList.append(button);
       }
-    } else {
-      selectionList.textContent = `${this.options.selection.size} atoms in active selection`;
     }
     const measurements = viewer.listMeasurements();
     element("measurement-list").textContent = measurements.length
@@ -252,13 +208,6 @@ export class ViewerToolbarController {
         `${item.label ?? item.kind ?? "Measurement"}${item.value === undefined ? "" : ` · ${item.value}${item.unit ?? ""}`}`
       ).join("\n")
       : "No measurements.";
-  }
-
-  openDrawer(drawerId: "objects-drawer" | "selections-drawer" | "measurements-drawer"): void {
-    closeToolbarMenus();
-    this.studioMenu.open = true;
-    element<HTMLDetailsElement>(drawerId).open = true;
-    this.renderDrawers();
   }
 
   async switchRenderer(mode: ViewerMode): Promise<void> {
@@ -285,7 +234,7 @@ export class ViewerToolbarController {
             this.refreshCapabilities();
             this.renderDrawers();
           } catch (restoreError) {
-            this.options.log(`Could not restore the previous renderer: ${String(restoreError)}`);
+            this.options.log(`Could not restore the previous renderer: ${String(restoreError)}`, "error");
           }
         }
         this.viewerModeSelect.value = viewer.initialized ? viewer.backend : "";
@@ -293,18 +242,13 @@ export class ViewerToolbarController {
           ? "Patinae needs WebGPU in this browser. Mol* is still available."
           : `Could not start ${mode === "patinae" ? "Patinae" : "Mol*"}. See the Activity log for details.`;
         notice.hidden = false;
-        this.options.log(`Renderer switch failed: ${String(error)}`);
+        this.options.log(`Renderer switch failed: ${String(error)}`, "error");
       }
     });
   }
 
   private parseMode(value: string | null): ViewerMode | null {
     return value === "patinae" || value === "molstar" ? value : null;
-  }
-
-  private showStudioTab(tab: string, label: string): void {
-    this.workspace.dataset.studioTab = tab;
-    this.studioPopover.setAttribute("aria-label", label);
   }
 
   private async executeCommand(
@@ -323,12 +267,14 @@ export class ViewerToolbarController {
       const querySyntax = atomworksMatch
         ? atomworksMatch[1].toLowerCase() === "awselect-path" ? "path" : "expression"
         : syntax;
-      const response = await postJson<{ atom_indices: number[]; count: number }>(
-        `/api/sessions/${sessionId}/selections/query`,
-        { expression: atomworksMatch?.[2] ?? trimmed, syntax: querySyntax },
-      );
-      this.options.selection.replace(response.atom_indices, true);
-      this.options.log(`AtomWorks ${querySyntax} query selected ${response.count} atoms.`);
+      const applied = await this.options.selection.applyResolved("replace", async () => {
+        const response = await postJson<{ atom_indices: number[] }>(
+          `/api/sessions/${sessionId}/selections/query`,
+          { expression: atomworksMatch?.[2] ?? trimmed, syntax: querySyntax },
+        );
+        return response.atom_indices;
+      });
+      if (applied !== null) this.options.log(`AtomWorks ${querySyntax} query applied.`);
       return;
     }
     const viewer = this.options.viewer();
@@ -359,7 +305,7 @@ export class ViewerToolbarController {
           ? `Command '${verb}' would desynchronize the annotated CIF. Use AtomWorks Studio editing controls instead.`
           : metadata?.unavailableReason
           ? `Command '${verb}' is unavailable in the browser: ${metadata.unavailableReason}`
-          : `Unsupported viewer command '${verb}'. Browse available commands under More.`,
+          : `Unsupported viewer command '${verb}'. Browse available commands under Backend.`,
       );
     }
     const result = await viewer.executeCommand(trimmed) as {
@@ -382,46 +328,19 @@ export class ViewerToolbarController {
     this.options.log(messages.join("\n") || `Patinae: ${trimmed}`);
   }
 
-  private async selectByExpression(expression: string | undefined, label: string): Promise<void> {
-    const sessionId = this.options.getSessionId();
-    if (!sessionId) throw new Error("Open a CIF before selecting atoms.");
-    if (!expression) throw new Error("Unknown selection preset.");
-    const response = await postJson<{ atom_indices: number[]; count: number }>(
-      `/api/sessions/${sessionId}/selections/query`,
-      { expression, syntax: "expression" },
-    );
-    this.options.selection.replace(response.atom_indices, true);
-    this.options.log(`${label}: ${response.count} atoms selected.`);
-  }
-
   private renderCommandCatalog(): void {
     const viewer = this.options.viewer();
     const container = element("command-catalog");
-    if (!viewer.initialized) {
-      container.textContent = "Choose Patinae to browse commands.";
-      return;
-    }
+    container.replaceChildren();
+    if (!viewer.initialized || !viewer.capabilities.commandCatalog) return;
     const query = element<HTMLInputElement>("command-search").value.trim().toLowerCase();
     const commands = viewer.getCommandCatalog().filter((command) =>
       !query
       || command.name.toLowerCase().includes(query)
       || command.description?.toLowerCase().includes(query)
     );
-    container.replaceChildren();
     if (!commands.length) {
-      if (viewer.capabilities.commandCatalog) {
-        container.textContent = "No matching commands.";
-      } else {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "secondary compact";
-        button.textContent = "Switch to Patinae for PyMOL commands";
-        button.addEventListener("click", () => {
-          this.viewerModeSelect.value = "patinae";
-          void this.switchRenderer("patinae");
-        });
-        container.append(button);
-      }
+      container.textContent = "No matching commands.";
       return;
     }
     for (const command of commands) {

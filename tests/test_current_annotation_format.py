@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from atomworks.ml.conditions import C_CRD
 from atomworks_studio_editing.contracts import TargetDiscardConfirmationRequiredError
 from atomworks_studio_editing.document import StudioDocument
 from atomworks_studio_rfd4 import CONDITION_PROVIDER
@@ -154,12 +155,78 @@ def test_confirmed_coordinate_edit_clears_only_affected_groups_and_undoes() -> N
     assert document.to_cif() == before
 
 
-def test_group_edits_preserve_upstream_absolute_coordinate_rules() -> None:
+def test_group_edits_convert_absolute_coordinates_to_internal() -> None:
     document = StudioDocument.from_cif(FIXTURE.read_text(), condition_provider=CONDITION_PROVIDER)
     document.set_condition("coordinate", [0])
     before = document.to_cif()
-    with pytest.raises(ValueError, match="group 0 must match"):
-        document.set_condition("coordinate_group", [0], value=7)
-    assert document.to_cif() == before
     document.set_condition("coordinate_group", [0], enabled=False)
+    assert document.to_cif() == before
+    document.set_condition("coordinate_group", [0], value=7)
+    assert C_CRDGRP.annotation(document.array)[0] == 7
+    assert not C_CRD.mask(document.array)[0]
+    assert document.undo()
+    assert document.to_cif() == before
+
+
+def test_http_internal_groups_manage_absolute_targets_and_undo() -> None:
+    from annotation_studio.main import app, store
+    from fastapi.testclient import TestClient
+
+    document = StudioDocument.from_cif(FIXTURE.read_text(), condition_provider=CONDITION_PROVIDER)
+    document.set_condition("coordinate", [0, 1, 2])
+    session = store.add(document)
+    client = TestClient(app)
+    assert document.condition_groups("coordinate_group") == []
+    group = None
+    for action, selected, expected in [
+        ("new", [0, 3], [1, 0, 0, 1]),
+        ("add", [1], [1, 1, 0, 1]),
+        ("remove", [1], [1, -1, 0, 1]),
+        ("delete", [], [-1, -1, 0, -1]),
+    ]:
+        before = document.to_cif()
+        response = client.post(
+            f"/api/sessions/{session}/groups",
+            json={"condition": "coordinate_group", "action": action, "atom_indices": selected, "group_id": group},
+        )
+        assert response.status_code == 200, response.text
+        group = response.json()["edit_result"]["group_id"]
+        np.testing.assert_equal(C_CRDGRP.annotation(document.array)[:4], expected)
+        np.testing.assert_equal(C_CRD.mask(document.array), C_CRDGRP.annotation(document.array) == 0)
+        reparsed = StudioDocument.from_cif(document.to_cif(), condition_provider=CONDITION_PROVIDER)
+        np.testing.assert_equal(C_CRDGRP.annotation(reparsed.array), C_CRDGRP.annotation(document.array))
+        after = document.to_cif()
+        assert document.undo()
+        assert document.to_cif() == before
+        # Replay the same user action before checking the next step.
+        document.edit_condition_group("coordinate_group", action, selected, group_id=group)
+        assert document.to_cif() == after
+
+
+def test_joining_internal_group_preserves_absolute_targets_until_confirmed() -> None:
+    document = StudioDocument.from_cif(FIXTURE.read_text(), condition_provider=CONDITION_PROVIDER)
+    document.set_condition("coordinate_group", [0, 1], value=7)
+    targets = C_INTCRD.default_annotation(document.array)
+    targets[:2] = [[-1, 0, 0], [1, 0, 0]]
+    C_INTCRD.set_annotation(document.array, targets)
+    document.set_condition("coordinate", [2])
+    before = document.to_cif()
+    with pytest.raises(TargetDiscardConfirmationRequiredError):
+        document.edit_condition_group("coordinate_group", "add", [2], group_id=7)
+    assert document.to_cif() == before
+    document.edit_condition_group("coordinate_group", "add", [2], group_id=7, allow_target_discard=True)
+    assert not C_CRD.mask(document.array)[2]
+    assert (C_CRDGRP.annotation(document.array)[:3] == 7).all()
+    assert np.isnan(C_INTCRD.annotation(document.array)[:3]).all()
+    assert document.undo()
+    assert document.to_cif() == before
+
+
+@pytest.mark.parametrize("reserved", [-1, 0])
+def test_group_assignment_rejects_reserved_ids_without_changing_targets(reserved) -> None:
+    document = StudioDocument.from_cif(FIXTURE.read_text(), condition_provider=CONDITION_PROVIDER)
+    document.set_condition("coordinate", [0])
+    before = document.to_cif()
+    with pytest.raises(ValueError, match="managed by Coordinate conditioning"):
+        document.set_condition("coordinate_group", [0], value=reserved)
     assert document.to_cif() == before

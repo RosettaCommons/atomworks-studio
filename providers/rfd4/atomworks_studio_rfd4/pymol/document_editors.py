@@ -58,8 +58,18 @@ class DocumentMaskEditor(MaskEditor):
 class SequenceProbabilityEditor(ScalarEditor):
     def __init__(self, annotation_cls, state, parent=None):
         super().__init__(annotation_cls, state, parent)
-        self._value_widget.setRange(0.0, 1.0)
-        self._value_widget.setDecimals(6)
+        definition = CONDITION_PROVIDER.definitions_by_name[annotation_cls.name]
+        self._value_widget.setRange(definition.minimum, definition.maximum)
+        self._value_widget.setDecimals(definition.decimals)
+        self._value_widget.setSingleStep(definition.step)
+        self.findChildren(QtWidgets.QLabel)[0].setText(f"<b>{definition.editor_group}</b>")
+        self._residue_type = QtWidgets.QComboBox()
+        for option in CONDITION_PROVIDER.definitions:
+            if option.editor_group == definition.editor_group:
+                self._residue_type.addItem(option.option_label, option.key)
+        self._residue_type.setCurrentIndex(self._residue_type.findData(definition.key))
+        self.layout().insertWidget(1, QtWidgets.QLabel("Residue type"))
+        self.layout().insertWidget(2, self._residue_type)
         self._mask_chk.setText("Specify probability for the selected residues")
         self._mask_chk.setChecked(True)
 
@@ -74,11 +84,10 @@ class SequenceProbabilityEditor(ScalarEditor):
         document.condition_provider = CONDITION_PROVIDER
         try:
             document.set_condition(
-                self._annotation_cls.name,
+                self._residue_type.currentData(),
                 indices,
                 enabled=self._mask_chk.isChecked(),
                 value=self._value_widget.value(),
-                scope="residue",
             )
         except ValueError as error:
             QtWidgets.QMessageBox.warning(self, "Sequence probability edit failed", str(error))

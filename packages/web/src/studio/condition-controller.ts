@@ -1,11 +1,11 @@
 import { element } from "../dom";
-import { confirmAction } from "../confirmation";
 import { api } from "../api";
 import type { SelectionController } from "../selection-controller";
 import type { StudioSchema, ConditionEditorState, StructureSummary, Restraint, SessionResponse } from "../types";
 
 export interface ConditionControllerOptions {
   selection: SelectionController;
+  log: (message: string, level?: "info" | "error") => void;
   getRevision: () => number | undefined;
   getSessionId: () => string | null;
   onMarkersChanged: () => void;
@@ -19,7 +19,6 @@ const OPERATION_ENDPOINTS: Record<string, string> = {
 
 export class ConditionController {
   private readonly conditionSelect = element<HTMLSelectElement>("condition");
-  private readonly scopeSelect = element<HTMLSelectElement>("scope");
   private readonly enabledInput = element<HTMLInputElement>("enabled");
   private readonly conditionValue = element<HTMLDivElement>("condition-value");
   private readonly applyButton = element<HTMLButtonElement>("apply-condition");
@@ -61,7 +60,7 @@ export class ConditionController {
   }
 
   acceptMutation(path: string, response: SessionResponse): void {
-    if (path === "/distance-restraints/replace") this.pairDirty = false;
+    if (path === "/distance-restraints/replace" || path === "/conditions/reset") this.pairDirty = false;
     if (path === "/groups" && response.edit_result?.group_id != null) {
       this.preferredGroup = String(response.edit_result.group_id);
     }
@@ -76,20 +75,34 @@ export class ConditionController {
     return true;
   }
 
-  setFeedback(message: string): void { this.feedback.textContent = message; }
+  setFeedback(message: string, error = false): void {
+    this.feedback.textContent = message;
+    this.feedback.classList.toggle("error-text", error);
+    if (error) this.options.log(message, "error");
+  }
 
   initialize(schema: StudioSchema): void {
     this.schema = schema;
+    element("reset-conditions").hidden = !schema.document_operations?.includes("reset_conditions");
+    const groups = new Set<string>();
     for (const [name, definition] of Object.entries(schema.conditions)) {
-      this.conditionSelect.add(new Option(definition.label, name));
+      if (definition.editor_group) {
+        if (groups.has(definition.editor_group)) continue;
+        groups.add(definition.editor_group);
+      }
+      this.conditionSelect.add(new Option(definition.editor_group ?? definition.label, name));
     }
     this.conditionChanged();
   }
 
   bind(): void {
+    element("reset-conditions").addEventListener("click", () => {
+      void this.options.mutate("/conditions/reset", { expected_revision: this.options.getRevision() });
+    });
     this.conditionSelect.addEventListener("change", () => this.conditionChanged());
     this.enabledInput.addEventListener("change", () => {
-      this.renderValue();
+      const value = this.conditionValue.querySelector<HTMLElement>("[data-condition-input]");
+      if (value) value.hidden = !this.enabledInput.checked;
       this.updateSelectionUi(this.hasSession);
     });
     this.applyButton.addEventListener("click", () => {
@@ -103,7 +116,6 @@ export class ConditionController {
         this.feedback.textContent = "Applying operation to the selection…";
         void this.options.mutate(endpoint, {
           atom_indices: [...this.options.selection.values],
-          scope: this.scopeSelect.value,
           enabled: this.enabledInput.checked,
         });
         return;
@@ -112,11 +124,11 @@ export class ConditionController {
         ? "Applying condition…"
         : "Removing condition from the selection…";
       void this.options.mutate("/conditions", {
-        condition: this.conditionSelect.value,
+        condition: this.conditionValue.querySelector<HTMLSelectElement>("#condition-residue-type")?.value
+          ?? this.conditionSelect.value,
         atom_indices: [...this.options.selection.values],
         enabled: this.enabledInput.checked,
         value: this.selectedValue(),
-        scope: this.scopeSelect.value,
       });
     });
   }
@@ -125,16 +137,15 @@ export class ConditionController {
     this.hasSession = hasSession;
     const definition = this.currentDefinition();
     const pair = definition?.kind === "pair";
-    const specialized = definition?.group_editor || definition?.kind === "vector3" || pair;
+    const specialized = definition?.invert_mask || definition?.group_editor || definition?.kind === "vector3" || pair;
     this.applyButton.hidden = Boolean(specialized);
     this.enabledInput.closest("label")!.hidden = Boolean(specialized);
-    this.scopeSelect.closest("label")!.hidden = Boolean(specialized);
     const count = this.options.selection.size;
     this.applyButton.disabled = !hasSession || !definition || (pair ? count !== 2 : count === 0);
-    const clearTargets = this.conditionValue.querySelector<HTMLButtonElement>("#clear-internal-targets");
-    if (clearTargets) clearTargets.disabled = !hasSession || count === 0;
     for (const button of this.conditionValue.querySelectorAll<HTMLButtonElement>("[data-needs-selection]")) {
-      button.disabled = !hasSession || count === 0;
+      const needsGroup = button.dataset.needsGroup === "true";
+      const group = this.conditionValue.querySelector<HTMLSelectElement>("#condition-group")?.value;
+      button.disabled = !hasSession || count === 0 || (needsGroup && !group);
     }
     this.applyButton.textContent = this.enabledInput.checked ? "Apply to selection" : "Remove from selection";
     this.feedback.textContent = !hasSession
@@ -148,31 +159,71 @@ export class ConditionController {
           : count
             ? `Ready to update ${count} selected atom${count === 1 ? "" : "s"}.`
             : "Select one or more atoms.";
+    if (hasSession && definition && !specialized && definition.level !== "atom") {
+      this.feedback.textContent += definition.level === "chain"
+        ? " This condition applies to whole chains containing selected atoms."
+        : " This condition applies to whole residues containing selected atoms.";
+    }
   }
 
   private conditionChanged(): void {
     this.picking = null;
-    const definition = this.currentDefinition();
+    const definition = this.schema?.conditions[this.conditionSelect.value];
     if (!definition) return;
-    this.scopeSelect.value =
-      definition.level === "chain" ? "chain" : definition.level === "atom" ? "atom" : "residue";
-    this.scopeSelect.disabled = definition.kind === "pair";
     this.renderValue();
     this.updateSelectionUi(this.hasSession);
   }
 
   private renderValue(): void {
-    const definition = this.currentDefinition();
+    const definition = this.schema?.conditions[this.conditionSelect.value];
+    const previousOption = this.conditionValue.querySelector<HTMLSelectElement>("#condition-residue-type")?.value;
     const previousGroup = this.preferredGroup ?? this.conditionValue.querySelector<HTMLSelectElement>("#condition-group")?.value;
     this.preferredGroup = undefined;
     const previousChain = this.conditionValue.querySelector<HTMLSelectElement>("#centroid-chain")?.value;
     this.conditionValue.replaceChildren();
+    if (definition?.editor_group) {
+      const label = document.createElement("label");
+      label.textContent = "Residue type";
+      const select = document.createElement("select");
+      select.id = "condition-residue-type";
+      for (const [name, option] of Object.entries(this.schema!.conditions)) {
+        if (option.editor_group === definition.editor_group) {
+          select.add(new Option(option.option_label ?? option.label, name));
+        }
+      }
+      if ([...select.options].some((option) => option.value === previousOption)) select.value = previousOption!;
+      label.append(select);
+      this.conditionValue.append(label);
+    }
+    if (definition?.invert_mask) {
+      const description = document.createElement("p");
+      description.textContent = "All residues are indexed by default. Only explicitly unindexed residues are listed under Conditions on this structure.";
+      this.conditionValue.append(description);
+      for (const enabled of [true, false]) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.id = enabled ? "unindex-selection" : "restore-indexing";
+        button.textContent = enabled ? "Unindex selection" : "Restore indexing";
+        button.dataset.needsSelection = "true";
+        button.addEventListener("click", () => {
+          void this.options.mutate("/conditions", {
+            condition: this.conditionSelect.value,
+            atom_indices: [...this.options.selection.values],
+            enabled,
+          });
+        });
+        this.conditionValue.append(button);
+      }
+      return;
+    }
     if (definition?.group_editor) {
       const label = document.createElement("label");
       label.textContent = "Group";
       const select = document.createElement("select");
       select.id = "condition-group";
       const groups = this.state.groups[this.conditionSelect.value] ?? [];
+      if (!groups.length) select.add(new Option("No groups yet — create one from a selection", ""));
+      select.disabled = groups.length === 0;
       for (const group of groups) select.add(new Option(`Group ${group.id} (${group.count} atoms)`, String(group.id)));
       if (groups.some((group) => String(group.id) === previousGroup)) select.value = previousGroup!;
       label.append(select);
@@ -183,6 +234,7 @@ export class ConditionController {
         button.id = `group-${action}`;
         button.textContent = text;
         if (action !== "delete") button.dataset.needsSelection = "true";
+        if (action === "add") button.dataset.needsGroup = "true";
         button.addEventListener("click", () => void this.options.mutate("/groups", {
           condition: this.conditionSelect.value, action, atom_indices: [...this.options.selection.values],
           group_id: select.value === "" ? null : Number(select.value), expected_revision: this.options.getRevision(),
@@ -192,7 +244,7 @@ export class ConditionController {
       const update = () => {
         element<HTMLButtonElement>("group-delete").disabled = !groups.find((group) => String(group.id) === select.value)?.can_delete;
       };
-      select.addEventListener("change", update);
+      select.addEventListener("change", () => { update(); this.updateSelectionUi(this.hasSession); });
       update();
       return;
     }
@@ -201,34 +253,11 @@ export class ConditionController {
       this.renderCentroid(previousChain);
       return;
     }
-    if (this.conditionSelect.value === "internal_coordinate") {
-      const clear = document.createElement("button");
-      clear.id = "clear-internal-targets";
-      clear.type = "button";
-      clear.textContent = "Clear saved targets for selected groups";
-      clear.disabled = !this.hasSession || this.options.selection.size === 0;
-      clear.addEventListener("click", async () => {
-        const revision = this.options.getRevision();
-        const session = this.options.getSessionId();
-        const atoms = [...this.options.selection.values];
-        const scope = this.scopeSelect.value;
-        if (revision === undefined || !session) return;
-        if (!await confirmAction(
-          "Clear saved targets for every atom in the selected internal-coordinate groups, " +
-          "including group members outside the selection? New targets will be derived from " +
-          "the structure when model inputs are prepared. Undo restores the saved targets.", "Clear targets",
-        ) || session !== this.options.getSessionId()) return;
-        void this.options.mutate("/internal-coords/clear-targets", {
-          expected_revision: revision,
-          atom_indices: atoms,
-          scope,
-        });
-      });
-      this.conditionValue.appendChild(clear);
-    }
     if (!definition || definition.kind === "mask" || definition.kind === "operation") return;
 
     const label = document.createElement("label");
+    label.dataset.conditionInput = "true";
+    label.hidden = !this.enabledInput.checked;
     label.textContent =
       definition.kind === "vector3"
         ? "Centroid (x, y, z)"
@@ -244,7 +273,16 @@ export class ConditionController {
       const input = document.createElement("input");
       input.id = "condition-value-input";
       input.type = "number";
-      input.step = definition.kind === "integer" ? "1" : "0.1";
+      input.step = String(definition.step ?? (definition.kind === "integer" ? 1 : 0.1));
+      if (definition.minimum !== undefined) input.min = String(definition.minimum);
+      if (definition.maximum !== undefined) input.max = String(definition.maximum);
+      if (definition.decimals !== undefined) {
+        input.addEventListener("change", () => {
+          if (input.value && Number.isFinite(input.valueAsNumber)) {
+            input.value = String(Number(input.valueAsNumber.toFixed(definition.decimals)));
+          }
+        });
+      }
       input.value =
         typeof definition.default === "number"
           ? String(definition.default)
@@ -275,6 +313,8 @@ export class ConditionController {
   }
 
   private renderCentroid(previousChain?: string): void {
+    const definition = this.currentDefinition();
+    const decimals = definition?.decimals ?? 1;
     const entries = this.state.centroids[this.conditionSelect.value] ?? [];
     const label = document.createElement("label");
     label.textContent = "Chain";
@@ -289,7 +329,7 @@ export class ConditionController {
       label.textContent = `${axis} (Å)`;
       const input = document.createElement("input");
       input.id = `condition-value-${axis}`;
-      input.type = "number"; input.step = "0.001"; input.value = "0";
+      input.type = "number"; input.step = String(definition?.step ?? 0.1); input.value = "0";
       input.min = "-9999"; input.max = "9999";
       label.append(input); this.conditionValue.append(label);
       return input;
@@ -297,8 +337,8 @@ export class ConditionController {
     const saved = document.createElement("p");
     const load = () => {
       const target = entries.find((entry) => entry.chain === chain.value)?.target;
-      saved.textContent = target ? `Saved target: ${target.map((v) => v.toFixed(3)).join(", ")} Å` : "No saved centroid target.";
-      inputs.forEach((input, i) => { input.value = (target?.[i] ?? 0).toFixed(3); });
+      saved.textContent = target ? `Saved target: ${target.map((v) => v.toFixed(decimals)).join(", ")} Å` : "No saved centroid target.";
+      inputs.forEach((input, i) => { input.value = (target?.[i] ?? 0).toFixed(decimals); });
     };
     chain.addEventListener("change", load); load();
     this.conditionValue.append(saved);
@@ -306,8 +346,8 @@ export class ConditionController {
     fill.id = "centroid-fill"; fill.textContent = "Fill with current centroid";
     fill.addEventListener("click", () => {
       const current = entries.find((entry) => entry.chain === chain.value)?.current;
-      if (!current) { this.setFeedback("This chain has no resolved coordinates."); return; }
-      inputs.forEach((input, i) => { input.value = current[i].toFixed(3); });
+      if (!current) { this.setFeedback("This chain has no resolved coordinates.", true); return; }
+      inputs.forEach((input, i) => { input.value = current[i].toFixed(decimals); });
     });
     this.conditionValue.append(fill);
     const markerLabel = document.createElement("label"); markerLabel.className = "checkbox";
@@ -325,7 +365,7 @@ export class ConditionController {
       button.disabled = !entries.length;
       button.addEventListener("click", () => {
         if (enabled && inputs.some((input) => !input.value || !input.checkValidity())) {
-          this.setFeedback("Enter three finite coordinates."); return;
+          this.setFeedback("Enter three finite coordinates.", true); return;
         }
         void this.options.mutate("/centroids", {
           condition: this.conditionSelect.value, chain: chain.value,
@@ -364,7 +404,7 @@ export class ConditionController {
     const useSelection = document.createElement("button");
     useSelection.id = "pair-use-selection"; useSelection.textContent = "Use two selected atoms";
     useSelection.addEventListener("click", () => {
-      if (this.options.selection.size !== 2) { this.setFeedback("Select exactly two atoms."); return; }
+      if (this.options.selection.size !== 2) { this.setFeedback("Select exactly two atoms.", true); return; }
       this.picked = [...this.options.selection.values];
       void this.updatePairEndpoints();
     });
@@ -379,7 +419,7 @@ export class ConditionController {
     add.addEventListener("click", () => {
       const [atom1, atom2] = this.picked;
       if (atom1 === null || atom2 === null || atom1 === atom2 || !distance.value || !distance.checkValidity()) {
-        this.setFeedback("Pick two different atoms and enter a positive distance."); return;
+        this.setFeedback("Pick two different atoms and enter a positive distance.", true); return;
       }
       this.pairs.push({ atom1, atom2, distance: Number(distance.value), current_distance: null,
         atom1_label: element(`pair-atom-0`).textContent!.replace(/^Atom 1: /, ""),
@@ -462,10 +502,10 @@ export class ConditionController {
       element("pair-atom-0").textContent = `Atom 1: ${atom1 === null ? "—" : result.atom1_label}`;
       element("pair-atom-1").textContent = `Atom 2: ${atom2 === null ? "—" : result.atom2_label}`;
       if (useDistance && atom1 !== null && atom2 !== null) {
-        if (result.distance === null) this.setFeedback("The selected atoms have unresolved coordinates.");
+        if (result.distance === null) this.setFeedback("The selected atoms have unresolved coordinates.", true);
         else element<HTMLInputElement>("pair-distance").value = result.distance.toFixed(2);
       }
-    } catch (error) { this.setFeedback(String(error)); }
+    } catch (error) { this.setFeedback(String(error), true); }
   }
 
   private selectedValue(): number | number[] | string | null {
@@ -482,6 +522,8 @@ export class ConditionController {
   }
 
   private currentDefinition() {
-    return this.schema?.conditions[this.conditionSelect.value];
+    const name = this.conditionValue.querySelector<HTMLSelectElement>("#condition-residue-type")?.value
+      ?? this.conditionSelect.value;
+    return this.schema?.conditions[name];
   }
 }

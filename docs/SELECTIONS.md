@@ -4,6 +4,40 @@ The browser and VS Code command bar has two modes. **AtomWorks query** selects
 atoms in either renderer, using expressions or `sel()` for selection paths.
 **PyMOL commands** selects and styles atoms through Patinae.
 
+## Picking in the viewer
+
+The **Pick** control is always visible in the viewer toolbar:
+
+- **Atoms** (default): clicking a cartoon only reveals local sticks and focuses the view.
+  Click atoms in those sticks to add or remove individual atoms.
+- **Residues:** clicks toggle the whole residue, including clicks on sticks.
+- **Chains:** clicks toggle the whole chain.
+
+A click adds all targeted atoms if any are unselected, or removes them if all
+are selected. Atoms outside that target never change. There is no automatic
+refinement based on previous clicks and no modifier key is required. In Atoms mode, selecting
+one atom within an already selected residue removes only that atom.
+
+Showing local sticks and moving the camera do not change selection. **Clear
+selection** empties the selection while leaving local sticks available. Query
+and sequence-range selections explicitly replace the selection; pending canvas
+requests are cancelled by Clear, replacement selections, picking-mode changes,
+or document changes.
+
+Clicking a residue in the sequence toggles that whole residue without changing
+other selected atoms. Clicking a partially selected residue selects the rest of
+it; clicking again removes it. Enter and Space behave the same way.
+
+The sequence strip fills fully selected residues and partially fills residues
+with only some atoms selected. All selection counts share the same editing state.
+
+All actions use this same selection: condition edits, charges, bonds, deletion,
+measurements, and selection styling. The Pick control determines what future
+viewer clicks select; changing it or the condition type leaves existing selections
+unchanged. Conditions that inherently operate on residues or chains apply to the
+whole residues or chains containing selected atoms, using the same shared editing
+logic as the native PyMOL plugin. The condition editor explains this expansion.
+
 ## AtomWorks query
 
 Queries are expressions over the current structure's annotations. Studio uses

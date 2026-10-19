@@ -3,7 +3,5 @@
 EDITOR_TABS = (
     ("main", "Main"),
     ("annotations", "Annotations"),
-    ("bonds", "Bonds"),
-    ("charges", "Charges"),
-    ("chains", "Chains"),
+    ("structure", "Structure"),
 )

@@ -8,7 +8,7 @@ repository = "https://github.com/RosettaCommons/atomworks.git"
 
 [rfd4]
 repository = "https://github.com/RosettaCommons/RFD4-Proteina.git"
-revision = "66e4394d38a04a0b901a76507cd5528af2d7f845"
+revision = "e519afe329a0963172747e9f71e843a21b6995e8"
 metadata = "providers/rfd4/UPSTREAM.toml"
 runtime_variable = "ANNOTATION_STUDIO_RFD4_ROOT"
 

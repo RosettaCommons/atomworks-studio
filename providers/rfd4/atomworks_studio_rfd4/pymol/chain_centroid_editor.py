@@ -81,13 +81,15 @@ class ChainCentroidEditor(QtWidgets.QWidget, BaseAnnotationEditor):
         chain_row.addWidget(btn_refresh)
         layout.addLayout(chain_row)
 
+        definition = CONDITION_PROVIDER.definitions_by_name[annotation_cls.name]
         coord_row = QtWidgets.QHBoxLayout()
         self._spin_x = QtWidgets.QDoubleSpinBox()
         self._spin_y = QtWidgets.QDoubleSpinBox()
         self._spin_z = QtWidgets.QDoubleSpinBox()
         for label, spin in (("x", self._spin_x), ("y", self._spin_y), ("z", self._spin_z)):
             spin.setRange(-9999.0, 9999.0)
-            spin.setDecimals(3)
+            spin.setDecimals(definition.decimals)
+            spin.setSingleStep(definition.step)
             coord_row.addWidget(QtWidgets.QLabel(f"{label}:"))
             coord_row.addWidget(spin)
         layout.addLayout(coord_row)

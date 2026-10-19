@@ -11,7 +11,7 @@ from typing import Any, Literal
 import biotite.structure as struc
 import numpy as np
 from atomworks.constants import MASKED
-from atomworks.experimental.protonation import add_hydrogens
+from atomworks.experimental.protonation import assign_hydrogens, place_hydrogens
 from atomworks.io import parse
 from atomworks.io.template import infer_bonds_from_residue_names
 from atomworks.io.utils.atom_array_plus import (
@@ -24,9 +24,11 @@ from atomworks.io.utils.ccd import custom_ccd_residues
 from atomworks.io.utils.chain import create_chain_id_generator
 from atomworks.io.utils.io_utils import CIFWriteConfig, to_cif_string
 from atomworks.io.utils.query import AtomSelectionStack
+from atomworks.io.utils.selection import get_annotation
 from atomworks.io.utils.standard_annotations import S_SEGMAX, S_SEGMIN
-from atomworks.io.utils.standard_annotations.base import STANDARD_ANNOTATIONS
+from atomworks.io.utils.standard_annotations.base import STANDARD_ANNOTATIONS, Level
 from atomworks.ml.conditions import C_DIS
+from atomworks.ml.conditions.base import ConditionBase
 from atomworks.ml.transforms.interactions import AnnotateInteractions, InteractionType
 from atomworks.ml.utils.expandable_segment import (
     collapse_expandable_segments,
@@ -90,9 +92,9 @@ BOND_TYPES = {
     "SINGLE": struc.BondType.SINGLE,
     "DOUBLE": struc.BondType.DOUBLE,
     "TRIPLE": struc.BondType.TRIPLE,
-    "AROMATIC": struc.BondType.AROMATIC,
     "AROMATIC_SINGLE": struc.BondType.AROMATIC_SINGLE,
     "AROMATIC_DOUBLE": struc.BondType.AROMATIC_DOUBLE,
+    "AROMATIC": struc.BondType.AROMATIC,
     "COORDINATION": struc.BondType.COORDINATION,
     "ANY": struc.BondType.ANY,
 }
@@ -293,6 +295,24 @@ class StudioDocument:
                 if count:
                     raise TargetDiscardConfirmationRequiredError(count, self.revision)
 
+    def reset_conditions(self, *, expected_revision: int | None = None) -> dict[str, object]:
+        """Restore all stored conditions to their declared defaults in one undoable edit."""
+        if expected_revision is not None and self.revision != expected_revision:
+            raise DocumentRevisionConflictError(expected_revision, self.revision)
+        conditions = [
+            condition
+            for condition in STANDARD_ANNOTATIONS
+            if issubclass(condition, ConditionBase) and condition.has_annotation(self.array)
+        ]
+        with self.edit():
+            for condition in conditions:
+                categories = set(self.array.get_annotation_categories(n_body=condition.n_body))
+                for name in categories.intersection({condition.full_name, *condition.aliases}):
+                    self.array.del_annotation(name, n_body=condition.n_body)
+            for condition in conditions:
+                condition.set_annotation(self.array, condition.default_annotation(self.array))
+        return {"message": "All conditions reset to defaults."}
+
     def clear_history(self) -> None:
         """Discard undo history when replacing an entire document."""
         self._undo.clear()
@@ -313,6 +333,8 @@ class StudioDocument:
             return np.flatnonzero(mask).astype(int).tolist()
 
         for spec in self.condition_provider.definitions:
+            if not spec.visible and condition_name is None:
+                continue
             condition = spec.condition
             if spec.kind in {"mask", "operation"}:
                 if spec.active_mask is not None:
@@ -332,7 +354,7 @@ class StudioDocument:
                 entries.append(
                     {
                         "name": spec.key,
-                        "label": spec.label,
+                        "label": "Unindexed residues" if spec.invert_mask else spec.label,
                         "count": count,
                         "unit": spec.count_unit,
                         "values": [
@@ -394,7 +416,9 @@ class StudioDocument:
                         indices = atom_indices(group_mask)
                         values.append(
                             {
-                                "label": f"Group {int(group)}",
+                                "label": "Absolute coordinates (group 0)"
+                                if spec.key == "coordinate_group" and group == 0
+                                else f"Group {int(group)}",
                                 "value": int(group),
                                 "count": len(indices),
                                 "atom_indices": indices,
@@ -524,7 +548,7 @@ class StudioDocument:
         return fields
 
     def scalar_annotation_fields(self, field_name: str | None = None) -> list[dict[str, Any]]:
-        """Expose per-atom confidence fields as stable color buckets."""
+        """Expose stored B-factors and explicit confidence fields as color buckets."""
 
         palette = [
             ("Very low (<50)", 0.0, 50.0, {"name": "red", "value": 0xEF5350}),
@@ -544,10 +568,19 @@ class StudioDocument:
             finite = np.isfinite(values)
             if not finite.any() or np.nanmax(np.abs(values[finite])) == 0:
                 continue
-            display_values = values * 100.0 if np.nanmax(values[finite]) <= 1.0 else values
+            is_b_factor = category == "b_factor"
+            display_values = values if is_b_factor or np.nanmax(values[finite]) > 1.0 else values * 100.0
+            buckets = palette
+            if is_b_factor:
+                edges = np.linspace(values[finite].min(), values[finite].max(), 5)
+                buckets = [
+                    (f"{low:.2f} to {high:.2f}", low, high, color)
+                    for low, high, (_, _, _, color) in zip(edges[:-1], edges[1:], palette, strict=True)
+                ]
             groups = []
-            for label, minimum, maximum, color in palette:
-                mask = finite & (display_values >= minimum) & (display_values < maximum)
+            for bucket_index, (label, minimum, maximum, color) in enumerate(buckets):
+                upper = display_values <= maximum if bucket_index == len(buckets) - 1 else display_values < maximum
+                mask = finite & (display_values >= minimum) & upper
                 indices = np.flatnonzero(mask).astype(int).tolist()
                 if indices:
                     groups.append(
@@ -562,7 +595,7 @@ class StudioDocument:
                 fields.append(
                     {
                         "name": category,
-                        "label": "pLDDT / confidence" if category == "b_factor" else category,
+                        "label": "B-factor (CIF)" if is_b_factor else category,
                         "count": int(finite.sum()),
                         "unit": "atoms",
                         "values": groups,
@@ -694,8 +727,10 @@ class StudioDocument:
         if spec is None:
             raise ValueError(f"unsupported condition: {name}")
         selected = self.resolve_indices(indices, scope)
-        if spec.whole_residues:
-            selected = self.resolve_indices(selected.tolist(), "residue")
+        if spec.kind != "pair" and spec.level != Level.ATOM:
+            mask = np.zeros(len(self.array), dtype=bool)
+            mask[selected] = True
+            selected = np.flatnonzero(spec.level.apply_and_spread(self.array, mask, np.any))
         self._set_condition(
             name,
             selected.tolist(),
@@ -726,8 +761,7 @@ class StudioDocument:
             selected = self.resolve_indices(indices, scope)
             spec = self.condition_provider.definitions_by_name[name]
             condition = spec.condition
-            if spec.whole_residues:
-                selected = self.resolve_indices(selected.tolist(), "residue")
+
             if enabled and spec.normalize_value is not None:
                 value = spec.normalize_value(value)
             if spec.mutate is not None:
@@ -861,14 +895,14 @@ class StudioDocument:
             else:
                 raise ValueError(f"Unsupported group action: {action}")
             reset_to_unassigned = action in ("remove", "delete") and not spec.reserved_group_ids
-            self.set_condition(
+            result = self.set_condition(
                 name,
                 selected.tolist(),
                 enabled=action in ("new", "add") or reset_to_unassigned,
                 value=int(spec.default) if reset_to_unassigned else group_id,
                 allow_target_discard=allow_target_discard,
             )
-            count = len(selected)
+            count = result["affected_count"]
             message = {
                 "new": f"Created group {group_id} with {count} atoms.",
                 "add": f"Added {count} atoms to group {group_id}.",
@@ -938,7 +972,35 @@ class StudioDocument:
         if not np.isfinite(ph) or not 0 <= ph <= 14:
             raise ValueError("pH must be a finite number between 0 and 14")
         with self.edit(), custom_ccd_residues(self.array._custom_ccd_registry):
-            self.array = as_atom_array_plus(add_hydrogens(self.array, ph=ph))
+            original = self.array
+            chemistry = original.copy()
+            atom_ids = get_annotation(original, "atom_id", default=np.arange(len(original)))
+            atom_conditions = [
+                annotation
+                for annotation in STANDARD_ANNOTATIONS
+                if issubclass(annotation, ConditionBase)
+                and annotation.n_body == 1
+                and annotation.level == Level.ATOM
+                and annotation.has_annotation(original)
+            ]
+            for annotation in atom_conditions:
+                for name in {annotation.full_name, *annotation.aliases} & set(chemistry.get_annotation_categories()):
+                    chemistry.del_annotation(name)
+            # CIF atom IDs can repeat across chains; use unique IDs during chemistry.
+            chemistry.set_annotation("atom_id", np.arange(len(original)))
+            state = assign_hydrogens(chemistry, ph=ph)
+            protonated = as_atom_array_plus(place_hydrogens(state))
+            source = protonated.atom_id.copy()
+            retained = np.isin(source, state.atom_id)
+            protonated.atom_id[retained] = atom_ids[source[retained]]
+            protonated.atom_id[~retained] = atom_ids.max(initial=-1) + 1 + np.arange((~retained).sum())
+            # Restore saved targets by atom identity, with defaults for new hydrogens.
+            # Write storage together so coupled conditions never see a partially restored state.
+            for annotation in atom_conditions:
+                values = annotation.default_annotation(protonated).copy()
+                values[retained] = annotation.annotation(original)[source[retained]]
+                protonated.set_annotation(annotation.full_name, values)
+            self.array = protonated
         count = int(np.count_nonzero(self.array.element == "H"))
         return {"message": f"Protonated at pH {ph:g}; {count} hydrogen atoms.", "hydrogen_count": count}
 
@@ -984,6 +1046,21 @@ class StudioDocument:
                 mask = self.array.chain_iid == chain
                 self.array.res_id[mask] -= int(self.array.res_id[mask].min()) - 1
 
+    def next_chain_id(self) -> str:
+        """Suggest an unused uppercase chain ID after the highest existing ID (Z → AA)."""
+        used = set(map(str, self.array.chain_id))
+        alphabetic = [chain for chain in used if chain.isascii() and chain.isalpha() and chain.isupper()]
+        highest = max(alphabetic, key=lambda chain: (len(chain), chain), default="")
+        number = 0
+        for letter in highest:
+            number = number * 26 + ord(letter) - ord("A") + 1
+        number += 1
+        result = ""
+        while number:
+            number, remainder = divmod(number - 1, 26)
+            result = chr(ord("A") + remainder) + result
+        return result
+
     def insert_segment(
         self,
         minimum: int,
@@ -995,6 +1072,10 @@ class StudioDocument:
         chain_id: str | None = None,
         chain_type: str | None = None,
     ) -> None:
+        if new_chain:
+            chain_id = (chain_id or "").strip() or self.next_chain_id()
+            if len(chain_id) > 4:
+                raise ValueError("Chain IDs must contain at most four characters")
         with self.edit():
             if atom_index is not None and not new_chain:
                 selected = int(self.resolve_indices([atom_index])[0])
@@ -1176,6 +1257,8 @@ class StudioDocument:
         *,
         expected_revision: int | None = None,
     ) -> dict[str, Any]:
+        if "distance" not in self.condition_provider.definitions_by_name:
+            raise ValueError("distance restraints are not supported by this condition provider")
         with self._condition_edit("distance", False, expected_revision):
             replace_distance_restraints(self.array, pairs, values)
         return {"message": f"Saved {len(self.distance_restraints())} distance restraints."}
@@ -1187,6 +1270,8 @@ class StudioDocument:
         action: Literal["set", "remove"],
         distance: float | None = None,
     ) -> None:
+        if "distance" not in self.condition_provider.definitions_by_name:
+            raise ValueError("distance restraints are not supported by this condition provider")
         with self.edit():
             selected = self.resolve_indices([atom1, atom2])
             if len(selected) != 2:
@@ -1403,6 +1488,7 @@ class StudioDocument:
             "atom_count": len(self.array),
             "condition_editors": self.condition_editor_state(),
             "chain_ids": sorted(str(value) for value in np.unique(self.array.get_annotation(chain_key))),
+            "next_chain_id": self.next_chain_id(),
             "sequence": self.sequence_view(),
             "condition_counts": {entry["name"]: entry["count"] for entry in details},
             "annotations": annotations,

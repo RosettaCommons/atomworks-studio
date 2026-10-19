@@ -80,6 +80,7 @@ export class PatinaeAdapter implements ViewerAdapter {
   private atomIdentities: AtomIdentity[] = [];
   private cif: string | null = null;
   private markerNames: string[] = [];
+  private interactionNames = new Set<string>();
   private name = "structure";
   private readonly displayCommands = [
     "hide everything",
@@ -152,10 +153,19 @@ export class PatinaeAdapter implements ViewerAdapter {
     for (const objectName of this.viewer.getObjectNames()) this.viewer.execute(`delete ${objectName}`);
     const loaded = this.viewer.loadData(new TextEncoder().encode(this.cif), this.name, "cif");
     if ("Err" in loaded.result) throw new Error(loaded.result.Err);
+    this.atomIdentities = this.viewer.getAtomIdentityMap?.() ?? [];
+    await this.applyBaseStyle();
+    this.viewer.execute("zoom all");
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    this.viewer.getObjectNames(); // Surface deferred WebGPU/render errors.
+  }
+
+  private async applyBaseStyle(): Promise<void> {
+    if (!this.viewer || this.cif === null) return;
     for (const command of this.displayCommands) await this.executeCommand(command);
+    await this.executeCommand("color atomic");
     for (const command of this.colorCommands) await this.executeCommand(command);
     this.viewer.execute(this.backgroundCommand);
-    this.atomIdentities = this.viewer.getAtomIdentityMap?.() ?? [];
     const coordinateRows = parseAtomSiteBooleanColumn(
       this.cif,
       "_atom_site.mask_coordinate_1_atom",
@@ -165,9 +175,6 @@ export class PatinaeAdapter implements ViewerAdapter {
     }
     const unpositioned = unpositionedAtomIndices(this.cif);
     if (unpositioned.length) this.viewer.execute(`hide everything, ${this.nativeSelection(unpositioned)}`);
-    this.viewer.execute("zoom all");
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    this.viewer.getObjectNames(); // Surface deferred WebGPU/render errors.
   }
 
   async loadCif(cif: string, name: string): Promise<void> {
@@ -225,9 +232,13 @@ export class PatinaeAdapter implements ViewerAdapter {
 
   async showAnnotation(groups: AnnotationGroup[]): Promise<AnnotationRenderResult> {
     if (!this.viewer) throw new Error("Patinae is not initialized");
-    const normalized = normalizedAnnotationGroups(groups);
-    await this.renderCif();
-    normalized.forEach((group, index) => {
+    const unpositioned = unpositionedAtomIndices(this.cif ?? "");
+    const excluded = new Set(unpositioned);
+    const normalized = normalizedAnnotationGroups(groups.map(group => ({
+      ...group, atomIndices: group.atomIndices.filter(index => !excluded.has(index)),
+    })));
+    await this.applyBaseStyle();
+    for (const [index, group] of normalized.entries()) {
       const selection = this.nativeSelection(group.atomIndices);
       const selectedCount = this.viewer!.countAtoms(selection);
       if (selectedCount !== group.atomIndices.length) {
@@ -237,14 +248,15 @@ export class PatinaeAdapter implements ViewerAdapter {
         );
       }
       const color = group.color ?? ANNOTATION_PALETTE[index % ANNOTATION_PALETTE.length];
-      this.viewer!.execute(`color ${color.name}, ${selection}`);
-      this.viewer!.execute(`show sticks, ${selection}`);
-    });
+      await this.executeCommand(`color 0x${color.value.toString(16).padStart(6, "0")}, ${selection}`);
+      if (group.showAtoms) await this.executeCommand(`show sticks, byres (${selection})`);
+    }
+    if (unpositioned.length) await this.executeCommand(`hide everything, ${this.nativeSelection(unpositioned)}`);
     return annotationRenderResult(normalized);
   }
 
   async clearAnnotation(): Promise<void> {
-    if (this.cif !== null) await this.renderCif();
+    if (this.cif !== null) await this.applyBaseStyle();
     else this.clearSelection();
   }
 
@@ -285,7 +297,9 @@ export class PatinaeAdapter implements ViewerAdapter {
     action: ViewerRepresentationAction,
   ): Promise<void> {
     if (!this.viewer) throw new Error("Patinae is not initialized");
-    const selection = target === "selection" ? "sele" : "all";
+    let selection = target === "selection" ? "sele" : "all";
+    const unpositioned = this.cif ? unpositionedAtomIndices(this.cif) : [];
+    if (unpositioned.length) selection = `(${selection}) and not (${this.nativeSelection(unpositioned)})`;
     await this.executeCommand(`${action === "replace" ? "as" : action} ${representation}, ${selection}`);
   }
 
@@ -359,7 +373,7 @@ export class PatinaeAdapter implements ViewerAdapter {
 
   listMeasurements(): ViewerMeasurement[] {
     return flattenMeasurements((this.viewer?.getMeasurementList?.() ?? [])
-      .filter((measurement) => !this.markerNames.includes(measurement.name)));
+      .filter((measurement) => !this.markerNames.includes(measurement.name) && !this.interactionNames.has(measurement.name)));
   }
 
   async addMeasurement(request: ViewerMeasurementRequest): Promise<ViewerMeasurement[]> {
@@ -390,16 +404,20 @@ export class PatinaeAdapter implements ViewerAdapter {
   }
 
   async clearMeasurements(): Promise<void> {
-    const names = this.viewer?.getMeasurementList?.().map((measurement) => measurement.name) ?? [];
+    const names = (this.viewer?.getMeasurementList?.() ?? [])
+      .filter(measurement => !this.interactionNames.has(measurement.name) && !this.markerNames.includes(measurement.name))
+      .map(measurement => measurement.name);
     if (names.length) this.viewer?.removeMeasurements?.(names);
   }
 
   async showInteractions(interactions: ViewerInteraction[]): Promise<void> {
     if (!this.viewer?.addMeasurements) {
+      if (!interactions.length) return;
       throw new Error("This Patinae build does not support interaction overlays.");
     }
-    await this.clearMeasurements();
-    if (this.viewer.addMeasurements) {
+    if (this.interactionNames.size) this.viewer.removeMeasurements?.([...this.interactionNames]);
+    this.interactionNames = new Set(interactions.map(interaction => interaction.id));
+    if (interactions.length) {
       this.viewer.addMeasurements(interactions.map((interaction) => ({
         kind: "distance",
         name: interaction.id,
@@ -416,6 +434,7 @@ export class PatinaeAdapter implements ViewerAdapter {
   destroy(): void {
     this.viewer?.destroy();
     this.viewer = null;
+    this.interactionNames.clear();
     this.atomIdentities = [];
     this.cif = null;
   }

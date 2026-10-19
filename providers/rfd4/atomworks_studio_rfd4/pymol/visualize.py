@@ -7,8 +7,12 @@ entries in :py:mod:`atomworks_studio_pymol.views`.
 Only imported inside a running PyMOL process.
 """
 
+import json
+from importlib.resources import files
+
 import numpy as np
 from atomworks.io.utils.atom_array_plus import AtomArrayPlus
+from atomworks_studio_pymol.display import display_atom_ids
 from pymol import cmd
 
 from atomworks_studio_rfd4.model import C_CRDGRP, C_IDXGRP
@@ -18,29 +22,12 @@ _CRDGRP_NAMED_COLORS = {
     -1: "gray60",  # UNKNOWN_COORDS
     0: "lightblue",  # KNOWN_ABSOLUTE_COORDS
 }
-# 20 maximally-distinct group colors (based on Trubetskoy's distinct-color set),
-# registered as custom PyMOL colors so their appearance is consistent
+# Annotation overlays use the same palette in web and native viewers.
 _PALETTE_RGB: list[tuple[str, tuple[float, float, float]]] = [
-    ("aw_grp_00", (0.902, 0.098, 0.294)),  # red
-    ("aw_grp_01", (0.235, 0.706, 0.294)),  # green
-    ("aw_grp_02", (0.000, 0.000, 0.459)),  # navy
-    ("aw_grp_03", (0.259, 0.831, 0.957)),  # cyan
-    ("aw_grp_04", (1.000, 0.847, 0.694)),  # apricot
-    ("aw_grp_05", (0.863, 0.745, 1.000)),  # lavender
-    ("aw_grp_06", (0.604, 0.388, 0.141)),  # brown
-    ("aw_grp_07", (0.263, 0.388, 0.847)),  # blue
-    ("aw_grp_08", (0.941, 0.196, 0.902)),  # magenta
-    ("aw_grp_09", (0.502, 0.000, 0.000)),  # maroon
-    ("aw_grp_10", (0.275, 0.600, 0.565)),  # teal
-    ("aw_grp_11", (0.502, 0.502, 0.000)),  # olive
-    ("aw_grp_12", (0.667, 1.000, 0.765)),  # mint
-    ("aw_grp_13", (0.663, 0.663, 0.663)),  # grey
-    ("aw_grp_14", (1.000, 0.882, 0.098)),  # yellow
-    ("aw_grp_15", (0.569, 0.118, 0.706)),  # purple
-    ("aw_grp_16", (0.961, 0.510, 0.192)),  # orange
-    ("aw_grp_17", (0.749, 0.937, 0.271)),  # lime
-    ("aw_grp_18", (0.980, 0.745, 0.831)),  # pink
-    ("aw_grp_19", (1.000, 0.980, 0.784)),  # beige
+    (f"aw_grp_{index:02d}", tuple(((color["value"] >> shift) & 255) / 255 for shift in (16, 8, 0)))
+    for index, color in enumerate(
+        json.loads(files("atomworks_studio_editing").joinpath("annotation_palette.json").read_text())
+    )
 ]
 _PALETTE = [name for name, _ in _PALETTE_RGB]
 
@@ -83,8 +70,23 @@ def _color_by_group(
     unique_groups = sorted({int(g) for g in groups})
     cycled = [g for g in unique_groups if g not in named_colors]
     if len(cycled) > len(_PALETTE):
-        cmd.color("grey50", obj_name)
-        _warn_too_many_groups(len(cycled), len(_PALETTE))
+        from pymol.Qt import QtWidgets
+
+        choices = [str(group) for group in unique_groups if group >= 0]
+        selected, accepted = QtWidgets.QInputDialog.getItem(
+            None,
+            "Highlight a group",
+            "Too many groups for distinct colors. Choose one to highlight:",
+            choices,
+            0,
+            False,
+        )
+        if not accepted:
+            return
+        cmd.color("atomic", obj_name)
+        selected = int(selected)
+        ids = display_atom_ids(arr)[groups == selected]
+        cmd.color(_PALETTE[0], f"model {obj_name} and id {'+'.join(str(int(atom)) for atom in ids)}")
         return
 
     color_for: dict[int, str] = dict(named_colors)
@@ -104,22 +106,6 @@ def _color_by_group(
 
     for group_val in unique_groups:
         cmd.color(color_for[group_val], f"{obj_name} and b={group_val}")
-
-
-def _warn_too_many_groups(n_groups: int, n_colors: int) -> None:
-    """Warn (console + popup) that there are more groups than distinct colors."""
-    msg = (
-        f"{n_groups} groups need distinct colors but only {n_colors} are available. "
-        "Reusing colors would make groups ambiguous, so the structure is shown in grey. "
-        "Reduce the number of groups to color them distinctly."
-    )
-    print(f"AtomWorks: {msg}")
-    try:
-        from pymol.Qt import QtWidgets
-
-        QtWidgets.QMessageBox.warning(None, "Too many groups to color", msg)
-    except Exception:
-        pass
 
 
 def _warn_too_many_chains_for_distinct_colors(n_chains: int, n_colors: int) -> None:

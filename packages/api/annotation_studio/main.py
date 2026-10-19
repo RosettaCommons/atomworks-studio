@@ -10,6 +10,7 @@ import secrets
 import time
 from collections.abc import Awaitable, Callable
 from importlib.resources import files
+from io import StringIO
 from pathlib import Path
 from threading import RLock
 from typing import Any, Literal
@@ -17,7 +18,7 @@ from urllib.parse import urlencode
 
 from atomworks_studio_editing.contracts import DocumentRevisionConflictError, TargetDiscardConfirmationRequiredError
 from atomworks_studio_editing.layout import EDITOR_TABS
-from atomworks_studio_editing.loading import load_options_schema
+from atomworks_studio_editing.loading import inspect_import, load_options_schema
 from atomworks_studio_editing.providers import load_providers
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, PlainTextResponse, Response
@@ -192,10 +193,24 @@ class DocumentStore:
                 raise SessionNotFoundError(session_id) from None
             document_lock = self._document_locks[session_id]
         with document_lock:
+            with self._lock:
+                if self._documents.get(session_id, (None, None, None))[2] is not document:
+                    raise SessionNotFoundError(session_id)
             result = operation(document)
             if persist:
                 self._persist(session_id, document)
             return result
+
+    def delete(self, session_id: str) -> None:
+        """Remove an owned document and snapshot after any active operation finishes."""
+
+        def remove(_document: StudioDocument) -> None:
+            with self._lock:
+                if (path := self._session_file(session_id)) is not None:
+                    path.unlink(missing_ok=True)
+                self._forget(session_id, delete_file=False)
+
+        self.call(session_id, remove)
 
 
 session_dir_value = os.environ.get("ANNOTATION_STUDIO_SESSION_DIR")
@@ -298,6 +313,10 @@ class ConfirmableSelectionRequest(ScopedSelectionRequest):
         if self.allow_target_discard and self.expected_revision is None:
             raise ValueError("Confirming target loss requires the preview's expected_revision")
         return self
+
+
+class ResetConditionsRequest(BaseModel):
+    expected_revision: int = Field(ge=0)
 
 
 class ConditionMutation(ConfirmableSelectionRequest):
@@ -549,11 +568,26 @@ def ready() -> dict[str, str]:
 @app.get("/api/schema")
 def schema() -> dict:
     return {
-        "conditions": {definition.key: definition.schema for definition in condition_provider.definitions},
-        "bond_types": sorted(BOND_TYPES),
+        "conditions": {
+            definition.key: definition.schema for definition in condition_provider.definitions if definition.visible
+        },
+        "bond_types": list(BOND_TYPES),
+        "document_operations": ["reset_conditions"],
         "editor_tabs": [{"id": key, "label": label} for key, label in EDITOR_TABS],
         "loading": load_options_schema(),
     }
+
+
+@app.post("/api/import/inspect")
+async def inspect_uploaded_import(file: UploadFile = File(...)) -> dict:
+    content = await file.read(MAX_UPLOAD_BYTES + 1)
+    await file.close()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail=f"upload exceeds {MAX_UPLOAD_BYTES // 1024 // 1024} MiB")
+    try:
+        return inspect_import(StringIO(content.decode("utf-8")), file_type="cif")
+    except Exception as error:
+        raise HTTPException(status_code=422, detail=f"Cannot inspect CIF: {error}") from error
 
 
 @app.post("/api/sessions")
@@ -601,6 +635,15 @@ async def create_session(
 @app.get("/api/sessions/{session_id}")
 def get_session(session_id: str) -> dict:
     return _session_response(session_id, _call(session_id, lambda document: document.summary()))
+
+
+@app.delete("/api/sessions/{session_id}", status_code=204)
+def delete_session(session_id: str) -> Response:
+    try:
+        store.delete(session_id)
+    except SessionNotFoundError:
+        raise HTTPException(status_code=404, detail="session not found or expired") from None
+    return Response(status_code=204)
 
 
 @app.get("/api/sessions/{session_id}/annotations/{condition}")
@@ -920,6 +963,11 @@ def realize_segments(session_id: str, mutation: RealizeMutation) -> dict:
 @app.post("/api/sessions/{session_id}/segments/collapse")
 def collapse_segments(session_id: str) -> dict:
     return _apply(session_id, lambda document: document.collapse_segments())
+
+
+@app.post("/api/sessions/{session_id}/conditions/reset")
+def reset_conditions(session_id: str, mutation: ResetConditionsRequest) -> dict:
+    return _apply(session_id, lambda document: document.reset_conditions(expected_revision=mutation.expected_revision))
 
 
 @app.post("/api/sessions/{session_id}/reset-residue-ids")

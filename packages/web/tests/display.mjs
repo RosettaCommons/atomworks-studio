@@ -35,6 +35,9 @@ try {
     ? await demo.locator('iframe[title="AtomWorks Studio"]').elementHandle().then(element => element.contentFrame()) : demo;
   await ui.locator('#status-message').filter({hasText: 'Ready. Open a CIF'}).waitFor({timeout: 120000});
   const loaded = page.waitForResponse(r => r.url().endsWith('/sessions') && r.request().method() === 'POST');
+  await ui.locator(".load-options > summary").click();
+  await ui.locator("#parse-preset").selectOption("minimal");
+  await ui.locator(".load-options > summary").click();
   await ui.locator('#file-input').setInputFiles(fileURLToPath(new URL('../../../tests/fixtures/minimal_multichain.cif', import.meta.url)));
   const session = await (await loaded).json();
   const endpoint = base + 'api/v1/sessions/' + session.session_id;
@@ -70,7 +73,7 @@ try {
     return count;
   }
   async function readPixels(name) {
-    await ui.locator(".viewer-menu:not(.studio-menu)").evaluateAll(menus => menus.forEach(menu => menu.open = false));
+    await ui.locator(".viewer-menu").evaluateAll(menus => menus.forEach(menu => menu.open = false));
     // Let the renderer present a frame after its state update commits.
     await page.waitForTimeout(400);
     const image = await ui.locator('#viewer canvas').first().screenshot({path: `${output}/${mode}-${embedded ? 'gradio' : 'studio'}-${name}.png`});

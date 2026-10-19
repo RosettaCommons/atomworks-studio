@@ -1,10 +1,18 @@
-// RFD4 inputs can carry dummy atom_site coordinates at the origin. AtomWorks
-// records their absent coordinates as NaN in condition_coordinate_1_atom.
-// Generated atoms have real atom_site coordinates and remain visible.
+// Render only positioned atoms: missing coordinates and design placeholders
+// remain in the editable document but must never participate in 3D geometry.
 export function unpositionedAtomIndices(cif: string): number[] {
   const lines = cif.split(/\r?\n/);
   const loops = new Map<string, { fields: string[]; rows: string[][] }>();
   for (let i = 0; i < lines.length; i++) {
+    const scalar = lines[i].trim().match(/^(_(?:atom_site|condition_coordinate_1_atom)\.\S+)\s+(\S+)/);
+    if (scalar) {
+      const category = scalar[1].split(".", 1)[0];
+      const table = loops.get(category) ?? { fields: [], rows: [[]] };
+      table.fields.push(scalar[1]);
+      table.rows[0].push(scalar[2]);
+      loops.set(category, table);
+      continue;
+    }
     if (lines[i].trim() !== "loop_") continue;
     const fields: string[] = [];
     while (lines[i + 1]?.trim().startsWith("_")) fields.push(lines[++i].trim());
@@ -47,7 +55,8 @@ export function unpositionedAtomIndices(cif: string): number[] {
   }
   return atoms.rows.flatMap((row, index) => {
     const source = atomIndex < 0 ? index : Number(row[atomIndex]);
-    return unknown.has(source) && positions.every(column => Number(row[column]) === 0)
-      ? [source] : [];
+    const unresolved = positions.some(column => !Number.isFinite(Number(row[column])));
+    const placeholder = unknown.has(source) && positions.every(column => Number(row[column]) === 0);
+    return unresolved || placeholder ? [source] : [];
   });
 }

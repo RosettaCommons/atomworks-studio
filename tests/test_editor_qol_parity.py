@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 from annotation_studio.main import app, store
 from atomworks.io.config import ParseConfig
+from atomworks_studio_editing.conditions import CONDITION_PROVIDER as ATOMWORKS_PROVIDER
 from atomworks_studio_editing.document import StudioDocument
 from atomworks_studio_editing.loading import LOAD_FIELDS, build_load_config
 from atomworks_studio_rfd4 import CONDITION_PROVIDER, VALIDATION_PROVIDER
@@ -42,6 +43,7 @@ def documents():
     browser = native.clone()
     state = SimpleNamespace(
         active="test",
+        condition_provider=CONDITION_PROVIDER,
         documents={"test": native},
         arrays={"test": native.array},
         document=lambda name: native,
@@ -124,6 +126,9 @@ def test_group_actions_match_qt_and_http(qt, monkeypatch, documents, condition):
     from atomworks_studio_rfd4.pymol.group_editor import GroupEditor
 
     native, browser, state = documents
+    if condition is C_IDXGRP:
+        for document in (native, browser):
+            document.array.set_annotation("atomize", np.ones(len(document.array), dtype=bool))
     session = store.add(browser)
     editor = GroupEditor(condition, state)
     monkeypatch.setattr(editor, "_post_edit", lambda *args: editor.refresh())
@@ -185,7 +190,7 @@ def test_centroid_fill_set_clear_matches_qt_and_http(qt, monkeypatch, documents)
     editor._fill_with_current_centroid()
     values = [editor._spin_x.value(), editor._spin_y.value(), editor._spin_z.value()]
     expected = np.nanmean(native.array.coord[native.array.chain_iid == chain], axis=0)
-    np.testing.assert_allclose(values, expected, atol=0.00051)
+    np.testing.assert_allclose(values, np.round(expected, 1), atol=1e-6)
     for enabled in (True, False):
         editor._apply(enabled)
         response = client.post(
@@ -203,8 +208,9 @@ def test_centroid_fill_set_clear_matches_qt_and_http(qt, monkeypatch, documents)
     editor.close()
 
 
-def test_restraint_replacement_is_atomic_and_revision_bound(documents):
-    native, browser, _ = documents
+def test_restraint_replacement_is_atomic_and_revision_bound():
+    native = StudioDocument.from_cif(FIXTURE.read_text())
+    browser = native.clone()
     session = store.add(browser)
     payload = {"pairs": [[0, 1], [1, 0], [2, 3]], "values": [4, 5, 6], "expected_revision": 0}
     native.replace_distance_restraints(payload["pairs"], payload["values"])
@@ -231,6 +237,7 @@ def test_pair_widget_apply_matches_http_and_supports_undo(qt, monkeypatch, docum
     from atomworks_studio_pymol.editors.widgets import PairValueEditor
 
     native, browser, state = documents
+    native.condition_provider = browser.condition_provider = ATOMWORKS_PROVIDER
     keys = [(str(atom.chain_iid), int(atom.res_id), str(atom.ins_code), str(atom.atom_name)) for atom in native.array]
     state.index_maps = {"test": {key: index for index, key in enumerate(keys)}}
     session = store.add(browser)
@@ -368,3 +375,92 @@ def test_protonation_button_updates_native_object_and_supports_undo(qt, monkeypa
     np.testing.assert_array_equal(STATE.arrays[name].atom_name, before.atom_name)
     STATE.clear_all()
     cmd.delete(name)
+
+
+def test_probability_editor_groups_tokens_and_matches_http(qt, monkeypatch):
+    from atomworks_studio_pymol.panel import AnnotationWizard, ExpandableSegmentInsertDialog
+    from atomworks_studio_rfd4.pymol.document_editors import SequenceProbabilityEditor
+
+    native = StudioDocument.from_cif(
+        FIXTURE.with_name("minimal_multichain.cif").read_text(), condition_provider=CONDITION_PROVIDER
+    )
+    native.set_condition("sequence", [0], enabled=False)
+    browser = native.clone()
+    session = store.add(browser)
+    state = SimpleNamespace(
+        active="test",
+        arrays={"test": native.array},
+        condition_provider=CONDITION_PROVIDER,
+        document=lambda name: native,
+    )
+    wizard = AnnotationWizard(state)
+    labels = [wizard._list.item(i).text() for i in range(wizard._list.count())]
+    assert labels.count("Sequence probability") == 1
+    assert not any(label.startswith("Sequence Probability ") for label in labels)
+    definition = CONDITION_PROVIDER.definitions_by_name["sequence_probability_ala"]
+    editor = SequenceProbabilityEditor(definition.condition, state)
+    monkeypatch.setattr(editor, "_require_selection_indices", lambda: [0])
+    monkeypatch.setattr(editor, "_reload_or_recolor", lambda: None)
+    monkeypatch.setattr(editor, "_clear_selection", lambda: None)
+    assert editor._value_widget.decimals() == 2
+    assert editor._value_widget.singleStep() == 0.1
+    assert editor._residue_type.count() == 28
+    for key, value in [("sequence_probability_ala", 0.25), ("sequence_probability_arg", 0.35)]:
+        editor._residue_type.setCurrentIndex(editor._residue_type.findData(key))
+        editor._value_widget.setValue(value)
+        editor.apply_to_selection()
+        response = client.post(
+            f"/api/sessions/{session}/conditions",
+            json={"condition": key, "atom_indices": [0], "value": value},
+        )
+        assert response.status_code == 200, response.text
+        condition = CONDITION_PROVIDER.definitions_by_name[key].condition
+        np.testing.assert_equal(condition.annotation(native.array), condition.annotation(browser.array))
+        np.testing.assert_allclose(condition.annotation(native.array)[:2], value)
+    dialog = ExpandableSegmentInsertDialog(default_chain_id=native.next_chain_id())
+    dialog._new_chain_chk.setChecked(True)
+    assert dialog.new_chain_id == browser.summary()["next_chain_id"]
+
+
+@pytest.mark.parametrize("inferred", ["rcsb", "minimal", None])
+def test_native_automatic_import_requires_unambiguous_choice(qt, monkeypatch, inferred):
+    from atomworks_studio_pymol import panel
+    from pymol.Qt import QtWidgets
+
+    warnings = []
+    monkeypatch.setattr(panel, "inspect_import", lambda path: {"preset": inferred, "message": "Choose a preset"})
+    monkeypatch.setattr(QtWidgets.QMessageBox, "warning", lambda *args: warnings.append(args[-1]))
+    dialog = panel.LoadCIFDialog()
+    dialog._path_edit.setText(str(FIXTURE))
+    assert dialog._rb_auto.isChecked()
+    dialog._accept()
+    if inferred is None:
+        assert warnings == ["Choose a preset"]
+        assert dialog._dialog.result() != QtWidgets.QDialog.Accepted
+    else:
+        assert dialog._dialog.result() == QtWidgets.QDialog.Accepted
+        assert dialog.config == build_load_config(inferred)
+    dialog._dialog.close()
+
+
+def test_native_index_buttons_preserve_default_on_behavior(qt, monkeypatch, documents):
+    from atomworks.ml.conditions import C_IDX
+    from atomworks_studio_rfd4.pymol.document_editors import DocumentMaskEditor
+    from pymol.Qt import QtWidgets
+
+    native, _, state = documents
+    editor = DocumentMaskEditor(C_IDX, state)
+    monkeypatch.setattr(editor, "_require_selection_indices", lambda: [0])
+    monkeypatch.setattr(editor, "_reload_or_recolor", lambda: None)
+    monkeypatch.setattr(editor, "_clear_selection", lambda: None)
+    buttons = {button.text(): button for button in editor.findChildren(QtWidgets.QPushButton)}
+    assert C_IDX.mask(native.array, default="generate").all()
+    buttons["Unindex selection"].click()
+    expected = np.ones(len(native.array), dtype=bool)
+    expected[native.resolve_indices([0], "residue")] = False
+    np.testing.assert_equal(C_IDX.mask(native.array), expected)
+    buttons["Restore indexing"].click()
+    assert C_IDX.mask(native.array).all()
+    buttons["Unindex selection"].click()
+    buttons["Reset to Default"].click()
+    assert C_IDX.mask(native.array).all()

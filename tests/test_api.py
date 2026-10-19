@@ -144,8 +144,6 @@ def test_readiness_endpoint() -> None:
     assert response.json() == {"status": "ready"}
 
 
-
-
 def test_full_condition_api_and_download_roundtrip() -> None:
     session_id = _session()
     mutations = [
@@ -163,7 +161,6 @@ def test_full_condition_api_and_download_roundtrip() -> None:
             "scope": "chain",
             "value": [1.0, 2.0, 3.0],
         },
-        {"condition": "distance", "atom_indices": [0, 1], "value": 3.25},
     ]
     for mutation in mutations:
         response = client.post(f"/api/sessions/{session_id}/conditions", json=mutation)
@@ -204,7 +201,7 @@ def test_full_condition_api_and_download_roundtrip() -> None:
     assert counts["hotspot"] == 1
     assert counts["rasa"] == 1
     assert counts["chain_centroid"] > 0
-    assert counts["distance"] == 1
+    assert "distance" not in counts
 
 
 def test_internal_coordinate_operation_clears_absolute_coords() -> None:
@@ -224,7 +221,7 @@ def test_internal_coordinate_operation_clears_absolute_coords() -> None:
     assert response.status_code == 200, response.text
     counts = response.json()["structure"]["condition_counts"]
     # The operation swaps the masks and assigns a coordinate group.
-    assert counts.get("internal_coordinate", 0) > 0
+    assert counts.get("coordinate_group", 0) > 0
     assert "coordinate" not in counts
 
     download = client.get(f"/api/sessions/{session_id}/cif")
@@ -239,7 +236,7 @@ def test_internal_coordinate_operation_clears_absolute_coords() -> None:
         files={"file": ("intcrd.cif", download.content, "chemical/x-mmcif")},
     )
     assert reupload.status_code == 200, reupload.text
-    assert reupload.json()["structure"]["condition_counts"].get("internal_coordinate", 0) > 0
+    assert reupload.json()["structure"]["condition_counts"].get("coordinate_group", 0) > 0
 
     removed = client.post(
         f"/api/sessions/{session_id}/internal-coords",
@@ -334,7 +331,7 @@ def test_charge_bond_delete_and_undo_routes() -> None:
     assert restored.json()["structure"]["atom_count"] == original
 
 
-def test_bond_inspection_ccd_inference_and_distance_restraints() -> None:
+def test_bond_inspection_ccd_inference_and_unsupported_distance_restraints() -> None:
     session_id = _session()
     original = client.get(f"/api/sessions/{session_id}").json()["structure"]
 
@@ -356,31 +353,14 @@ def test_bond_inspection_ccd_inference_and_distance_restraints() -> None:
         f"/api/sessions/{session_id}/distance-restraints",
         json={"atom1": 0, "atom2": 1, "action": "set", "distance": 3.25},
     )
-    assert set_restraint.status_code == 200, set_restraint.text
-    assert set_restraint.json()["structure"]["revision"] == original["revision"] + 1
-    restraints = client.get(f"/api/sessions/{session_id}/distance-restraints")
-    assert restraints.status_code == 200, restraints.text
-    assert restraints.json()["restraints"] == [
-        {
-            "atom1": 0,
-            "atom2": 1,
-            "distance": 3.25,
-            "atom1_label": "B_1/S;M 1/N0",
-            "atom2_label": "B_1/S;M 1/C0",
-            "current_distance": restraints.json()["restraints"][0]["current_distance"],
-        }
-    ]
-
-    removed = client.post(
-        f"/api/sessions/{session_id}/distance-restraints",
-        json={"atom1": 1, "atom2": 0, "action": "remove"},
-    )
-    assert removed.status_code == 200, removed.text
+    assert set_restraint.status_code == 422, set_restraint.text
+    assert "not supported" in set_restraint.json()["detail"]
+    assert client.get(f"/api/sessions/{session_id}").json()["structure"]["revision"] == original["revision"]
     assert client.get(f"/api/sessions/{session_id}/distance-restraints").json()["count"] == 0
 
     inferred = client.post(f"/api/sessions/{session_id}/bonds/infer-ccd")
     assert inferred.status_code == 200, inferred.text
-    assert inferred.json()["structure"]["revision"] == original["revision"] + 3
+    assert inferred.json()["structure"]["revision"] == original["revision"] + 1
 
 
 def test_interaction_analysis_filtering_validation_and_revision_cache() -> None:

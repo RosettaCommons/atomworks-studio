@@ -14,7 +14,9 @@ try {
   await page.goto(`${base}?viewer=${backend}`, { waitUntil: "networkidle" });
   await page.waitForFunction(() => document.querySelector("#status")?.textContent?.includes("Ready."));
   await page.locator("#editor-tab-annotations").click();
-  for (const key of ["sequence", "coordinate", "index", "distance", "n_terminus", "c_terminus", "hotspot"]) {
+  assert.equal(await page.getByRole("heading", { name: "Conditions on this structure" }).isVisible(), true);
+  assert.equal(await page.locator("#annotation-search").count(), 0);
+  for (const key of ["sequence", "coordinate", "index", "distance", "hotspot"]) {
     assert.equal(await page.locator(`#condition option[value="${key}"]`).count(), 1, `${key} is installed`);
   }
   const fixture = fileURLToPath(new URL("../../../tests/fixtures/minimal_multichain.cif", import.meta.url));
@@ -36,15 +38,16 @@ try {
     await page.waitForFunction(() => !document.querySelector("#apply-condition").disabled);
   }
   async function apply(enabled) {
-    await page.locator("#enabled").setChecked(enabled);
+    const index = await page.locator("#condition").inputValue() === "index";
+    if (!index) await page.locator("#enabled").setChecked(enabled);
     const response = page.waitForResponse(r => r.url().endsWith("/conditions") && r.request().method() === "POST");
-    await page.locator("#apply-condition").click();
+    await page.locator(index ? (enabled ? "#unindex-selection" : "#restore-indexing") : "#apply-condition").click();
     const result = await response;
     assert.equal(result.status(), 200, await result.text());
     await page.waitForFunction(() => !document.querySelector("#viewer-mode").disabled);
     return result.json();
   }
-  for (const key of ["sequence", "coordinate", "index", "n_terminus", "c_terminus", "hotspot"]) {
+  for (const key of ["sequence", "coordinate", "index", "hotspot"]) {
     await upload(fixture);
     await page.locator("#condition").selectOption(key);
     await select("atom_name != ''");
@@ -53,6 +56,8 @@ try {
     const result = await apply(true);
     assert.equal(result.structure.condition_counts[key], ["coordinate", "hotspot"].includes(key) ? 2 : 1);
     const row = page.locator(`[data-view-key="annotations/${key}"]`);
+    assert.equal(await row.isVisible(), true, "active conditions can be browsed without searching");
+    assert.equal(await page.locator("#annotation-list details").count(), 0);
     await row.click();
     await page.waitForFunction(() => document.querySelector("#viewer")?.dataset.annotationAtoms === "2");
     assert.match(await page.locator("#selection-count").innerText(), /^0 atoms/);

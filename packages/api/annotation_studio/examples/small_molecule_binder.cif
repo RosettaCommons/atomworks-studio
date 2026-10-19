@@ -1,16 +1,16 @@
-data_SAM.cif
+data_small_molecule_binder.cif
 #
-_entry.id       SAM.cif
-_entry.author   rib7
-_entry.date     2026-08-28
-_entry.time     19:47:50
+_entry.id       small_molecule_binder.cif
+_entry.author   root
+_entry.date     2026-10-18
+_entry.time     22:59:55
 #
 loop_
 _entity.id 
 _entity.type 
 _entity.pdbx_description 
-0 non-polymer .
 1 polymer     .
+2 non-polymer .
 #
 _entity_poly.entity_id                      1
 _entity_poly.type                           polypeptide(L)
@@ -109,55 +109,84 @@ _atom_site.auth_seq_id
 _atom_site.auth_comp_id 
 _atom_site.auth_asym_id 
 _atom_site.auth_atom_id 
+_atom_site.id 
 _atom_site.B_iso_or_equiv 
 _atom_site.occupancy 
 _atom_site.pdbx_formal_charge 
-_atom_site.condition_hbond_1_atom 
-_atom_site.annotation_src-component_1_atom 
-_atom_site.mask_expsegmin_1_residue 
-_atom_site.mask_index_1_residue 
-_atom_site.annotation_expsegmax_1_residue 
-_atom_site.mask_coordinate_1_atom 
-_atom_site.mask_expsegmax_1_residue 
-_atom_site.mask_sequence_1_residue 
-_atom_site.condition_index-group_1_token 
 _atom_site.annotation_expsegmin_1_residue 
+_atom_site.annotation_expsegmax_1_residue 
+_atom_site.condition_sequence_1_residue 
+_atom_site.condition_index_1_residue 
+_atom_site.condition_hbond_1_atom 
+_atom_site.condition_index-group_1_token 
+_atom_site.annotation_src-component_1_atom 
 _atom_site.atom_array_index 
 _atom_site.Cartn_x 
 _atom_site.Cartn_y 
 _atom_site.Cartn_z 
 _atom_site.pdbx_PDB_model_num 
-_atom_site.id 
-HETATM X UNK   . 150-150 A 1 1   . 1   150-150 A UNK   nan   0.0 ?  0 .   True  True 150 False True  False 1 150 0  nan nan nan 1 1
-HETATM N N     . SAM     B 0 386 . 386 SAM     B N     32.71 1.0 ?  0 SAM False True -1  False False True  0 -1  1  0.0 0.0 0.0 1 2
-HETATM C CA    . SAM     B 0 386 . 386 SAM     B CA    30.57 1.0 ?  0 SAM False True -1  False False True  0 -1  2  0.0 0.0 0.0 1 3
-HETATM C C     . SAM     B 0 386 . 386 SAM     B C     32.74 1.0 ?  0 SAM False True -1  False False True  0 -1  3  0.0 0.0 0.0 1 4
-HETATM O O     . SAM     B 0 386 . 386 SAM     B O     33.69 1.0 ?  0 SAM False True -1  False False True  0 -1  4  0.0 0.0 0.0 1 5
-HETATM O OXT   . SAM     B 0 386 . 386 SAM     B OXT   30.33 1.0 -1 0 SAM False True -1  False False True  0 -1  5  0.0 0.0 0.0 1 6
-HETATM C CB    . SAM     B 0 386 . 386 SAM     B CB    28.33 1.0 ?  0 SAM False True -1  False False True  0 -1  6  0.0 0.0 0.0 1 7
-HETATM C CG    . SAM     B 0 386 . 386 SAM     B CG    25.65 1.0 ?  0 SAM False True -1  False False True  0 -1  7  0.0 0.0 0.0 1 8
-HETATM S SD    . SAM     B 0 386 . 386 SAM     B SD    24.65 1.0 +1 0 SAM False True -1  False False True  0 -1  8  0.0 0.0 0.0 1 9
-HETATM C CE    . SAM     B 0 386 . 386 SAM     B CE    29.63 1.0 ?  0 SAM False True -1  False False True  0 -1  9  0.0 0.0 0.0 1 10
-HETATM C "C5'" . SAM     B 0 386 . 386 SAM     B "C5'" 22.38 1.0 ?  0 SAM False True -1  False False True  0 -1  10 0.0 0.0 0.0 1 11
-HETATM C "C4'" . SAM     B 0 386 . 386 SAM     B "C4'" 19.58 1.0 ?  0 SAM False True -1  False False True  0 -1  11 0.0 0.0 0.0 1 12
-HETATM O "O4'" . SAM     B 0 386 . 386 SAM     B "O4'" 17.85 1.0 ?  0 SAM False True -1  False False True  0 -1  12 0.0 0.0 0.0 1 13
-HETATM C "C3'" . SAM     B 0 386 . 386 SAM     B "C3'" 17.85 1.0 ?  0 SAM False True -1  False False True  0 -1  13 0.0 0.0 0.0 1 14
-HETATM O "O3'" . SAM     B 0 386 . 386 SAM     B "O3'" 18.49 1.0 ?  0 SAM False True -1  False False True  0 -1  14 0.0 0.0 0.0 1 15
-HETATM C "C2'" . SAM     B 0 386 . 386 SAM     B "C2'" 17.07 1.0 ?  0 SAM False True -1  False False True  0 -1  15 0.0 0.0 0.0 1 16
-HETATM O "O2'" . SAM     B 0 386 . 386 SAM     B "O2'" 15.79 1.0 ?  0 SAM False True -1  False False True  0 -1  16 0.0 0.0 0.0 1 17
-HETATM C "C1'" . SAM     B 0 386 . 386 SAM     B "C1'" 16.87 1.0 ?  0 SAM False True -1  False False True  0 -1  17 0.0 0.0 0.0 1 18
-HETATM N N9    . SAM     B 0 386 . 386 SAM     B N9    16.27 1.0 ?  0 SAM False True -1  False False True  0 -1  18 0.0 0.0 0.0 1 19
-HETATM C C8    . SAM     B 0 386 . 386 SAM     B C8    16.05 1.0 ?  0 SAM False True -1  False False True  0 -1  19 0.0 0.0 0.0 1 20
-HETATM N N7    . SAM     B 0 386 . 386 SAM     B N7    16.11 1.0 ?  0 SAM False True -1  False False True  0 -1  20 0.0 0.0 0.0 1 21
-HETATM C C5    . SAM     B 0 386 . 386 SAM     B C5    15.75 1.0 ?  0 SAM False True -1  False False True  0 -1  21 0.0 0.0 0.0 1 22
-HETATM C C6    . SAM     B 0 386 . 386 SAM     B C6    15.89 1.0 ?  0 SAM False True -1  False False True  0 -1  22 0.0 0.0 0.0 1 23
-HETATM N N6    . SAM     B 0 386 . 386 SAM     B N6    15.89 1.0 ?  0 SAM False True -1  False False True  0 -1  23 0.0 0.0 0.0 1 24
-HETATM N N1    . SAM     B 0 386 . 386 SAM     B N1    15.05 1.0 ?  0 SAM False True -1  False False True  0 -1  24 0.0 0.0 0.0 1 25
-HETATM C C2    . SAM     B 0 386 . 386 SAM     B C2    15.89 1.0 ?  0 SAM False True -1  False False True  0 -1  25 0.0 0.0 0.0 1 26
-HETATM N N3    . SAM     B 0 386 . 386 SAM     B N3    15.52 1.0 ?  0 SAM False True -1  False False True  0 -1  26 0.0 0.0 0.0 1 27
-HETATM C C4    . SAM     B 0 386 . 386 SAM     B C4    16.07 1.0 ?  0 SAM False True -1  False False True  0 -1  27 0.0 0.0 0.0 1 28
+HETATM X UNK   . 150-150 A 1 1   . 1   150-150 A UNK   1  nan   0.0 ?  150 150 <M> True 0 1 .   0  nan    nan    nan    1
+HETATM N N     . SAM     B 2 386 . 386 SAM     B N     2  32.71 1.0 ?  -1  -1  SAM True 0 0 SAM 1  -1.947 -1.185 3.414  1
+HETATM C CA    . SAM     B 2 386 . 386 SAM     B CA    3  30.57 1.0 ?  -1  -1  SAM True 0 0 SAM 2  -2.202 -2.517 2.888  1
+HETATM C C     . SAM     B 2 386 . 386 SAM     B C     4  32.74 1.0 ?  -1  -1  SAM True 0 0 SAM 3  -3.629 -2.634 2.345  1
+HETATM O O     . SAM     B 2 386 . 386 SAM     B O     5  33.69 1.0 ?  -1  -1  SAM True 0 0 SAM 4  -4.286 -1.675 2.048  1
+HETATM O OXT   . SAM     B 2 386 . 386 SAM     B OXT   6  30.33 1.0 -1 -1  -1  SAM True 0 0 SAM 5  -4.022 -3.892 2.213  1
+HETATM C CB    . SAM     B 2 386 . 386 SAM     B CB    7  28.33 1.0 ?  -1  -1  SAM True 0 0 SAM 6  -1.249 -2.781 1.701  1
+HETATM C CG    . SAM     B 2 386 . 386 SAM     B CG    8  25.65 1.0 ?  -1  -1  SAM True 0 0 SAM 7  0.199  -2.567 2.134  1
+HETATM S SD    . SAM     B 2 386 . 386 SAM     B SD    9  24.65 1.0 +1 -1  -1  SAM True 0 0 SAM 8  1.147  -1.756 0.787  1
+HETATM C CE    . SAM     B 2 386 . 386 SAM     B CE    10 29.63 1.0 ?  -1  -1  SAM True 0 0 SAM 9  2.806  -2.416 1.12   1
+HETATM C "C5'" . SAM     B 2 386 . 386 SAM     B "C5'" 11 22.38 1.0 ?  -1  -1  SAM True 0 0 SAM 10 1.41   -0.087 1.444  1
+HETATM C "C4'" . SAM     B 2 386 . 386 SAM     B "C4'" 12 19.58 1.0 ?  -1  -1  SAM True 0 0 SAM 11 0.114  0.719  1.504  1
+HETATM O "O4'" . SAM     B 2 386 . 386 SAM     B "O4'" 13 17.85 1.0 ?  -1  -1  SAM True 0 0 SAM 12 0.44   2.043  1.896  1
+HETATM C "C3'" . SAM     B 2 386 . 386 SAM     B "C3'" 14 17.85 1.0 ?  -1  -1  SAM True 0 0 SAM 13 -0.582 0.812  0.125  1
+HETATM O "O3'" . SAM     B 2 386 . 386 SAM     B "O3'" 15 18.49 1.0 ?  -1  -1  SAM True 0 0 SAM 14 -1.548 -0.17  -0.062 1
+HETATM C "C2'" . SAM     B 2 386 . 386 SAM     B "C2'" 16 17.07 1.0 ?  -1  -1  SAM True 0 0 SAM 15 -1.143 2.246  0.148  1
+HETATM O "O2'" . SAM     B 2 386 . 386 SAM     B "O2'" 17 15.79 1.0 ?  -1  -1  SAM True 0 0 SAM 16 -2.393 2.174  0.78   1
+HETATM C "C1'" . SAM     B 2 386 . 386 SAM     B "C1'" 18 16.87 1.0 ?  -1  -1  SAM True 0 0 SAM 17 -0.091 2.988  1.006  1
+HETATM N N9    . SAM     B 2 386 . 386 SAM     B N9    19 16.27 1.0 ?  -1  -1  SAM True 0 0 SAM 18 0.932  3.608  0.2    1
+HETATM C C8    . SAM     B 2 386 . 386 SAM     B C8    20 16.05 1.0 ?  -1  -1  SAM True 0 0 SAM 19 1.06   4.965  -0.004 1
+HETATM N N7    . SAM     B 2 386 . 386 SAM     B N7    21 16.11 1.0 ?  -1  -1  SAM True 0 0 SAM 20 2.02   5.291  -0.803 1
+HETATM C C5    . SAM     B 2 386 . 386 SAM     B C5    22 15.75 1.0 ?  -1  -1  SAM True 0 0 SAM 21 2.598  4.104  -1.169 1
+HETATM C C6    . SAM     B 2 386 . 386 SAM     B C6    23 15.89 1.0 ?  -1  -1  SAM True 0 0 SAM 22 3.682  3.785  -2.012 1
+HETATM N N6    . SAM     B 2 386 . 386 SAM     B N6    24 15.89 1.0 ?  -1  -1  SAM True 0 0 SAM 23 4.396  4.705  -2.66  1
+HETATM N N1    . SAM     B 2 386 . 386 SAM     B N1    25 15.05 1.0 ?  -1  -1  SAM True 0 0 SAM 24 3.998  2.491  -2.16  1
+HETATM C C2    . SAM     B 2 386 . 386 SAM     B C2    26 15.89 1.0 ?  -1  -1  SAM True 0 0 SAM 25 3.3    1.583  -1.517 1
+HETATM N N3    . SAM     B 2 386 . 386 SAM     B N3    27 15.52 1.0 ?  -1  -1  SAM True 0 0 SAM 26 2.268  1.749  -0.7   1
+HETATM C C4    . SAM     B 2 386 . 386 SAM     B C4    28 16.07 1.0 ?  -1  -1  SAM True 0 0 SAM 27 1.931  3.037  -0.548 1
 #
-_rfd_design.sampled_contig   150-150
+loop_
+_condition_coordinate_1_atom.idx0 
+_condition_coordinate_1_atom.val0 
+_condition_coordinate_1_atom.val1 
+_condition_coordinate_1_atom.val2 
+0  nan nan nan
+1  nan nan nan
+2  nan nan nan
+3  nan nan nan
+4  nan nan nan
+5  nan nan nan
+6  nan nan nan
+7  nan nan nan
+8  nan nan nan
+9  nan nan nan
+10 nan nan nan
+11 nan nan nan
+12 nan nan nan
+13 nan nan nan
+14 nan nan nan
+15 nan nan nan
+16 nan nan nan
+17 nan nan nan
+18 nan nan nan
+19 nan nan nan
+20 nan nan nan
+21 nan nan nan
+22 nan nan nan
+23 nan nan nan
+24 nan nan nan
+25 nan nan nan
+26 nan nan nan
+27 nan nan nan
 #
 loop_
 _chem_comp_atom.comp_id 
@@ -169,6 +198,7 @@ _chem_comp_atom.pdbx_leaving_atom_flag
 _chem_comp_atom.pdbx_model_Cartn_x_ideal 
 _chem_comp_atom.pdbx_model_Cartn_y_ideal 
 _chem_comp_atom.pdbx_model_Cartn_z_ideal 
+150-150 UNK    X 0  N N nan                  nan                  nan
 SAM     N      N 0  N N -6.815000057220459   -0.4359999895095825  0.9390000104904175
 SAM     CA     C 0  N N -6.177000045776367   0.8579999804496765   0.6610000133514404
 SAM     C      C 0  N N -7.164000034332275   1.7669999599456787   -0.026000000536441803
@@ -218,5 +248,4 @@ SAM     H8     H 0  N N 1.4119999408721924   1.6369999647140503   0.887000024318
 SAM     HN61   H 0  N N 5.616000175476074    4.017000198364258    0.8370000123977661
 SAM     HN62   H 0  N N 7.184999942779541    3.696000099182129    0.32899999618530273
 SAM     H2     H 0  N N 7.119999885559082    -0.5370000004768372  -1.3669999837875366
-150-150 UNK    X 0  N N nan                  nan                  nan
 #

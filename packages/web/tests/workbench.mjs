@@ -18,7 +18,7 @@ try {
   await page.goto(`${base}?viewer=molstar`, { waitUntil: "networkidle" });
   await page.waitForFunction(() => document.querySelector("#status")?.textContent?.includes("Ready."));
   assert.ok(await page.locator("#empty-state").isVisible());
-  assert.equal(await page.locator("#workspace").getAttribute("data-studio-tab"), "atomworks");
+  assert.ok(await page.locator("#atomworks-studio-popover").isVisible());
   await page.locator("#file-input").focus();
   assert.equal(await page.evaluate(() => document.activeElement.id), "file-input");
   if (screenshots) await page.screenshot({ path: resolve(screenshots, "studio-empty.png") });
@@ -47,6 +47,7 @@ try {
   await page.setViewportSize({ width: 1440, height: 950 });
   const schema = await (await page.request.get(`${base}api/v1/schema`)).json();
   assert.deepEqual(await page.getByRole("tab").allTextContents(), schema.editor_tabs.map(tab => tab.label));
+  assert.equal(await page.locator("#editor-tab-chains, #assign-chain").count(), 0);
   for (const { id } of schema.editor_tabs) {
     await page.locator(`#editor-tab-${id}`).click();
     assert.equal(await page.getByRole("tabpanel").count(), 1);
@@ -55,7 +56,11 @@ try {
   await page.locator("#editor-tab-main").focus();
   await page.keyboard.press("ArrowRight");
   assert.equal(await page.locator("#editor-tab-annotations").getAttribute("aria-selected"), "true");
-  await page.locator("#editor-tab-bonds").click();
+  await page.locator("#editor-tab-structure").click();
+  assert.deepEqual(await page.locator("#editor-panel-structure summary").allTextContents(),
+    ["Charges", "Protonation", "Bonds"]);
+  assert.deepEqual(await page.locator("#bond-type option").allTextContents(),
+    ["SINGLE", "DOUBLE", "TRIPLE", "AROMATIC_SINGLE", "AROMATIC_DOUBLE", "AROMATIC", "COORDINATION", "ANY"]);
   const bonds = page.waitForResponse(response => new URL(response.url()).pathname.endsWith("/bonds"));
   await page.locator("#inspect-bonds").click();
   assert.ok((await (await bonds).json()).bonds.length > 0);
@@ -63,19 +68,20 @@ try {
   assert.match(await page.locator("#selection-count").innerText(), /^2 atoms/);
   await page.locator("#editor-tab-annotations").click();
 
-  for (let toggle = 0; toggle < 2; toggle++) {
-    await page.locator("#atomworks-studio-menu > summary").click();
-    await page.waitForFunction(() => {
-      const viewport = document.querySelector("#viewer").getBoundingClientRect();
-      const canvas = document.querySelector("#viewer canvas").getBoundingClientRect();
-      return Math.abs(viewport.width - canvas.width) <= 2 && Math.abs(viewport.height - canvas.height) <= 2;
-    });
+  const editor = page.locator("#atomworks-studio-popover");
+  assert.equal(await page.locator("#open-editor, #open-objects, #open-selections, #open-measurements").count(), 0);
+  for (const menu of await page.locator(".viewer-menu").all()) {
+    await menu.locator(":scope > summary").click();
+    assert.ok(await editor.isVisible(), "opening a viewer menu keeps the sidebar visible");
+    await page.keyboard.press("Escape");
+    assert.equal(await menu.evaluate(menu => menu.open), false);
+    assert.ok(await editor.isVisible(), "Escape keeps the sidebar visible");
+    assert.equal(await page.locator("#editor-tab-annotations").getAttribute("aria-selected"), "true");
   }
-  await page.locator('[data-menu="select"] > summary').click();
   await page.locator("#pick-scope").selectOption("residue");
   assert.ok(await page.locator("#condition").isVisible(), "viewer menus keep editing controls open");
   await page.keyboard.press("Escape");
-  assert.equal(await page.locator('[data-menu="select"]').evaluate((menu) => menu.open), false);
+  assert.equal(await page.locator('[data-menu="select"]').count(), 0);
   if (screenshots) await page.screenshot({ path: resolve(screenshots, "studio-editor.png") });
   await page.locator("#editor-tab-main").click();
   await page.getByText("Activity log", { exact: true }).click();

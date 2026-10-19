@@ -40,6 +40,8 @@ curl --fail --silent "${accept_url}/api/ready" >/dev/null
 uv run --project "${root}" python "${root}/scripts/reconstruct_examples.py" \
   "${artifact_dir}/reconstruction" | tee "${artifact_dir}/reconstruction-prepare.log"
 
+node "${root}/packages/web/tests/annotation-camera.mjs" | tee "${artifact_dir}/annotation-camera.log"
+
 for viewer in patinae molstar; do
   VIEWER_MODE="${viewer}" ANNOTATION_STUDIO_URL="${accept_url}" \
     "${pnpm_cmd[@]}" --dir "${root}/packages/web" test:e2e \
@@ -53,7 +55,17 @@ for viewer in patinae molstar; do
   VIEWER_MODE="${viewer}" ANNOTATION_STUDIO_URL="${accept_url}/" \
     node "${root}/packages/web/tests/editor-qol.mjs" | tee "${artifact_dir}/editor-${viewer}.log"
   VIEWER_MODE="${viewer}" ANNOTATION_STUDIO_URL="${accept_url}/" \
+    node "${root}/packages/web/tests/condition-authoring.mjs" | tee "${artifact_dir}/conditions-${viewer}.log"
+  VIEWER_MODE="${viewer}" ANNOTATION_STUDIO_URL="${accept_url}/" \
     node "${root}/packages/web/tests/loading.mjs" | tee "${artifact_dir}/loading-${viewer}.log"
+  VIEWER_MODE="${viewer}" ANNOTATION_STUDIO_URL="${accept_url}/" \
+    node "${root}/packages/web/tests/import-options.mjs" | tee "${artifact_dir}/imports-${viewer}.log"
+  VIEWER_MODE="${viewer}" ANNOTATION_STUDIO_URL="${accept_url}/" \
+    node "${root}/packages/web/tests/example-imports.mjs" | tee "${artifact_dir}/examples-${viewer}.log"
+  ANNOTATION_STUDIO_URL="${accept_url}/" VIEWER_MODE="${viewer}" \
+    node "${root}/packages/web/tests/reset-conditions.mjs" | tee "${artifact_dir}/reset-${viewer}.log"
+  ANNOTATION_STUDIO_URL="${accept_url}/" VIEWER_MODE="${viewer}" \
+    node "${root}/packages/web/tests/close-session.mjs" | tee "${artifact_dir}/close-${viewer}.log"
   VIEWER_MODE="${viewer}" ANNOTATION_STUDIO_URL="${accept_url}/" \
     STUDIO_WORKFLOW_OUTPUT="${artifact_dir}/display" \
     node "${root}/packages/web/tests/display.mjs" | tee "${artifact_dir}/display-${viewer}.log"
@@ -74,8 +86,30 @@ uv run --project "${root}" python "${root}/scripts/check_workflow_outputs.py" \
 ANNOTATION_STUDIO_URL="${accept_url}" node "${root}/packages/web/tests/renderer-failure.mjs" \
   | tee "${artifact_dir}/renderer-failure.log"
 
+ANNOTATION_STUDIO_URL="${accept_url}/" node "${root}/packages/web/tests/group-colors.mjs" \
+  | tee "${artifact_dir}/group-colors.log"
+
+ANNOTATION_STUDIO_URL="${accept_url}/" node "${root}/packages/web/tests/combine-cleanup.mjs" \
+  | tee "${artifact_dir}/combine-cleanup.log"
+
+ANNOTATION_STUDIO_URL="${accept_url}/" node "${root}/packages/web/tests/picking.mjs" \
+  | tee "${artifact_dir}/picking-molstar.log"
+ANNOTATION_STUDIO_URL="${accept_url}/" node "${root}/packages/web/tests/unresolved-rendering.mjs" \
+  | tee "${artifact_dir}/unresolved-rendering.log"
 ANNOTATION_STUDIO_URL="${accept_url}/" node "${root}/packages/web/tests/renderer-recovery.mjs" \
   | tee "${artifact_dir}/renderer-recovery.log"
+ANNOTATION_STUDIO_URL="${accept_url}/" "${pnpm_cmd[@]}" --dir "${root}/packages/web" test:condition-toggle \
+  | tee "${artifact_dir}/condition-toggle.log"
+ANNOTATION_STUDIO_URL="${accept_url}/" "${pnpm_cmd[@]}" --dir "${root}/packages/web" test:condition-presentation \
+  | tee "${artifact_dir}/condition-presentation.log"
+ANNOTATION_STUDIO_URL="${accept_url}/" "${pnpm_cmd[@]}" --dir "${root}/packages/web" test:example-actions \
+  | tee "${artifact_dir}/example-actions.log"
+ANNOTATION_STUDIO_URL="${accept_url}/" "${pnpm_cmd[@]}" --dir "${root}/packages/web" test:bonds \
+  | tee "${artifact_dir}/bond-inspection.log"
+ANNOTATION_STUDIO_URL="${accept_url}/" "${pnpm_cmd[@]}" --dir "${root}/packages/web" test:interactions \
+  | tee "${artifact_dir}/interactions.log"
+ANNOTATION_STUDIO_URL="${accept_url}/" "${pnpm_cmd[@]}" --dir "${root}/packages/web" test:menus \
+  | tee "${artifact_dir}/menu-layout.log"
 ANNOTATION_STUDIO_URL="${accept_url}/" "${pnpm_cmd[@]}" --dir "${root}/packages/web" test:workbench \
   | tee "${artifact_dir}/workbench.log"
 

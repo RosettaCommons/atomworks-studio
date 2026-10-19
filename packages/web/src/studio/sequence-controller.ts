@@ -4,7 +4,6 @@ import type { SequenceChain } from "../types";
 
 export interface SequenceControllerOptions {
   selection: SelectionController;
-  mutate: (path: string, body?: unknown) => Promise<void>;
   inspectAtom: (atomIndex: number) => Promise<void>;
 }
 
@@ -12,7 +11,6 @@ export class SequenceController {
   private readonly dock = element<HTMLDivElement>("sequence-dock");
   private readonly view = element<HTMLDivElement>("sequence-view");
   private readonly toggle = element<HTMLButtonElement>("sequence-toggle");
-  private anchor: number[] | null = null;
   private anchorOrder: number | null = null;
   private dragging = false;
 
@@ -26,12 +24,6 @@ export class SequenceController {
       this.toggle.textContent = hidden ? "Show sequence" : "Hide sequence";
       this.toggle.setAttribute("aria-expanded", String(!hidden));
     });
-    element("sequence-realize").addEventListener("click", () => {
-      void this.options.mutate("/segments/realize", {});
-    });
-    element("sequence-collapse").addEventListener("click", () => {
-      void this.options.mutate("/segments/collapse");
-    });
     document.addEventListener("pointerup", () => {
       this.dragging = false;
     });
@@ -41,9 +33,12 @@ export class SequenceController {
     let firstActive: HTMLElement | null = null;
     for (const token of this.view.querySelectorAll<HTMLButtonElement>(".sequence-token[data-atoms]")) {
       const atoms = (token.dataset.atoms ?? "").split(",").filter(Boolean).map(Number);
-      const active = atoms.length > 0
-        && atoms.every((index) => this.options.selection.values.has(index));
+      const selected = atoms.filter((index) => this.options.selection.values.has(index)).length;
+      const active = atoms.length > 0 && selected === atoms.length;
+      const partial = selected > 0 && !active;
       token.classList.toggle("selected", active);
+      token.classList.toggle("partially-selected", partial);
+      token.setAttribute("aria-pressed", partial ? "mixed" : String(active));
       if (active && firstActive === null) firstActive = token;
     }
     if (scroll) firstActive?.scrollIntoView({ block: "nearest", inline: "nearest" });
@@ -51,13 +46,9 @@ export class SequenceController {
 
   render(chains: SequenceChain[]): void {
     this.view.replaceChildren();
-    let hasCollapsed = false;
-    let hasRealized = false;
     let sequenceOrder = 0;
-    const selectResidue = (token: HTMLButtonElement, atoms: number[], toggle: boolean): void => {
-      if (toggle) this.options.selection.toggle(atoms);
-      else this.options.selection.replace(atoms);
-      this.anchor = atoms;
+    const selectResidue = (token: HTMLElement, atoms: number[]): void => {
+      this.options.selection.toggle(atoms);
       this.anchorOrder = Number(token.dataset.order);
       void this.options.inspectAtom(atoms[0]);
     };
@@ -70,44 +61,36 @@ export class SequenceController {
       const track = document.createElement("div");
       track.className = "sequence-track";
       for (const item of chain.items) {
-        const token = document.createElement("button");
+        const token: HTMLElement = document.createElement(item.kind === "segment" ? "span" : "button");
         token.className = "sequence-token";
         if (item.kind === "segment") {
-          hasCollapsed ||= !item.realized;
-          hasRealized ||= item.realized;
           token.classList.add("sequence-segment");
           token.classList.toggle("realized", item.realized);
           token.textContent = item.realized
             ? `${item.realized_length ?? 0}×X`
             : `[${item.minimum}–${item.maximum}]`;
           token.title = item.realized
-            ? `Realized expandable segment (${item.realized_length} residues); click to collapse all segments`
-            : `Expandable segment (${item.minimum}-${item.maximum} residues); click to realize all segments`;
-          token.addEventListener("click", () => {
-            void this.options.mutate(
-              item.realized ? "/segments/collapse" : "/segments/realize",
-              item.realized ? undefined : {},
-            );
-          });
+            ? `Realized expandable segment (${item.realized_length} residues)`
+            : `Expandable segment (${item.minimum}-${item.maximum} residues)`;
         } else {
           token.textContent = item.code.length === 1 ? item.code : "X";
           token.dataset.atoms = item.atom_indices.join(",");
           token.dataset.order = String(sequenceOrder++);
           token.title = `${chain.chain_id}/${item.residue_name} ${item.residue_id}`
             + (item.conditions.length ? ` · ${item.conditions.join(", ")}` : "")
-            + " · drag, Shift-click range, Ctrl/⌘-click toggle";
+            + " · click to toggle, drag, Shift-click range";
           token.setAttribute(
             "aria-label",
             `${item.residue_name} ${item.residue_id} in chain ${chain.chain_id}`,
           );
           for (const condition of item.conditions) token.classList.add(`condition-${condition}`);
           token.addEventListener("pointerdown", (event) => {
-            if (event.shiftKey) return;
+            if (event.button !== 0 || event.shiftKey) return;
             this.dragging = true;
-            selectResidue(token, item.atom_indices, event.ctrlKey || event.metaKey);
+            selectResidue(token, item.atom_indices);
           });
           token.addEventListener("pointerenter", (event) => {
-            if (this.dragging && event.buttons === 1) selectResidue(token, item.atom_indices, true);
+            if (this.dragging && event.buttons === 1) selectResidue(token, item.atom_indices);
           });
           token.addEventListener("click", (event) => {
             if (event.shiftKey && this.anchorOrder !== null) {
@@ -123,8 +106,8 @@ export class SequenceController {
                   (candidate.dataset.atoms ?? "").split(",").filter(Boolean).map(Number)
                 );
               this.options.selection.replace(rangeAtoms);
-            } else if (!this.anchor?.every((index) => item.atom_indices.includes(index))) {
-              selectResidue(token, item.atom_indices, event.ctrlKey || event.metaKey);
+            } else if (event.detail === 0 || event.shiftKey) {
+              selectResidue(token, item.atom_indices);
             }
           });
         }
@@ -135,8 +118,6 @@ export class SequenceController {
     }
     this.view.className = chains.length ? "sequence-view" : "sequence-view muted";
     if (!chains.length) this.view.textContent = "No polymer sequence is available.";
-    element<HTMLButtonElement>("sequence-realize").disabled = !hasCollapsed;
-    element<HTMLButtonElement>("sequence-collapse").disabled = !hasRealized;
     this.syncSelection();
   }
 }

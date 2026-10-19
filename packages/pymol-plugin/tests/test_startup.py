@@ -48,13 +48,24 @@ def test_installed_startup_opens_menu_and_loads_rfd4(monkeypatch, tmp_path):
 
         tabs = window.findChild(QtWidgets.QTabWidget)
         assert [tabs.tabText(i) for i in range(tabs.count())] == [label for _, label in EDITOR_TABS]
+        from atomworks_studio_editing.document import BOND_TYPES
+
+        bond_types = panel.get_main_panel()._bond_wizard._type_combo
+        assert [bond_types.itemText(i) for i in range(bond_types.count())] == list(BOND_TYPES)
+        assert (
+            panel.get_main_panel()._charge_wizard.widget.parent() is panel.get_main_panel()._bond_wizard.widget.parent()
+        )
         from atomworks_studio_editing.providers import load_providers
 
         definitions = load_providers().condition_provider.definitions
         condition_list = panel.get_main_panel()._annotation_wizard._list
-        assert [condition_list.item(i + 1).text() for i in range(len(definitions))] == [
-            definition.label for definition in definitions
-        ]
+        labels = list(
+            dict.fromkeys(
+                definition.editor_group or definition.label for definition in definitions if definition.visible
+            )
+        )
+        assert condition_list.count() == len(labels) + 1
+        assert [condition_list.item(i + 1).text() for i in range(len(labels))] == labels
         assert window.findChildren(QtWidgets.QDockWidget)
         cmd._parser.parse(f"@{rc}")
         assert len([action for action in menu.actions() if action.text() == "AtomWorks Studio"]) == 1

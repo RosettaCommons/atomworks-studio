@@ -104,6 +104,10 @@ def apply() -> None:
 
     for definition in CONDITION_DEFINITIONS:
         condition = definition.condition
+        if not definition.visible:
+            exclude_annotation(condition)
+            hide_condition_display(condition)
+            continue
         if (editor := _custom_editor(definition)) is not None:
             register_editor(condition)(editor)
         if condition in {C_IDXGRP, C_CRDGRP}:

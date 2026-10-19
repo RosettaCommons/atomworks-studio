@@ -7,7 +7,7 @@ export interface StructureEditControllerOptions {
   selection: SelectionController;
   getSessionId: () => string | null;
   mutate: (path: string, body?: unknown) => Promise<void>;
-  log: (message: string) => void;
+  log: (message: string, level?: "info" | "error") => void;
 }
 
 export class StructureEditController {
@@ -76,24 +76,6 @@ export class StructureEditController {
         close_residue_gaps: element<HTMLInputElement>("close-residue-gaps").checked,
       });
     });
-    element("chain-id").addEventListener("input", () => {
-      this.updateSelectionUi(this.options.getSessionId() !== null);
-    });
-    element("chain-id").addEventListener("keydown", (event) => {
-      if (event.key === "Enter" && !element<HTMLButtonElement>("assign-chain").disabled) {
-        element<HTMLButtonElement>("assign-chain").click();
-      }
-    });
-    element("assign-chain").addEventListener("click", () => {
-      const chainId = element<HTMLInputElement>("chain-id").value.trim();
-      this.feedback.textContent =
-        `Assigning ${this.options.selection.size} atom${this.options.selection.size === 1 ? "" : "s"} `
-        + `to chain ${chainId}…`;
-      void this.options.mutate("/chains", {
-        atom_indices: [...this.options.selection.values],
-        chain_id: chainId,
-      });
-    });
     element("reset-residues").addEventListener("click", () => {
       void this.options.mutate("/reset-residue-ids");
     });
@@ -117,12 +99,6 @@ export class StructureEditController {
         chain_type: newChain ? element<HTMLSelectElement>("segment-chain-type").value : null,
       });
     });
-    element("realize-segments").addEventListener("click", () => {
-      void this.options.mutate("/segments/realize", {});
-    });
-    element("collapse-segments").addEventListener("click", () => {
-      void this.options.mutate("/segments/collapse");
-    });
     element("validate").addEventListener("click", () => void this.validate());
   }
 
@@ -132,29 +108,20 @@ export class StructureEditController {
     element<HTMLButtonElement>("protonate").disabled = !hasSession || ph.value === "" || !ph.validity.valid;
     element<HTMLButtonElement>("apply-charge").disabled = !hasSession || count === 0;
     element<HTMLButtonElement>("delete-atoms").disabled = !hasSession || count === 0;
-    element<HTMLButtonElement>("assign-chain").disabled =
-      !hasSession || count === 0 || !element<HTMLInputElement>("chain-id").value.trim();
     const newSegmentChain = element<HTMLInputElement>("segment-new-chain").checked;
     element<HTMLButtonElement>("insert-segment").disabled =
       !hasSession || (!newSegmentChain && count !== 1);
     element<HTMLButtonElement>("add-bond").disabled = !hasSession || count !== 2;
     element<HTMLButtonElement>("remove-bond").disabled = !hasSession || count !== 2;
     this.feedback.textContent = !hasSession
-      ? "Open a structure to edit charges, bonds, or chains."
-      : count === 0
-        ? "Select atoms to enable structure edits."
-        : count === 2
-          ? "Two atoms selected: charge, bond, and chain actions are available."
-          : `${count} atoms selected: charge and chain actions are available.`;
+      ? "Open a structure to begin."
+      : `${count} atom${count === 1 ? "" : "s"} selected`;
   }
 
-  updateKnownChains(chainIds: string[]): void {
-    const options = chainIds.map((chainId) => {
-      const option = document.createElement("option");
-      option.value = chainId;
-      return option;
-    });
-    element<HTMLDataListElement>("known-chain-ids").replaceChildren(...options);
+  updateNextChainId(nextChainId: string): void {
+    const input = element<HTMLInputElement>("segment-chain-id");
+    if (!input.value || input.value === input.dataset.suggested) input.value = nextChainId;
+    input.dataset.suggested = nextChainId;
   }
 
   private async validate(): Promise<void> {
@@ -171,7 +138,7 @@ export class StructureEditController {
           : "Validation passed.",
       );
     } catch (error) {
-      this.options.log(`Validation failed: ${String(error)}`);
+      this.options.log(`Validation failed: ${String(error)}`, "error");
     }
   }
 }

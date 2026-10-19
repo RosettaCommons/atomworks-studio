@@ -19,6 +19,7 @@ from atomworks_studio_pymol.editors.widgets import PairValueEditor  # noqa: E402
 from atomworks_studio_pymol.state import STATE  # noqa: E402
 from atomworks_studio_editing.annotations import set_annotation_mask  # noqa: E402
 from atomworks.ml.conditions import C_DIS  # noqa: E402
+from atomworks_studio_editing.mutations import edit_distance_restraint  # noqa: E402
 from atomworks_studio_rfd4.model import C_HOT, C_RAS  # noqa: E402
 from atomworks_studio_rfd4.condition_contract import CONDITION_DEFINITIONS  # noqa: E402
 from atomworks_studio_rfd4.pymol.editors import _run_annotation_validation  # noqa: E402
@@ -109,7 +110,7 @@ def test_every_shared_condition_roundtrips_into_pymol(tmp_path: Path) -> None:
         # Upstream rejects internal groups on atoms with absolute targets.
         indices = [2] if condition == "coordinate_group" else [0]
         document.set_condition(condition, indices, enabled=enabled, value=value, scope=scope)
-    document.edit_distance_restraint(0, 1, "set", 3.25)
+    edit_distance_restraint(document.array, 0, 1, "set", 3.25)
 
     exported = tmp_path / "all_conditions.cif"
     to_cif_file(document.array, exported, save_standard_annotations=True, chain_disambiguation="chain_iid")
@@ -292,7 +293,7 @@ def test_native_coordinate_buttons_share_document_history(monkeypatch) -> None:
     editor.close()
 
 
-def test_native_clear_targets_requires_confirmation_and_preserves_undo(monkeypatch) -> None:
+def test_native_delete_group_requires_confirmation_and_preserves_undo(monkeypatch) -> None:
     import os
 
     from atomworks_studio_rfd4.model import C_CRDGRP, C_INTCRD
@@ -302,7 +303,7 @@ def test_native_clear_targets_requires_confirmation_and_preserves_undo(monkeypat
     if "QT_QPA_PLATFORM" not in os.environ:
         monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
     from pymol.Qt import QtWidgets
-    from atomworks_studio_rfd4.pymol.internal_coord_editor import InternalCoordEditor
+    from atomworks_studio_rfd4.pymol.group_editor import GroupEditor
 
     application = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     cmd.reinitialize()
@@ -318,15 +319,45 @@ def test_native_clear_targets_requires_confirmation_and_preserves_undo(monkeypat
     targets[selected] = [[-1, 0, 0], [1, 0, 0]]
     C_INTCRD.set_annotation(document.array, targets)
     revision = document.revision
-    editor = InternalCoordEditor(C_INTCRD, STATE)
+    editor = GroupEditor(C_CRDGRP, STATE)
+    editor._group_combo.setCurrentIndex(editor._group_combo.findData(7))
+    assert not any("Clear saved targets" in button.text() for button in editor.findChildren(QtWidgets.QPushButton))
     monkeypatch.setattr(QtWidgets.QMessageBox, "warning", lambda *args: QtWidgets.QMessageBox.Cancel)
-    editor._clear_saved_targets()
+    editor._delete_group()
     assert document.revision == revision
     np.testing.assert_equal(C_INTCRD.annotation(document.array), targets)
     monkeypatch.setattr(QtWidgets.QMessageBox, "warning", lambda *args: QtWidgets.QMessageBox.Yes)
-    editor._clear_saved_targets()
+    editor._delete_group()
     application.processEvents()
     assert np.isnan(C_INTCRD.annotation(document.array)[selected]).all()
     assert document.undo()
     np.testing.assert_equal(C_INTCRD.annotation(document.array), targets)
     editor.close()
+
+
+def test_group_color_overflow_highlights_one_group_without_reusing_colors(monkeypatch) -> None:
+    from atomworks_studio_rfd4.pymol.visualize import _PALETTE, _color_by_group
+    from pymol.Qt import QtWidgets
+
+    application = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    cmd.reinitialize()
+    STATE.clear_all()
+    name = load_structure(FIXTURE, config=ParseConfig.from_preset("minimal"), obj_name="group_colors")
+    document = STATE.document(name)
+    before = document.to_cif()
+    groups = np.full(len(document.array), -1)
+    groups[:8] = np.arange(1, 9)
+    original = []
+    cmd.iterate(name, "colors.append((ID, color))", space={"colors": original})
+    monkeypatch.setattr(QtWidgets.QInputDialog, "getItem", lambda *args: ("8", False))
+    _color_by_group(document.array, name, groups, {-1: "gray60"})
+    cancelled = []
+    cmd.iterate(name, "colors.append((ID, color))", space={"colors": cancelled})
+    assert cancelled == original
+    monkeypatch.setattr(QtWidgets.QInputDialog, "getItem", lambda *args: ("8", True))
+    _color_by_group(document.array, name, groups, {-1: "gray60"})
+    application.processEvents()
+    colors = []
+    cmd.iterate(name, "colors.append(color)", space={"colors": colors})
+    assert colors.count(cmd.get_color_index(_PALETTE[0])) == 1
+    assert document.to_cif() == before

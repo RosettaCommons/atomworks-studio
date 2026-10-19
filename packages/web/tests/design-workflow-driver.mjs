@@ -81,9 +81,13 @@ export async function designWorkflows({page, ui=page, base, label, output, saveD
         const selected=await select(action.query);
         indices=selected.atom_indices;
         if(['condition','internal'].includes(action.kind)){
-          await ui.locator('#enabled').setChecked(action.enabled);
-          if(action.value!==undefined) await ui.locator('#condition-value-input').selectOption(String(action.value));
-          result=await post('#apply-condition',action.kind==='internal'?'/internal-coords':'/conditions');
+          if (action.key === 'index') {
+            result=await post(action.enabled ? '#unindex-selection' : '#restore-indexing','/conditions');
+          } else {
+            await ui.locator('#enabled').setChecked(action.enabled);
+            if(action.value!==undefined) await ui.locator('#condition-value-input').selectOption(String(action.value));
+            result=await post('#apply-condition',action.kind==='internal'?'/internal-coords':'/conditions');
+          }
         }else if(action.kind==='group')result=await post('#group-new','/groups');
         else{
           assert.equal(selected.count,2);
@@ -93,7 +97,7 @@ export async function designWorkflows({page, ui=page, base, label, output, saveD
           result=await post('#pair-apply','/distance-restraints/replace');
         }
       }else if(action.kind==='charge'){
-        await ui.locator('#editor-tab-charges').click();
+        await ui.locator('#editor-tab-structure').click();
         indices=(await select(action.query)).atom_indices;
         await ui.locator('#charge').fill(String(action.value));
         result=await post('#apply-charge','/charges');
@@ -117,13 +121,6 @@ export async function designWorkflows({page, ui=page, base, label, output, saveD
         }
         result=await post('#insert-segment','/segments');
       }else if(action.kind==='undo')result=await post('#undo','/undo');
-      else if(action.kind==='realize'){
-        await ui.locator('#editor-tab-main').click();
-        const heading=ui.getByText('Expandable segments',{exact:true});
-        if(!await heading.evaluate(el=>el.parentElement.open))await heading.click();
-        result=await post('#realize-segments','/segments/realize');
-        assert.ok(result.structure.atom_count>scenario.atoms);
-      }
       await snapshot(String(i+1).padStart(2,'0'));
       logs.push({scenario:scenario.name,step:i+1,action:action.kind,indices,
         atoms:result.structure.atom_count,renderer:await rendererCheck()});

@@ -17,7 +17,7 @@ def test_native_design_input_workflow(case, tmp_path, monkeypatch):
     pymol = pytest.importorskip("pymol")
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
     pymol.finish_launching(["pymol", "-qck"])
-    from atomworks_studio_editing.loading import build_load_config
+    from atomworks_studio_editing.loading import build_load_config, inspect_import
     from atomworks_studio_pymol.bridge import load_structure, selection_to_indices
     from atomworks_studio_pymol.display import display_atom_ids
     from atomworks_studio_pymol.editors import editor_for
@@ -44,7 +44,9 @@ def test_native_design_input_workflow(case, tmp_path, monkeypatch):
         from annotation_studio.main import EXAMPLES, EXAMPLES_DIR
 
         source = EXAMPLES_DIR / next(item["file"] for item in EXAMPLES if item["id"] == case["example_id"])
-    name = load_structure(source, config=build_load_config("minimal"), obj_name=case["name"])
+    preset = inspect_import(source)["preset"]
+    assert preset is not None, "Workflow fixtures must infer an unambiguous import preset"
+    name = load_structure(source, config=build_load_config(preset), obj_name=case["name"])
     document = STATE.document(name)
     assert len(document.array) == case["atoms"]
     if case["name"] == "ppi":
@@ -94,18 +96,17 @@ def test_native_design_input_workflow(case, tmp_path, monkeypatch):
             else:
                 editor._set_mask(not action["enabled"] if definition.invert_mask else action["enabled"])
                 expected = not action["enabled"] if definition.invert_mask else action["enabled"]
+                if definition.key == "coordinate" and expected:
+                    expected = np.isfinite(document.array.coord[indices]).all(axis=1)
                 np.testing.assert_equal(definition.condition.mask(document.array)[indices], expected)
         elif kind == "charge":
             indices = select(action["query"])
             panel._charge_wizard._set_charge(action["value"])
             np.testing.assert_equal(document.array.charge[indices], action["value"])
-        elif kind == "realize":
-            panel._realize_expandable_segments()
-            assert len(document.array) > case["atoms"]
         elif kind == "undo":
             panel._undo()
             assert len(document.array) == case["atoms"]
-        if kind not in {"realize", "undo"}:
+        if kind != "undo":
             np.testing.assert_allclose(document.array.coord, previous.coord, equal_nan=True)
         snapshot(f"{i:02d}")
         snapshots.append({"step": i, "action": kind, "indices": indices, "atoms": len(document.array)})

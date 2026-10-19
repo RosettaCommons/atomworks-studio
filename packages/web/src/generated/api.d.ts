@@ -61,6 +61,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/import/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** V1 Inspect Uploaded Import */
+        post: operations["v1_inspect_uploaded_import_api_v1_import_inspect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ready": {
         parameters: {
             query?: never;
@@ -123,7 +140,8 @@ export interface paths {
         get: operations["v1_get_session_api_v1_sessions__session_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** V1 Delete Session */
+        delete: operations["v1_delete_session_api_v1_sessions__session_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -328,6 +346,23 @@ export interface paths {
         put?: never;
         /** V1 Set Condition */
         post: operations["v1_set_condition_api_v1_sessions__session_id__conditions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/conditions/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** V1 Reset Conditions */
+        post: operations["v1_reset_conditions_api_v1_sessions__session_id__conditions_reset_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -672,6 +707,11 @@ export interface components {
             /** Remove Waters */
             remove_waters?: boolean | null;
         };
+        /** Body_v1_inspect_uploaded_import_api_v1_import_inspect_post */
+        Body_v1_inspect_uploaded_import_api_v1_import_inspect_post: {
+            /** File */
+            file: string;
+        };
         /** BondMutation */
         BondMutation: {
             /**
@@ -874,6 +914,11 @@ export interface components {
             /** Seed */
             seed?: number | null;
         };
+        /** ResetConditionsRequest */
+        ResetConditionsRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+        };
         /** RestraintsReplacement */
         RestraintsReplacement: {
             /** Expected Revision */
@@ -1034,6 +1079,41 @@ export interface operations {
             };
         };
     };
+    v1_inspect_uploaded_import_api_v1_import_inspect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_v1_inspect_uploaded_import_api_v1_import_inspect_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     v1_ready_api_v1_ready_get: {
         parameters: {
             query?: never;
@@ -1134,6 +1214,35 @@ export interface operations {
                         [key: string]: unknown;
                     };
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    v1_delete_session_api_v1_sessions__session_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -1580,6 +1689,43 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ConditionMutation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    v1_reset_conditions_api_v1_sessions__session_id__conditions_reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetConditionsRequest"];
             };
         };
         responses: {

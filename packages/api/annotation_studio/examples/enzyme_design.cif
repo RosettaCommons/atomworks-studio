@@ -1,19 +1,19 @@
-data_M0630_1j79.cif
+data_enzyme_design.cif
 #
-_entry.id       M0630_1j79.cif
-_entry.author   rib7
-_entry.date     2026-08-28
-_entry.time     20:38:54
+_entry.id       enzyme_design.cif
+_entry.author   root
+_entry.date     2026-10-18
+_entry.time     19:38:39
 #
 loop_
 _entity.id 
 _entity.type 
 _entity.pdbx_description 
-0 polymer     .
-1 non-polymer .
+1 polymer     .
 2 non-polymer .
+3 non-polymer .
 #
-_entity_poly.entity_id                      0
+_entity_poly.entity_id                      1
 _entity_poly.type                           polypeptide(L)
 _entity_poly.nstd_linkage                   no
 _entity_poly.nstd_monomer                   yes
@@ -27,8 +27,8 @@ _entity_poly_seq.entity_id
 _entity_poly_seq.hetero 
 _entity_poly_seq.mon_id 
 _entity_poly_seq.num 
-0 n 180-180 0
-0 n ASP     1
+1 n 180-180 0
+1 n ASP     1
 #
 loop_
 _chem_comp.id 
@@ -94,42 +94,72 @@ _atom_site.auth_seq_id
 _atom_site.auth_comp_id 
 _atom_site.auth_asym_id 
 _atom_site.auth_atom_id 
+_atom_site.id 
 _atom_site.B_iso_or_equiv 
 _atom_site.occupancy 
 _atom_site.pdbx_formal_charge 
-_atom_site.annotation_src-component_1_atom 
+_atom_site.annotation_expsegmin_1_residue 
 _atom_site.annotation_expsegmax_1_residue 
-_atom_site.mask_expsegmin_1_residue 
+_atom_site.condition_sequence_1_residue 
+_atom_site.condition_index_1_residue 
 _atom_site.condition_hbond_1_atom 
 _atom_site.condition_index-group_1_token 
-_atom_site.annotation_expsegmin_1_residue 
-_atom_site.mask_index_1_residue 
-_atom_site.mask_sequence_1_residue 
-_atom_site.mask_expsegmax_1_residue 
-_atom_site.mask_coordinate_1_atom 
+_atom_site.annotation_src-component_1_atom 
 _atom_site.atom_array_index 
 _atom_site.Cartn_x 
 _atom_site.Cartn_y 
 _atom_site.Cartn_z 
 _atom_site.pdbx_PDB_model_num 
-_atom_site.id 
-HETATM X  UNK . 180-180 A 0 0   . 0   180-180 A UNK nan   0.0 ?  .    180 True  0 0 180 True  False True  False 0  nan    nan    nan    1 1
-ATOM   C  CG  . ASP     A 0 1   . 1   ASP     A CG  17.39 1.0 ?  A250 -1  False 0 4 -1  False True  False True  1  0.477  -0.542 2.937  1 2
-ATOM   O  OD1 . ASP     A 0 1   . 1   ASP     A OD1 18.72 1.0 ?  A250 -1  False 0 4 -1  False True  False True  2  0.547  0.656  2.665  1 3
-HETATM N  N1  . ORO     C 2 410 . 410 ORO     C N1  18.66 1.0 ?  ORO  -1  False 0 1 -1  True  True  False True  3  -2.127 0.345  -1.747 1 4
-HETATM C  C2  . ORO     C 2 410 . 410 ORO     C C2  23.79 1.0 ?  ORO  -1  False 0 1 -1  True  True  False True  4  -1.547 -0.999 -1.559 1 5
-HETATM O  O2  . ORO     C 2 410 . 410 ORO     C O2  19.98 1.0 ?  ORO  -1  False 0 1 -1  True  True  False False 5  0.0    0.0    0.0    1 6
-HETATM N  N3  . ORO     C 2 410 . 410 ORO     C N3  26.76 1.0 ?  ORO  -1  False 0 1 -1  True  True  False True  6  -0.172 -1.019 -1.547 1 7
-HETATM C  C4  . ORO     C 2 410 . 410 ORO     C C4  100.0 1.0 ?  ORO  -1  False 0 1 -1  True  True  False True  7  0.602  -0.003 -2.126 1 8
-HETATM O  O4  . ORO     C 2 410 . 410 ORO     C O4  39.79 1.0 ?  ORO  -1  False 0 1 -1  True  True  False False 8  0.0    0.0    0.0    1 9
-HETATM C  C5  . ORO     C 2 410 . 410 ORO     C C5  30.44 1.0 ?  ORO  -1  False 0 1 -1  True  True  False False 9  0.0    0.0    0.0    1 10
-HETATM C  C6  . ORO     C 2 410 . 410 ORO     C C6  29.02 1.0 ?  ORO  -1  False 0 1 -1  True  True  False False 10 0.0    0.0    0.0    1 11
-HETATM C  C7  . ORO     C 2 410 . 410 ORO     C C7  21.02 1.0 ?  ORO  -1  False 0 1 -1  True  True  False False 11 0.0    0.0    0.0    1 12
-HETATM O  O71 . ORO     C 2 410 . 410 ORO     C O71 17.46 1.0 ?  ORO  -1  False 0 1 -1  True  True  False False 12 0.0    0.0    0.0    1 13
-HETATM O  O72 . ORO     C 2 410 . 410 ORO     C O72 18.24 1.0 ?  ORO  -1  False 0 1 -1  True  True  False False 13 0.0    0.0    0.0    1 14
-HETATM ZN ZN  . ZN      B 1 400 . 400 ZN      B ZN  22.02 1.0 +2 ZN   -1  False 0 2 -1  True  True  False True  14 2.223  1.561  1.378  1 15
+HETATM X  UNK . 180-180 A 1 0   . 0   180-180 A UNK 1  nan   0.0 ?  180 180 <M> True  0 0 .    0  nan    nan    nan    1
+ATOM   C  CG  . ASP     A 1 1   . 1   ASP     A CG  2  17.39 1.0 ?  -1  -1  ASP False 0 4 A250 1  0.477  -0.542 2.937  1
+ATOM   O  OD1 . ASP     A 1 1   . 1   ASP     A OD1 3  18.72 1.0 ?  -1  -1  ASP False 0 4 A250 2  0.547  0.656  2.665  1
+ATOM   N  N   . ASP     A 1 1   . 1   ASP     A N   16 nan   0.0 ?  -1  -1  ASP False 0 4 .    3  nan    nan    nan    1
+ATOM   C  CA  . ASP     A 1 1   . 1   ASP     A CA  17 nan   0.0 ?  -1  -1  ASP False 0 4 .    4  nan    nan    nan    1
+ATOM   C  C   . ASP     A 1 1   . 1   ASP     A C   18 nan   0.0 ?  -1  -1  ASP False 0 4 .    5  nan    nan    nan    1
+ATOM   O  O   . ASP     A 1 1   . 1   ASP     A O   19 nan   0.0 ?  -1  -1  ASP False 0 4 .    6  nan    nan    nan    1
+ATOM   C  CB  . ASP     A 1 1   . 1   ASP     A CB  20 nan   0.0 ?  -1  -1  ASP False 0 4 .    7  nan    nan    nan    1
+ATOM   O  OD2 . ASP     A 1 1   . 1   ASP     A OD2 21 nan   0.0 ?  -1  -1  ASP False 0 4 .    8  nan    nan    nan    1
+ATOM   O  OXT . ASP     A 1 1   . 1   ASP     A OXT 22 nan   0.0 ?  -1  -1  ASP False 0 4 .    9  nan    nan    nan    1
+HETATM N  N1  . ORO     C 3 410 . 410 ORO     C N1  4  18.66 1.0 ?  -1  -1  ORO True  0 1 ORO  10 -2.127 0.345  -1.747 1
+HETATM C  C2  . ORO     C 3 410 . 410 ORO     C C2  5  23.79 1.0 ?  -1  -1  ORO True  0 1 ORO  11 -1.547 -0.999 -1.559 1
+HETATM O  O2  . ORO     C 3 410 . 410 ORO     C O2  6  19.98 1.0 ?  -1  -1  ORO True  0 1 ORO  12 0.0    0.0    0.0    1
+HETATM N  N3  . ORO     C 3 410 . 410 ORO     C N3  7  26.76 1.0 ?  -1  -1  ORO True  0 1 ORO  13 -0.172 -1.019 -1.547 1
+HETATM C  C4  . ORO     C 3 410 . 410 ORO     C C4  8  100.0 1.0 ?  -1  -1  ORO True  0 1 ORO  14 0.602  -0.003 -2.126 1
+HETATM O  O4  . ORO     C 3 410 . 410 ORO     C O4  9  39.79 1.0 ?  -1  -1  ORO True  0 1 ORO  15 0.0    0.0    0.0    1
+HETATM C  C5  . ORO     C 3 410 . 410 ORO     C C5  10 30.44 1.0 ?  -1  -1  ORO True  0 1 ORO  16 0.0    0.0    0.0    1
+HETATM C  C6  . ORO     C 3 410 . 410 ORO     C C6  11 29.02 1.0 ?  -1  -1  ORO True  0 1 ORO  17 0.0    0.0    0.0    1
+HETATM C  C7  . ORO     C 3 410 . 410 ORO     C C7  12 21.02 1.0 ?  -1  -1  ORO True  0 1 ORO  18 0.0    0.0    0.0    1
+HETATM O  O71 . ORO     C 3 410 . 410 ORO     C O71 13 17.46 1.0 ?  -1  -1  ORO True  0 1 ORO  19 0.0    0.0    0.0    1
+HETATM O  O72 . ORO     C 3 410 . 410 ORO     C O72 14 18.24 1.0 ?  -1  -1  ORO True  0 1 ORO  20 0.0    0.0    0.0    1
+HETATM ZN ZN  . ZN      B 2 400 . 400 ZN      B ZN  15 22.02 1.0 +2 -1  -1  ZN  True  0 2 ZN   21 2.223  1.561  1.378  1
 #
-_rfd_design.sampled_contig   180-180
+loop_
+_condition_coordinate_1_atom.idx0 
+_condition_coordinate_1_atom.val0 
+_condition_coordinate_1_atom.val1 
+_condition_coordinate_1_atom.val2 
+0  nan                 nan                   nan
+1  0.47699999809265137 -0.5419999957084656   2.937000036239624
+2  0.546999990940094   0.656000018119812     2.6649999618530273
+3  nan                 nan                   nan
+4  nan                 nan                   nan
+5  nan                 nan                   nan
+6  nan                 nan                   nan
+7  nan                 nan                   nan
+8  nan                 nan                   nan
+9  nan                 nan                   nan
+10 -2.127000093460083  0.3449999988079071    -1.746999979019165
+11 -1.5470000505447388 -0.9990000128746033   -1.559000015258789
+12 nan                 nan                   nan
+13 -0.1720000058412552 -1.0190000534057617   -1.5470000505447388
+14 0.6019999980926514  -0.003000000026077032 -2.125999927520752
+15 nan                 nan                   nan
+16 nan                 nan                   nan
+17 nan                 nan                   nan
+18 nan                 nan                   nan
+19 nan                 nan                   nan
+20 nan                 nan                   nan
+21 2.2230000495910645  1.5609999895095825    1.378000020980835
 #
 loop_
 _chem_comp_atom.comp_id 
@@ -141,6 +171,7 @@ _chem_comp_atom.pdbx_leaving_atom_flag
 _chem_comp_atom.pdbx_model_Cartn_x_ideal 
 _chem_comp_atom.pdbx_model_Cartn_y_ideal 
 _chem_comp_atom.pdbx_model_Cartn_z_ideal 
+180-180 UNK X  0 N N nan                  nan                    nan
 ASP     N   N  0 N N -0.31700000166893005 1.687999963760376      0.06599999964237213
 ASP     CA  C  0 N N -0.4699999988079071  0.28600001335144043    -0.3440000116825104
 ASP     C   C  0 N N -1.8680000305175781  -0.18000000715255737   -0.028999999165534973
@@ -173,5 +204,4 @@ ORO     HN3 H  0 N N 0.17000000178813934  -0.0                   -3.029999971389
 ORO     H5  H  0 N N -2.1989998817443848  -0.0                   0.4569999873638153
 ORO     HO7 H  0 N N 0.9679999947547913   -0.0                   3.8570001125335693
 ZN      ZN  ZN 2 N N nan                  nan                    nan
-180-180 UNK X  0 N N nan                  nan                    nan
 #

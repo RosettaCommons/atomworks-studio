@@ -24,14 +24,21 @@
           <details class="load-options">
             <summary>Import options</summary>
             <div class="load-options-popover">
-              <label>Preset
-                <select id="parse-preset">
-                  <option value="minimal">Annotated CIF</option>
-                  <option value="rcsb">RCSB preparation</option>
-                </select>
-              </label>
-              <label>Assembly<input id="parse-assembly" value="1" placeholder="1, first, all, or asym" /></label>
-              <div id="parse-fields"></div>
+              <div id="import-settings">
+                <label>Parse settings
+                  <select id="parse-preset">
+                    <option value="auto">Infer</option>
+                    <option value="rcsb">Unannotated input</option>
+                    <option value="minimal">Annotated CIF</option>
+                    <option value="manual">Custom</option>
+                  </select>
+                </label>
+                <p id="parse-description"></p>
+                <div id="parse-manual" hidden>
+                  <label>Assembly<input id="parse-assembly" value="1" placeholder="1, first, all, or asym" /></label>
+                  <div id="parse-fields"></div>
+                </div>
+              </div>
             </div>
           </details>
           <label class="file-button secondary">
@@ -42,12 +49,17 @@
         </div>
       </header>
 
+      <div id="error-banner" role="alert" hidden>
+        <strong>Error</strong><span id="error-message"></span>
+        <button id="dismiss-error" class="secondary" aria-label="Dismiss error">Dismiss</button>
+      </div>
       <section id="workspace" class="workspace">
         <div class="viewer-column">
           <div id="viewer-toolbar" class="viewer-toolbar">
             <details id="style-menu" class="viewer-menu" data-menu="style">
               <summary>Style</summary>
               <div class="viewer-menu-popover viewer-menu-popover-wide">
+                <p id="style-unavailable" class="muted">No atoms have coordinates to display.</p>
                 <label>Target
                   <select id="viewer-action-target">
                     <option value="all">All atoms</option>
@@ -61,43 +73,24 @@
                   <label><input type="radio" name="representation-action" value="replace" />Show only</label>
                 </fieldset>
                 <div class="viewer-menu-grid" id="representation-actions" data-capability="representations">
-                  <button type="button" data-representation="cartoon">Cartoon</button>
-                  <button type="button" data-representation="ribbon">Ribbon</button>
-                  <button type="button" data-representation="lines">Lines</button>
-                  <button type="button" data-representation="sticks">Sticks</button>
-                  <button type="button" data-representation="spheres">Spheres</button>
-                  <button type="button" data-representation="surface">Surface</button>
-                  <button type="button" data-representation="everything" data-action="hide" class="representation-hide-all">Hide everything</button>
+                  <button type="button" data-representation="cartoon" disabled>Cartoon</button>
+                  <button type="button" data-representation="ribbon" disabled>Ribbon</button>
+                  <button type="button" data-representation="lines" disabled>Lines</button>
+                  <button type="button" data-representation="sticks" disabled>Sticks</button>
+                  <button type="button" data-representation="spheres" disabled>Spheres</button>
+                  <button type="button" data-representation="surface" disabled>Surface</button>
+                  <button type="button" data-representation="everything" data-action="hide" class="representation-hide-all" disabled>Hide everything</button>
                 </div>
                 <div class="viewer-menu-grid" id="color-actions" data-capability="colors">
-                  <button type="button" data-color="atomic">Atom</button>
-                  <button type="button" data-color="chain">Chain</button>
-                  <button type="button" data-color="ss">Secondary</button>
-                  <button type="button" data-color="residue">Residue</button>
-                  <button type="button" data-color="rainbow">Rainbow</button>
-                  <button type="button" data-color="cyan">Cyan</button>
-                  <button type="button" data-color="yellow">Yellow</button>
-                  <button type="button" data-color="magenta">Magenta</button>
+                  <button type="button" data-color="atomic" disabled>Atom</button>
+                  <button type="button" data-color="chain" disabled>Chain</button>
+                  <button type="button" data-color="ss" disabled>Secondary</button>
+                  <button type="button" data-color="residue" disabled>Residue</button>
+                  <button type="button" data-color="rainbow" disabled>Rainbow</button>
+                  <button type="button" data-color="cyan" disabled>Cyan</button>
+                  <button type="button" data-color="yellow" disabled>Yellow</button>
+                  <button type="button" data-color="magenta" disabled>Magenta</button>
                 </div>
-              </div>
-            </details>
-            <details class="viewer-menu" data-menu="select">
-              <summary>Select</summary>
-              <div class="viewer-menu-popover">
-                <label data-capability="picking">Pick
-                  <select id="pick-scope">
-                    <option value="atom">Atom</option>
-                    <option value="residue">Residue</option>
-                    <option value="chain">Chain</option>
-                  </select>
-                </label>
-                <div class="viewer-menu-grid" id="selection-actions">
-                  <button type="button" data-selection="all">All</button>
-                  <button type="button" data-selection="polymer">Polymer</button>
-                  <button type="button" data-selection="ligand">Ligands</button>
-                  <button type="button" data-selection="none">None</button>
-                </div>
-                <p id="picking-fallback" class="menu-note" hidden>Canvas picking is unavailable on this adapter. Use sequence or expression selection.</p>
               </div>
             </details>
             <details class="viewer-menu" data-menu="analyze">
@@ -129,9 +122,10 @@
                 <label class="checkbox"><input id="inter-chain-only" type="checkbox" checked /> Inter-chain only</label>
                 <label class="checkbox"><input id="visualize-interactions" type="checkbox" checked /> Visualize dashed contacts</label>
                 <label>Maximum visualized contacts
-                  <input id="interaction-visual-limit" type="number" min="1" max="500" value="100" />
+                  <input id="interaction-visual-limit" type="number" min="1" max="500" value="25" />
                 </label>
                 <button id="run-analysis" type="button" class="compact" disabled>Find and visualize</button>
+                <button id="clear-analysis-visuals" type="button" class="secondary compact" data-capability="interactionOverlays">Clear contacts</button>
                 <hr />
                 <label>Measurement
                   <select id="measurement-kind">
@@ -141,35 +135,12 @@
                   </select>
                 </label>
                 <button id="add-measurement" type="button" class="secondary compact" data-capability="measurements" disabled>Add measurement</button>
-                <button id="clear-analysis-visuals" type="button" class="secondary compact" data-capability="measurements">Clear visuals</button>
-                <label>Restraint Å
-                  <input id="restraint-distance" type="number" min="0" step="0.1" value="4.0" />
-                </label>
-                <div class="viewer-menu-grid">
-                  <button id="add-restraint" type="button" class="secondary compact" disabled>Add restraint</button>
-                  <button id="remove-restraint" type="button" class="secondary compact" disabled>Remove restraint</button>
-                </div>
+
               </div>
             </details>
-            <details id="atomworks-studio-menu" class="viewer-menu studio-menu" data-menu="studio" data-studio-tab="atomworks">
-              <summary>Edit</summary>
-            </details>
-            <details class="viewer-menu" data-menu="view">
-              <summary>View</summary>
-              <div class="viewer-menu-popover">
-                <div class="viewer-menu-grid" id="view-actions">
-                  <button type="button" data-camera="zoom">Zoom all</button>
-                  <button type="button" data-camera="center">Center</button>
-                  <button type="button" data-camera="orient">Orient</button>
-                  <button type="button" data-camera="reset">Reset</button>
-                  <button type="button" data-background="black">Black bg</button>
-                  <button type="button" data-background="white">White bg</button>
-                </div>
-              </div>
-            </details>
-            <details class="viewer-menu overflow-menu" data-menu="overflow">
-              <summary aria-label="More viewer options">More</summary>
-              <div class="viewer-menu-popover viewer-menu-popover-right viewer-menu-popover-wide">
+            <details class="viewer-menu" data-menu="overflow">
+              <summary>Backend</summary>
+              <div class="viewer-menu-popover viewer-menu-popover-wide">
             <label class="viewer-choice compact-choice">Renderer
               <select id="viewer-mode">
                 <option value="">Choose renderer</option>
@@ -178,29 +149,38 @@
               </select>
             </label>
 
-                <button id="open-objects" type="button" class="secondary compact">Objects</button>
-                <button id="open-selections" type="button" class="secondary compact">Selections</button>
-                <button id="open-measurements" type="button" class="secondary compact">Measurements</button>
-                <label>Patinae command catalog
-                  <input id="command-search" type="search" placeholder="Search commands…" />
-                </label>
-                <div id="command-catalog" class="command-catalog muted">Choose Patinae to browse commands.</div>
+                <div data-capability="commandCatalog" hidden>
+                  <label>Patinae command catalog
+                    <input id="command-search" type="search" placeholder="Search commands…" />
+                  </label>
+                  <div id="command-catalog" class="command-catalog muted"></div>
+                </div>
               </div>
             </details>
             <span id="viewer-backend" class="viewer-backend">Choose renderer</span>
-            <span id="selection-count" class="selection-count">0 atoms selected</span>
-            <button id="clear-selection" class="secondary compact" type="button">Clear</button>
+            <div class="picking-toolbar" role="group" aria-label="Selection controls">
+              <label class="pick-mode" data-capability="picking">Pick
+                <select id="pick-scope" aria-label="Picking mode">
+                  <option value="atom" selected>Atoms</option>
+                  <option value="residue">Residues</option>
+                  <option value="chain">Chains</option>
+                </select>
+              </label>
+              <span id="selection-count" class="selection-count">0 atoms selected</span>
+              <span id="picking-help" class="selection-help">Click to add · Click again to remove</span>
+              <div class="selection-actions">
+                <button id="clear-selection" class="secondary compact" type="button">Clear selection</button>
+              </div>
+            </div>
           </div>
           <div id="sequence-dock" class="sequence-dock">
             <div class="sequence-dock-heading">
               <strong>Sequence</strong>
-              <span class="sequence-help">Drag · Shift range · Ctrl/⌘ toggle</span>
+              <span class="sequence-help">Click to toggle · Drag · Shift range</span>
               <div class="button-row">
                 <button id="sequence-toggle" class="secondary compact" type="button" aria-expanded="true">
                   Hide sequence
                 </button>
-                <button id="sequence-realize" class="secondary compact" disabled>Realize segments</button>
-                <button id="sequence-collapse" class="secondary compact" disabled>Collapse segments</button>
               </div>
             </div>
             <div id="sequence-view" class="sequence-view muted">
@@ -218,6 +198,13 @@
                 <button class="renderer-prompt-choice" data-renderer="patinae">Use Patinae · WebGPU</button>
                 <button class="renderer-prompt-choice secondary" data-renderer="molstar">Use Mol* · WebGL</button>
               </div>
+            </div>
+          </div>
+          <div id="unpositioned-state" class="empty-state" role="status" hidden>
+            <div class="empty-state-inner">
+              <h2>No 3D coordinates to display</h2>
+              <p>This input contains only unpositioned atoms or expandable segments. Its sequence, bonds, and conditions remain editable.</p>
+              <p>Style controls need positioned atoms. Load a structure with coordinates to see it here.</p>
             </div>
           </div>
           <div id="empty-state" class="empty-state">
@@ -239,7 +226,6 @@
           </div>
           <form id="viewer-command-form" class="viewer-command-bar">
               <select id="selection-syntax" aria-label="Input syntax">
-                <option value="patinae">PyMOL commands</option>
                 <option value="expression">AtomWorks query</option>
               </select>
               <input
@@ -263,46 +249,40 @@
           <section class="card editor-document">
             <h2>Structure</h2>
             <div id="structure-summary" class="muted">Open an annotated CIF to begin.</div>
+            <p id="coordinate-summary" class="muted" hidden></p>
             <p id="structure-edit-feedback" class="inline-feedback muted" aria-live="polite">
-              Bond actions require exactly two selected atoms.
+              Open a structure to begin.
             </p>
             <div class="button-row">
               <button id="validate" disabled>Validate</button>
               <button id="undo" class="secondary" disabled>Undo</button>
+              <button id="reset-conditions" class="secondary" hidden disabled>Reset conditions to defaults</button>
+              <button id="close-structure" class="secondary" disabled>Close structure</button>
             </div>
           </section>
 
           <section class="card" data-editor-card="annotations">
             <h2>Annotations</h2>
             <label>Type<select id="condition"></select></label>
-            <label>Selection scope
-              <select id="scope">
-                <option value="atom">Atoms</option>
-                <option value="residue">Whole residues</option>
-                <option value="chain">Whole chains</option>
-              </select>
-            </label>
             <label class="checkbox"><input id="enabled" type="checkbox" checked /> Enable condition</label>
             <div id="condition-value"></div>
             <p id="condition-feedback" class="inline-feedback muted" aria-live="polite">Select one or more atoms.</p>
             <button id="apply-condition" disabled>Apply to selection</button>
             <hr />
             <div class="card-title-row">
-              <h3>Inspect annotations</h3>
+              <h3>Conditions on this structure</h3>
               <button id="clear-annotation-view" class="secondary compact" disabled>Clear colors</button>
             </div>
-            <label class="search-field">Search annotations
-              <input id="annotation-search" type="search" placeholder="Condition or field name…" />
-            </label>
+            <p class="muted">Click a condition to highlight it and see its values. Click again to restore the previous colors. This only changes the view.</p>
             <div id="annotation-list" class="annotation-list muted">
-              Open an annotated CIF to inspect its annotations.
+              Open a structure to see its conditions.
             </div>
             <div id="annotation-detail" class="annotation-detail muted">
-              Click an annotation above or pick an atom in the molecular viewer.
+              Choose a condition above, or click an atom to see its conditions.
             </div>
           </section>
 
-          <details class="card" data-editor-card="charges">
+          <details class="card" data-editor-card="structure">
             <summary>Charges</summary>
             <div class="inline-fields">
               <label>Charge action
@@ -311,6 +291,10 @@
               <label>Charge<input id="charge" type="number" min="-10" max="10" value="0" /></label>
             </div>
             <button id="apply-charge" disabled>Apply charge</button>
+          </details>
+
+          <details class="card" data-editor-card="structure">
+            <summary>Protonation</summary>
             <div class="inline-fields protonation-fields">
               <label>pH<input id="protonation-ph" type="number" min="0" max="14" step="0.1" value="7.4" /></label>
               <button id="protonate" disabled>Protonate structure</button>
@@ -318,18 +302,19 @@
             <p class="muted">Updates hydrogens and formal charges for the whole structure. Undo restores the previous state.</p>
           </details>
 
-          <details class="card" data-editor-card="bonds">
+          <details class="card" data-editor-card="structure">
             <summary>Bonds</summary>
+            <p class="muted">Select exactly two atoms to add or remove a bond.</p>
             <label>Bond type<select id="bond-type"></select></label>
             <div class="button-row">
               <button id="add-bond" disabled>Add bond</button>
               <button id="remove-bond" class="secondary" disabled>Remove bond</button>
             </div>
             <div class="button-row">
-              <button id="inspect-bonds" class="secondary" disabled>Inspect bonds</button>
+              <button id="inspect-bonds" class="secondary" aria-expanded="false" aria-controls="bond-list" disabled>Inspect bonds</button>
               <button id="infer-bonds" class="secondary" disabled>Infer CCD bonds</button>
             </div>
-            <div id="bond-list" class="drawer-list muted" aria-live="polite">Inspect bonds to list their atoms and types.</div>
+            <div id="bond-list" class="drawer-list muted" aria-live="polite" hidden></div>
           </details>
 
           <details class="card" data-editor-card="main">
@@ -339,15 +324,6 @@
               <button id="reset-residues" class="secondary" disabled>Reset residue IDs</button>
             </div>
             <label class="checkbox"><input id="close-residue-gaps" type="checkbox" /> Close residue-ID gaps after delete</label>
-          </details>
-
-          <details class="card" data-editor-card="chains">
-            <summary>Chains</summary>
-            <div class="inline-fields">
-              <label>Assign chain<input id="chain-id" list="known-chain-ids" maxlength="8" placeholder="A" /></label>
-              <button id="assign-chain" class="secondary" disabled>Assign selected</button>
-            </div>
-            <datalist id="known-chain-ids"></datalist>
           </details>
 
           <details class="card" data-editor-card="main">
@@ -370,10 +346,6 @@
               </label>
             </div>
             <button id="insert-segment" disabled>Insert expandable segment</button>
-            <div class="button-row">
-              <button id="realize-segments" class="secondary" disabled>Realize segments</button>
-              <button id="collapse-segments" class="secondary" disabled>Collapse segments</button>
-            </div>
           </details>
 
           <section class="drawer-stack" data-editor-card="main" aria-label="Viewer data drawers">
@@ -383,11 +355,15 @@
             </details>
             <details id="selections-drawer" class="card drawer">
               <summary>Selections</summary>
-              <div id="selection-list" class="drawer-list muted">No named selections.</div>
+              <div id="active-selection-count" class="muted">0 atoms in active selection</div>
+              <div id="selection-list" class="drawer-list muted"></div>
             </details>
             <details id="measurements-drawer" class="card drawer">
               <summary>Measurements</summary>
               <div id="measurement-list" class="drawer-list muted">No measurements.</div>
+            </details>
+            <details id="interactions-drawer" class="card drawer">
+              <summary>Interactions</summary>
               <div id="analysis-results" class="drawer-list"></div>
             </details>
           </section>

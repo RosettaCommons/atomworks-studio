@@ -43,7 +43,8 @@ class ValueButtonEditor(QtWidgets.QWidget, BaseAnnotationEditor):
         layout = QtWidgets.QVBoxLayout(self)
 
         cls = annotation_cls
-        header = QtWidgets.QLabel(f"<b>{cls.name}</b> &nbsp; <i>(level: {cls.level})</i>")
+        definition = CONDITION_PROVIDER.definitions_by_name[cls.name]
+        header = QtWidgets.QLabel(f"<b>{definition.label}</b> &nbsp; <i>(level: {cls.level})</i>")
         header.setWordWrap(True)
         layout.addWidget(header)
 

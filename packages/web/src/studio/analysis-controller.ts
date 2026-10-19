@@ -1,7 +1,8 @@
 import { api, postJson } from "../api";
 import { closeToolbarMenus, element } from "../dom";
 import type { SelectionController } from "../selection-controller";
-import type { InteractionAnalysisResponse } from "../types";
+import type { InteractionAnalysisResponse, SequenceChain } from "../types";
+import { interactionDisplayContacts } from "./interaction-overlays";
 import type { MolecularViewer, ViewerInteraction } from "../viewers";
 
 type MeasurementKind = "distance" | "angle" | "dihedral";
@@ -16,16 +17,19 @@ export interface AnalysisControllerOptions {
   selection: SelectionController;
   getSessionId: () => string | null;
   getAtomCount: () => number;
+  getSequence: () => SequenceChain[];
   mutate: (path: string, body?: unknown) => Promise<void>;
   renderViewerDrawers: () => void;
-  log: (message: string) => void;
+  log: (message: string, level?: "info" | "error") => void;
   onSelectionUiChange: () => void;
 }
 
 export class AnalysisController {
   private draft: MeasurementDraft | null = null;
-  private readonly studioMenu = element<HTMLDetailsElement>("atomworks-studio-menu");
   private readonly results = element("analysis-results");
+  private readonly bondList = element("bond-list");
+  private readonly inspectBondsButton = element("inspect-bonds");
+  private bondInspectionGeneration = 0;
 
   constructor(private readonly options: AnalysisControllerOptions) {}
 
@@ -43,16 +47,9 @@ export class AnalysisController {
         this.options.log("Interaction visuals cleared; user measurements were preserved.");
       });
     });
-    element("inspect-bonds").addEventListener("click", () => void this.inspectBonds());
+    this.inspectBondsButton.addEventListener("click", () => void this.inspectBonds());
     element("infer-bonds").addEventListener("click", () => void this.options.mutate("/bonds/infer-ccd"));
-    element("add-restraint").addEventListener("click", () => {
-      void this.editDistanceRestraint("set")
-        .catch((error) => this.options.log(`Restraint failed: ${String(error)}`));
-    });
-    element("remove-restraint").addEventListener("click", () => {
-      void this.editDistanceRestraint("remove")
-        .catch((error) => this.options.log(`Restraint failed: ${String(error)}`));
-    });
+
   }
 
   updateSelectionUi(hasSession: boolean): void {
@@ -86,7 +83,7 @@ export class AnalysisController {
       this.openMeasurementsDrawer();
       this.options.log(`${request.kind} measurement added and visualized.`);
     } catch (error) {
-      this.options.log(`Measurement failed: ${String(error)}`);
+      this.options.log(`Measurement failed: ${String(error)}`, "error");
     }
     this.options.onSelectionUiChange();
     return true;
@@ -106,7 +103,7 @@ export class AnalysisController {
       this.options.renderViewerDrawers();
       this.openMeasurementsDrawer();
       this.options.log(`${kind} measurement added and visualized.`);
-    }).catch((error) => this.options.log(`Measurement failed: ${String(error)}`));
+    }).catch((error) => this.options.log(`Measurement failed: ${String(error)}`, "error"));
   }
 
   private async runInteractionAnalysis(): Promise<void> {
@@ -145,7 +142,7 @@ export class AnalysisController {
       );
       await this.renderInteractionResults(response);
     } catch (error) {
-      this.options.log(`Analysis failed: ${String(error)}`);
+      this.options.log(`Analysis failed: ${String(error)}`, "error");
     }
   }
 
@@ -159,7 +156,7 @@ export class AnalysisController {
       halogen: 0x81c784,
       metal: 0xffd54f,
     };
-    const overlays: ViewerInteraction[] = response.interactions.map((interaction, index) => ({
+    const overlays: ViewerInteraction[] = interactionDisplayContacts(response.interactions, this.options.getSequence()).map((interaction, index) => ({
       id: `interaction_${interaction.interaction_type}_${index}`,
       type: interaction.interaction_type,
       atom1: interaction.atom1,
@@ -168,10 +165,8 @@ export class AnalysisController {
       color: colors[interaction.interaction_type] ?? 0xffd54f,
     }));
     const visualLimit = Number(element<HTMLInputElement>("interaction-visual-limit").value);
-    const visualized = overlays.slice(0, visualLimit);
-    await this.options.viewer().showInteractions(
-      element<HTMLInputElement>("visualize-interactions").checked ? visualized : [],
-    );
+    const visualized = element<HTMLInputElement>("visualize-interactions").checked ? overlays.slice(0, visualLimit) : [];
+    await this.options.viewer().showInteractions(visualized);
     this.results.replaceChildren();
     if (!response.interactions.length) this.results.textContent = "No matching interactions found.";
     for (const interaction of response.interactions) {
@@ -186,7 +181,8 @@ export class AnalysisController {
       });
       this.results.append(button);
     }
-    this.openMeasurementsDrawer();
+    element("editor-tab-main").click();
+    element<HTMLDetailsElement>("interactions-drawer").open = true;
     this.options.renderViewerDrawers();
     this.options.log(
       `Interaction analysis completed: ${response.interaction_count} contacts`
@@ -195,9 +191,24 @@ export class AnalysisController {
     );
   }
 
+  clearBondInspection(): void {
+    ++this.bondInspectionGeneration;
+    this.bondList.hidden = true;
+    this.bondList.replaceChildren();
+    this.inspectBondsButton.setAttribute("aria-expanded", "false");
+  }
+
   private async inspectBonds(): Promise<void> {
+    if (!this.bondList.hidden) {
+      this.clearBondInspection();
+      return;
+    }
     const sessionId = this.options.getSessionId();
     if (!sessionId) return;
+    const generation = ++this.bondInspectionGeneration;
+    this.bondList.hidden = false;
+    this.bondList.textContent = "Loading bonds…";
+    this.inspectBondsButton.setAttribute("aria-expanded", "true");
     const selected = [...this.options.selection.values];
     const query = selected.length === 1 ? `?atom_index=${selected[0]}` : "";
     try {
@@ -205,8 +216,8 @@ export class AnalysisController {
         count: number;
         bonds: Array<{ atom1: number; atom2: number; bond_type: string }>;
       }>(`/api/sessions/${sessionId}/bonds${query}`);
-      if (sessionId !== this.options.getSessionId()) return;
-      const list = element("bond-list");
+      if (generation !== this.bondInspectionGeneration || sessionId !== this.options.getSessionId()) return;
+      const list = this.bondList;
       list.replaceChildren();
       if (!response.bonds.length) list.textContent = "No bonds found.";
       for (const bond of response.bonds) {
@@ -218,37 +229,15 @@ export class AnalysisController {
         list.append(button);
       }
     } catch (error) {
-      this.options.log(`Bond inspection failed: ${String(error)}`);
+      if (generation !== this.bondInspectionGeneration || sessionId !== this.options.getSessionId()) return;
+      this.bondList.textContent = "Could not load bonds. Close and reopen Inspect bonds to try again.";
+      this.options.log(`Bond inspection failed: ${String(error)}`, "error");
     }
-  }
-
-  private async editDistanceRestraint(action: "set" | "remove"): Promise<void> {
-    const sessionId = this.options.getSessionId();
-    if (!sessionId) return;
-    const [atom1, atom2] = [...this.options.selection.values];
-    const distance = Number(element<HTMLInputElement>("restraint-distance").value);
-    await this.options.mutate("/distance-restraints", {
-      atom1,
-      atom2,
-      action,
-      distance: action === "set" ? distance : null,
-    });
-    const response = await api<{
-      restraints: Array<{ atom1: number; atom2: number; distance: number; current_distance: number }>;
-    }>(`/api/sessions/${sessionId}/distance-restraints`);
-    this.results.textContent = response.restraints.length
-      ? response.restraints.map((restraint) =>
-        `Restraint ${restraint.atom1}–${restraint.atom2} · target ${restraint.distance.toFixed(2)} Å`
-        + ` · current ${restraint.current_distance.toFixed(2)} Å`
-      ).join("\n")
-      : "No distance restraints.";
-    this.openMeasurementsDrawer();
   }
 
   private openMeasurementsDrawer(): void {
     element("editor-tab-main").click();
     element<HTMLDetailsElement>("measurements-drawer").open = true;
-    this.studioMenu.open = true;
   }
 
   private requiredAtoms(kind: MeasurementKind): number {

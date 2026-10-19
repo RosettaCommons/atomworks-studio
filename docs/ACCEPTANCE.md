@@ -33,8 +33,8 @@ This runs the same PPI, enzyme and ligand cases from
 Patinae and Mol* browser controls. It compares selected atom indices and every
 deterministic edit, then saves and reopens each CIF. Comparisons cover atom
 identity, coordinates, stored bonds, charges, segment bounds, and all condition
-values and masks, including pair restraints. Random segment realization is
-checked in each host; parity is checked after Undo restores the original state.
+values and masks. Generic AtomWorks pair editing and segment realization are covered
+separately from the shared web/native authoring workflows.
 
 Each run writes a fresh directory under `artifacts/parity/`. Missing PyMOL,
 missing exports, or a renderer fallback fail the run. The separate renderer
@@ -67,3 +67,25 @@ This drives the actual VS Code webview and its download handling through the
 same shared workflow driver. The hosted `backend-parity` job covers the three
 rendering backends; these installed-extension runs are an additional local check.
 Use a test profile, since the driver opens Studio and loads the bundled examples.
+
+## Example action audit
+
+Run the common-control audit against a separate server and session directory:
+
+```bash
+ANNOTATION_STUDIO_SESSION_DIR=artifacts/local/audit-sessions ANNOTATION_STUDIO_PORT=8001 ./run.sh
+ANNOTATION_STUDIO_URL=http://127.0.0.1:8001/ pnpm --dir packages/web test:example-actions
+```
+
+The audit opens every bundled example in independent Mol* and Patinae browser
+contexts. It checks validation, sequence selection, styles, condition highlighting
+and editing, protonation and CIF export, charges, bonds, segments, deletion,
+renumbering, interaction analysis, reset, Undo, and closing documents. Actions
+requiring real residues are reported as inapplicable to the segment-only example.
+JSON reports and failure/protonation screenshots are saved under
+`artifacts/local/example-actions/` in the working directory.
+
+`pnpm --dir packages/web test:interactions` checks the antibody with 25 and 100
+contacts in both renderers, separate measurement lists, preservation of user
+measurements when clearing contacts, disabling visualization, and closing the
+structure. Molstar must render the contacts as one geometry object.

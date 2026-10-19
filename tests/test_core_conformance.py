@@ -8,6 +8,7 @@ from annotation_studio.core import StudioDocument
 from atomworks.io.utils.standard_annotations.base import STANDARD_ANNOTATIONS, StandardAnnotationBase
 from atomworks.ml.conditions import C_CHA, C_CRD, C_DIS, C_SEQ
 from atomworks_studio_editing.annotations import editing_type, is_structure_derived
+from atomworks_studio_editing.conditions import CONDITION_PROVIDER as ATOMWORKS_PROVIDER
 from atomworks_studio_editing.mutations import edit_distance_restraint
 from atomworks_studio_editing.validation import validate_atom_array
 from atomworks_studio_rfd4 import CONDITION_PROVIDER, VALIDATION_PROVIDER
@@ -220,7 +221,7 @@ def test_shared_contract_drives_studio_and_all_stored_fields_are_visible(documen
     assert set(CONDITIONS.values()) == set(editable_condition_classes())
     assert C_PICATION in CONDITIONS.values()
     assert C_CATH in CONDITIONS.values()
-    assert not {C_CHA, C_BP} & set(CONDITIONS.values())
+    assert not {C_CHA, C_BP, C_DIS} & set(CONDITIONS.values())
     for definition in CONDITION_PROVIDER.definitions:
         condition = definition.condition
         assert editing_type(condition) is not None
@@ -240,7 +241,8 @@ def test_shared_contract_drives_studio_and_all_stored_fields_are_visible(documen
     assert atom["stored_fields"]
 
 
-def test_distance_restraints_use_shared_canonical_mutation(document: StudioDocument) -> None:
+def test_distance_restraints_use_shared_canonical_mutation() -> None:
+    document = StudioDocument.from_cif(FIXTURE.read_text(), condition_provider=ATOMWORKS_PROVIDER)
     direct = document.clone()
 
     document.edit_distance_restraint(1, 0, "set", 3.25)
@@ -294,9 +296,9 @@ def test_interactions_use_live_geometry_and_preserve_authored_targets(document: 
 def test_plddt_confidence_is_exposed_in_colored_buckets(document: StudioDocument) -> None:
     confidence = np.full(len(document.array), 95.0)
     confidence[:3] = [25.0, 60.0, 80.0]
-    document.array.set_annotation("b_factor", confidence)
+    document.array.set_annotation("plddt", confidence)
 
-    field = document.scalar_annotation_fields("b_factor")[0]
+    field = document.scalar_annotation_fields("plddt")[0]
     assert [value["label"] for value in field["values"]] == [
         "Very low (<50)",
         "Low (50-70)",
@@ -305,7 +307,24 @@ def test_plddt_confidence_is_exposed_in_colored_buckets(document: StudioDocument
     ]
     assert field["values"][0]["color"]["name"] == "red"
     assert field["values"][-1]["color"]["name"] == "blue"
-    assert document.atom_annotation_details(2)["scalar_fields"][0]["value"] == 80.0
+    assert (
+        next(field for field in document.atom_annotation_details(2)["scalar_fields"] if field["name"] == "plddt")[
+            "value"
+        ]
+        == 80.0
+    )
+
+
+def test_b_factors_are_not_interpreted_as_confidence(document: StudioDocument) -> None:
+    values = np.full(len(document.array), 0.95)
+    values[:3] = [0.25, 0.60, 0.80]
+    document.array.set_annotation("b_factor", values)
+    field = document.scalar_annotation_fields("b_factor")[0]
+    assert field["label"] == "B-factor (CIF)"
+    assert field["values"][0]["label"] == "0.25 to 0.42"
+    assert field["values"][-1]["label"] == "0.77 to 0.95"
+    assert sum(group["count"] for group in field["values"]) == len(document.array)
+    assert field["values"][0]["atom_indices"] == [0]
 
 
 def test_charge_bond_delete_and_undo(document: StudioDocument) -> None:

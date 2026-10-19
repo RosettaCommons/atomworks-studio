@@ -157,8 +157,14 @@ class MaskEditor(_QtWidgets.QWidget, BaseAnnotationEditor):
 
         layout.addSpacing(8)
 
-        btn_true = _QtWidgets.QPushButton("Set True for selection")
-        btn_false = _QtWidgets.QPushButton("Set False for selection")
+        definition = state.condition_provider.definitions_by_name.get(cls.name)
+        inverted = definition is not None and definition.invert_mask
+        if inverted:
+            description = _QtWidgets.QLabel("All residues are indexed by default unless explicitly unindexed.")
+            description.setWordWrap(True)
+            layout.addWidget(description)
+        btn_true = _QtWidgets.QPushButton("Restore indexing" if inverted else "Set True for selection")
+        btn_false = _QtWidgets.QPushButton("Unindex selection" if inverted else "Set False for selection")
         btn_reset = _QtWidgets.QPushButton("Reset to Default")
         layout.addWidget(btn_true)
         layout.addWidget(btn_false)
@@ -231,10 +237,14 @@ class ScalarEditor(_QtWidgets.QWidget, BaseAnnotationEditor):
         else:
             self._value_widget = _QtWidgets.QLineEdit()
 
-        value_row = _QtWidgets.QHBoxLayout()
+        value_container = _QtWidgets.QWidget()
+        value_row = _QtWidgets.QHBoxLayout(value_container)
+        value_row.setContentsMargins(0, 0, 0, 0)
         value_row.addWidget(_QtWidgets.QLabel("Value:"))
         value_row.addWidget(self._value_widget)
-        layout.addLayout(value_row)
+        layout.addWidget(value_container)
+        self._mask_chk.toggled.connect(value_container.setVisible)
+        value_container.setVisible(self._mask_chk.isChecked())
 
         btn_apply = _QtWidgets.QPushButton("Apply")
         btn_apply.clicked.connect(self.apply_to_selection)

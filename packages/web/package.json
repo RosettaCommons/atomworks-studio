@@ -11,7 +11,20 @@
     "test:unit": "node --experimental-strip-types --test tests/*.test.ts",
     "test:e2e": "node tests/smoke.mjs",
     "test:workbench": "node tests/workbench.mjs",
-    "test:editor": "node tests/editor-qol.mjs"
+    "test:menus": "node tests/menu-layout.mjs",
+    "test:editor": "node tests/editor-qol.mjs",
+    "test:conditions": "node tests/condition-authoring.mjs",
+    "test:condition-toggle": "node tests/condition-toggle.mjs",
+    "test:bonds": "node tests/bond-inspection.mjs",
+    "test:picking": "node tests/picking.mjs",
+    "test:imports": "node tests/import-options.mjs",
+    "test:coordinates": "node tests/unresolved-rendering.mjs",
+    "test:close": "node tests/close-session.mjs",
+    "test:examples": "node tests/example-imports.mjs",
+    "test:example-actions": "node tests/example-actions.mjs",
+    "test:annotation-camera": "node tests/annotation-camera.mjs",
+    "test:interactions": "node tests/interactions.mjs",
+    "test:condition-presentation": "node tests/condition-presentation.mjs"
   },
   "dependencies": {
     "@baker-laboratory/patinae-viewer": "file:vendor/patinae-viewer-0.5.1-studio.1.tgz",

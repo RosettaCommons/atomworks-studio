@@ -1,9 +1,9 @@
-data_unknown_id
+data_mcsa_ph2.cif
 #
-_entry.id       unknown_id
-_entry.author   kdidi
-_entry.date     2026-07-23
-_entry.time     10:59:34
+_entry.id       mcsa_ph2.cif
+_entry.author   root
+_entry.date     2026-10-18
+_entry.time     19:38:40
 #
 loop_
 _entity.id 
@@ -150,52 +150,50 @@ _atom_site.id
 _atom_site.B_iso_or_equiv 
 _atom_site.occupancy 
 _atom_site.pdbx_formal_charge 
-_atom_site.annotation_expsegmax_1_residue 
 _atom_site.annotation_expsegmin_1_residue 
+_atom_site.annotation_expsegmax_1_residue 
+_atom_site.condition_sequence_1_residue 
+_atom_site.condition_index_1_residue 
 _atom_site.condition_index-group_1_token 
-_atom_site.mask_coordinate_1_atom 
-_atom_site.mask_expsegmax_1_residue 
-_atom_site.mask_expsegmin_1_residue 
-_atom_site.mask_index_1_residue 
-_atom_site.mask_sequence_1_residue 
 _atom_site.atom_array_index 
 _atom_site.Cartn_x 
 _atom_site.Cartn_y 
 _atom_site.Cartn_z 
 _atom_site.pdbx_PDB_model_num 
-HETATM X UNK . 180-180 A 1 21  . 21  180-180 A UNK 0  nan   0.0 ?  180 180 0 False True  True  True False 0  nan    nan    nan    1
-ATOM   N N   . GLU     A 1 22  . 22  GLU     A N   1  47.04 1.0 ?  -1  -1  0 False False False True True  1  3.108  4.854  -6.284 1
-ATOM   C CA  . GLU     A 1 22  . 22  GLU     A CA  2  48.9  1.0 ?  -1  -1  0 False False False True True  2  1.715  4.456  -6.132 1
-ATOM   C C   . GLU     A 1 22  . 22  GLU     A C   3  48.82 1.0 ?  -1  -1  0 False False False True True  3  0.801  5.637  -5.799 1
-ATOM   O O   . GLU     A 1 22  . 22  GLU     A O   4  49.32 1.0 ?  -1  -1  0 False False False True True  4  -0.393 5.601  -6.104 1
-ATOM   C CB  . GLU     A 1 22  . 22  GLU     A CB  5  47.95 1.0 ?  -1  -1  0 False False False True True  5  1.558  3.303  -5.124 1
-ATOM   C CG  . GLU     A 1 22  . 22  GLU     A CG  6  44.89 1.0 ?  -1  -1  0 False False False True True  6  1.741  3.63   -3.674 1
-ATOM   C CD  . GLU     A 1 22  . 22  GLU     A CD  7  47.78 1.0 ?  -1  -1  0 True  False False True True  7  1.726  2.386  -2.8   1
-ATOM   O OE1 . GLU     A 1 22  . 22  GLU     A OE1 8  46.68 1.0 ?  -1  -1  0 False False False True True  8  0.779  1.577  -2.891 1
-ATOM   O OE2 . GLU     A 1 22  . 22  GLU     A OE2 9  53.63 1.0 ?  -1  -1  0 True  False False True True  9  2.674  2.215  -2.014 1
-ATOM   N N   . LYS     A 1 100 . 100 LYS     A N   10 16.5  1.0 ?  -1  -1  0 False False False True True  10 -6.127 -4.095 -0.684 1
-ATOM   C CA  . LYS     A 1 100 . 100 LYS     A CA  11 17.8  1.0 ?  -1  -1  0 False False False True True  11 -5.395 -3.616 -1.854 1
-ATOM   C C   . LYS     A 1 100 . 100 LYS     A C   12 17.66 1.0 ?  -1  -1  0 False False False True True  12 -5.244 -4.919 -2.676 1
-ATOM   O O   . LYS     A 1 100 . 100 LYS     A O   13 18.35 1.0 ?  -1  -1  0 False False False True True  13 -4.416 -5.772 -2.359 1
-ATOM   C CB  . LYS     A 1 100 . 100 LYS     A CB  14 14.16 1.0 ?  -1  -1  0 False False False True True  14 -4.01  -3.079 -1.471 1
-ATOM   C CG  . LYS     A 1 100 . 100 LYS     A CG  15 9.35  1.0 ?  -1  -1  0 False False False True True  15 -3.937 -1.577 -1.205 1
-ATOM   C CD  . LYS     A 1 100 . 100 LYS     A CD  16 13.8  1.0 ?  -1  -1  0 True  False False True True  16 -2.467 -1.095 -1.115 1
-ATOM   C CE  . LYS     A 1 100 . 100 LYS     A CE  17 12.59 1.0 ?  -1  -1  0 True  False False True True  17 -2.404 0.368  -0.653 1
-ATOM   N NZ  . LYS     A 1 100 . 100 LYS     A NZ  18 20.29 1.0 +1 -1  -1  0 True  False False True True  18 -1.034 0.868  -0.334 1
-HETATM N N1  . PH2     B 2 122 . 122 PH2     B N1  19 24.94 1.0 ?  -1  -1  1 True  False False True True  19 1.39   0.339  2.87   1
-HETATM C C2  . PH2     B 2 122 . 122 PH2     B C2  20 24.3  1.0 ?  -1  -1  1 True  False False True True  20 2.435  0.217  2.122  1
-HETATM C C3  . PH2     B 2 122 . 122 PH2     B C3  21 24.13 1.0 ?  -1  -1  1 True  False False True True  21 3.419  -0.725 2.325  1
-HETATM N N4  . PH2     B 2 122 . 122 PH2     B N4  22 25.86 1.0 ?  -1  -1  1 True  False False True True  22 3.241  -1.564 3.386  1
-HETATM N N5  . PH2     B 2 122 . 122 PH2     B N5  23 31.53 1.0 ?  -1  -1  1 True  False False True True  23 1.96   -2.37  5.343  1
-HETATM C C6  . PH2     B 2 122 . 122 PH2     B C6  24 26.75 1.0 ?  -1  -1  1 True  False False True True  24 0.851  -2.213 6.089  1
-HETATM N N6  . PH2     B 2 122 . 122 PH2     B N6  25 22.26 1.0 ?  -1  -1  1 True  False False True True  25 0.475  -2.989 7.17   1
-HETATM N N7  . PH2     B 2 122 . 122 PH2     B N7  26 30.11 1.0 ?  -1  -1  1 True  False False True True  26 -0.116 -1.211 5.794  1
-HETATM C C8  . PH2     B 2 122 . 122 PH2     B C8  27 32.09 1.0 ?  -1  -1  1 True  False False True True  27 0.017  -0.304 4.683  1
-HETATM O O8  . PH2     B 2 122 . 122 PH2     B O8  28 27.39 1.0 ?  -1  -1  1 True  False False True True  28 -0.833 0.576  4.388  1
-HETATM C C9  . PH2     B 2 122 . 122 PH2     B C9  29 30.03 1.0 ?  -1  -1  1 True  False False True True  29 1.214  -0.474 3.9    1
-HETATM C C10 . PH2     B 2 122 . 122 PH2     B C10 30 30.83 1.0 ?  -1  -1  1 True  False False True True  30 2.123  -1.499 4.262  1
-HETATM C C11 . PH2     B 2 122 . 122 PH2     B C11 31 35.9  1.0 ?  -1  -1  1 True  False False True True  31 2.55   1.126  1.017  1
-HETATM O O4  . PH2     B 2 122 . 122 PH2     B O4  32 38.81 1.0 ?  -1  -1  1 True  False False True True  32 2.585  0.352  -0.16  1
+HETATM X UNK . 180-180 A 1 21  . 21  180-180 A UNK 0  nan   0.0 ?  180 180 <M> True 0 0  nan    nan    nan    1
+ATOM   N N   . GLU     A 1 22  . 22  GLU     A N   1  47.04 1.0 ?  -1  -1  GLU True 0 1  3.108  4.854  -6.284 1
+ATOM   C CA  . GLU     A 1 22  . 22  GLU     A CA  2  48.9  1.0 ?  -1  -1  GLU True 0 2  1.715  4.456  -6.132 1
+ATOM   C C   . GLU     A 1 22  . 22  GLU     A C   3  48.82 1.0 ?  -1  -1  GLU True 0 3  0.801  5.637  -5.799 1
+ATOM   O O   . GLU     A 1 22  . 22  GLU     A O   4  49.32 1.0 ?  -1  -1  GLU True 0 4  -0.393 5.601  -6.104 1
+ATOM   C CB  . GLU     A 1 22  . 22  GLU     A CB  5  47.95 1.0 ?  -1  -1  GLU True 0 5  1.558  3.303  -5.124 1
+ATOM   C CG  . GLU     A 1 22  . 22  GLU     A CG  6  44.89 1.0 ?  -1  -1  GLU True 0 6  1.741  3.63   -3.674 1
+ATOM   C CD  . GLU     A 1 22  . 22  GLU     A CD  7  47.78 1.0 ?  -1  -1  GLU True 0 7  1.726  2.386  -2.8   1
+ATOM   O OE1 . GLU     A 1 22  . 22  GLU     A OE1 8  46.68 1.0 ?  -1  -1  GLU True 0 8  0.779  1.577  -2.891 1
+ATOM   O OE2 . GLU     A 1 22  . 22  GLU     A OE2 9  53.63 1.0 ?  -1  -1  GLU True 0 9  2.674  2.215  -2.014 1
+ATOM   N N   . LYS     A 1 100 . 100 LYS     A N   10 16.5  1.0 ?  -1  -1  LYS True 0 10 -6.127 -4.095 -0.684 1
+ATOM   C CA  . LYS     A 1 100 . 100 LYS     A CA  11 17.8  1.0 ?  -1  -1  LYS True 0 11 -5.395 -3.616 -1.854 1
+ATOM   C C   . LYS     A 1 100 . 100 LYS     A C   12 17.66 1.0 ?  -1  -1  LYS True 0 12 -5.244 -4.919 -2.676 1
+ATOM   O O   . LYS     A 1 100 . 100 LYS     A O   13 18.35 1.0 ?  -1  -1  LYS True 0 13 -4.416 -5.772 -2.359 1
+ATOM   C CB  . LYS     A 1 100 . 100 LYS     A CB  14 14.16 1.0 ?  -1  -1  LYS True 0 14 -4.01  -3.079 -1.471 1
+ATOM   C CG  . LYS     A 1 100 . 100 LYS     A CG  15 9.35  1.0 ?  -1  -1  LYS True 0 15 -3.937 -1.577 -1.205 1
+ATOM   C CD  . LYS     A 1 100 . 100 LYS     A CD  16 13.8  1.0 ?  -1  -1  LYS True 0 16 -2.467 -1.095 -1.115 1
+ATOM   C CE  . LYS     A 1 100 . 100 LYS     A CE  17 12.59 1.0 ?  -1  -1  LYS True 0 17 -2.404 0.368  -0.653 1
+ATOM   N NZ  . LYS     A 1 100 . 100 LYS     A NZ  18 20.29 1.0 +1 -1  -1  LYS True 0 18 -1.034 0.868  -0.334 1
+ATOM   O OXT . LYS     A 1 100 . 100 LYS     A OXT 33 nan   0.0 ?  -1  -1  LYS True 0 19 nan    nan    nan    1
+HETATM N N1  . PH2     B 2 122 . 122 PH2     B N1  19 24.94 1.0 ?  -1  -1  PH2 True 1 20 1.39   0.339  2.87   1
+HETATM C C2  . PH2     B 2 122 . 122 PH2     B C2  20 24.3  1.0 ?  -1  -1  PH2 True 1 21 2.435  0.217  2.122  1
+HETATM C C3  . PH2     B 2 122 . 122 PH2     B C3  21 24.13 1.0 ?  -1  -1  PH2 True 1 22 3.419  -0.725 2.325  1
+HETATM N N4  . PH2     B 2 122 . 122 PH2     B N4  22 25.86 1.0 ?  -1  -1  PH2 True 1 23 3.241  -1.564 3.386  1
+HETATM N N5  . PH2     B 2 122 . 122 PH2     B N5  23 31.53 1.0 ?  -1  -1  PH2 True 1 24 1.96   -2.37  5.343  1
+HETATM C C6  . PH2     B 2 122 . 122 PH2     B C6  24 26.75 1.0 ?  -1  -1  PH2 True 1 25 0.851  -2.213 6.089  1
+HETATM N N6  . PH2     B 2 122 . 122 PH2     B N6  25 22.26 1.0 ?  -1  -1  PH2 True 1 26 0.475  -2.989 7.17   1
+HETATM N N7  . PH2     B 2 122 . 122 PH2     B N7  26 30.11 1.0 ?  -1  -1  PH2 True 1 27 -0.116 -1.211 5.794  1
+HETATM C C8  . PH2     B 2 122 . 122 PH2     B C8  27 32.09 1.0 ?  -1  -1  PH2 True 1 28 0.017  -0.304 4.683  1
+HETATM O O8  . PH2     B 2 122 . 122 PH2     B O8  28 27.39 1.0 ?  -1  -1  PH2 True 1 29 -0.833 0.576  4.388  1
+HETATM C C9  . PH2     B 2 122 . 122 PH2     B C9  29 30.03 1.0 ?  -1  -1  PH2 True 1 30 1.214  -0.474 3.9    1
+HETATM C C10 . PH2     B 2 122 . 122 PH2     B C10 30 30.83 1.0 ?  -1  -1  PH2 True 1 31 2.123  -1.499 4.262  1
+HETATM C C11 . PH2     B 2 122 . 122 PH2     B C11 31 35.9  1.0 ?  -1  -1  PH2 True 1 32 2.55   1.126  1.017  1
+HETATM O O4  . PH2     B 2 122 . 122 PH2     B O4  32 38.81 1.0 ?  -1  -1  PH2 True 1 33 2.585  0.352  -0.16  1
 #
 _cell.length_a      62.2
 _cell.length_b      62.2
@@ -203,6 +201,46 @@ _cell.length_c      123.8
 _cell.angle_alpha   90.0
 _cell.angle_beta    90.0
 _cell.angle_gamma   90.0
+#
+loop_
+_condition_coordinate_1_atom.idx0 
+_condition_coordinate_1_atom.val0 
+_condition_coordinate_1_atom.val1 
+_condition_coordinate_1_atom.val2 
+0  nan                  nan                  nan
+1  nan                  nan                  nan
+2  nan                  nan                  nan
+3  nan                  nan                  nan
+4  nan                  nan                  nan
+5  nan                  nan                  nan
+6  nan                  nan                  nan
+7  1.7259999513626099   2.385999917984009    -2.799999952316284
+8  nan                  nan                  nan
+9  2.6740000247955322   2.2149999141693115   -2.0139999389648438
+10 nan                  nan                  nan
+11 nan                  nan                  nan
+12 nan                  nan                  nan
+13 nan                  nan                  nan
+14 nan                  nan                  nan
+15 nan                  nan                  nan
+16 -2.4670000076293945  -1.0950000286102295  -1.1150000095367432
+17 -2.4040000438690186  0.36800000071525574  -0.652999997138977
+18 -1.034000039100647   0.8679999709129333   -0.33399999141693115
+19 nan                  nan                  nan
+20 1.3899999856948853   0.33899998664855957  2.869999885559082
+21 2.434999942779541    0.21699999272823334  2.121999979019165
+22 3.4189999103546143   -0.7250000238418579  2.325000047683716
+23 3.240999937057495    -1.5640000104904175  3.385999917984009
+24 1.9600000381469727   -2.369999885559082   5.3429999351501465
+25 0.8510000109672546   -2.2130000591278076  6.089000225067139
+26 0.4749999940395355   -2.989000082015991   7.170000076293945
+27 -0.11599999666213989 -1.2109999656677246  5.794000148773193
+28 0.017000000923871994 -0.30399999022483826 4.683000087738037
+29 -0.8330000042915344  0.5759999752044678   4.388000011444092
+30 1.2139999866485596   -0.4740000069141388  3.9000000953674316
+31 2.122999906539917    -1.4989999532699585  4.26200008392334
+32 2.549999952316284    1.1260000467300415   1.0169999599456787
+33 2.5850000381469727   0.35199999809265137  -0.1599999964237213
 #
 loop_
 _chem_comp_atom.comp_id 
@@ -214,6 +252,7 @@ _chem_comp_atom.pdbx_leaving_atom_flag
 _chem_comp_atom.pdbx_model_Cartn_x_ideal 
 _chem_comp_atom.pdbx_model_Cartn_y_ideal 
 _chem_comp_atom.pdbx_model_Cartn_z_ideal 
+180-180 UNK  X 0 N N nan                  nan                   nan
 GLU     N    N 0 N N 1.1990000009536743   1.8669999837875366    -0.11699999868869781
 GLU     CA   C 0 N N 1.1380000114440918   0.5149999856948853    0.453000009059906
 GLU     C    C 0 N N 2.364000082015991    -0.25999999046325684  0.04100000113248825
@@ -281,5 +320,4 @@ PH2     HN7  H 0 N N -1.840000033378601   -0.1120000034570694   2.92400002479553
 PH2     H111 H 0 N N 0.7829999923706055   0.7429999709129333    -4.044000148773193
 PH2     H112 H 0 N N 0.46299999952316284  -1.0069999694824219   -4.056000232696533
 PH2     HO4  H 0 N N -1.3289999961853027  0.23000000417232513   -4.769000053405762
-180-180 UNK  X 0 N N nan                  nan                   nan
 #

@@ -68,6 +68,20 @@ A broken installed adapter fails visibly instead of silently omitting annotation
 See [architecture](ARCHITECTURE.md) for package boundaries and
 [releases](RELEASE.md) for distribution builds.
 
+Condition edits always broadcast to the declared AtomWorks level (atom, token,
+residue, or chain) in `StudioDocument.set_condition`, including removal and group
+actions. Explicit selection scope can expand an edit further. Token broadcasting
+uses AtomWorks token boundaries, including atomization.
+
+Sequence probability channels share one editor group, with residue choices and
+numeric limits supplied by the condition schema. Web and PyMOL use the same
+metadata: two decimal places, a 0.1 step, and values from zero to one. Stored
+probabilities retain their precision; rounding applies only to GUI input.
+
+New-chain segments use `StudioDocument.next_chain_id()` when no ID is supplied;
+both interfaces show that suggestion. IDs progress A–Z, AA–AZ, and so on.
+Salt-bridge and metal-coordination roles use the bundled RFD4 enum definitions.
+
 ## Workflow checks
 
 The browser acceptance suite runs the PPI, enzyme-motif and ligand cases in
@@ -121,3 +135,24 @@ use an echo runner locally or explicitly enable it against a model deployment.
 For private Spaces, supply `HF_TOKEN` through the environment and set
 `STUDIO_PARENT_ORIGIN=https://huggingface.co` to reproduce the Hub's nested iframe.
 The test sends authentication only to the configured Studio origin.
+
+## Selection invariants
+
+`SelectionController` owns the selected atom set. A toggle changes only its target:
+remove the target when every target atom is selected; otherwise add the target.
+Selection behavior depends on the current set and explicit operation, never on
+which residue was clicked previously. Renderer focus, camera movement, and local
+sticks are display state. In Atoms mode, cartoon hits only change that display.
+
+Canvas picks and query results use `applyResolved` to commit in request order.
+Clear, replacement selections, mode changes, and document changes invalidate
+pending work. Keep those rules in the controller rather than adding per-renderer
+selection exceptions. The unit suite checks set invariants and delayed requests;
+`tests/picking.mjs` checks actual Mol* hits and `tests/selections.mjs` checks both
+renderers and query cancellation.
+
+Mol* renders a root structure containing only positioned atoms, preserving their original
+source indices. Missing coordinates and design placeholders stay in the editable document;
+they must never enter geometry, focus surroundings, camera bounds, or picking. The shared
+coordinate filter also constrains Patinae representation changes. The close/reopen regression
+in `packages/web/tests/unresolved-rendering.mjs` checks scene isolation and sequence coverage.

@@ -1,3 +1,5 @@
+import annotationPalette from "../../../editing/atomworks_studio_editing/annotation_palette.json" with { type: "json" };
+
 export type ViewerBackend = "patinae" | "molstar";
 export type ViewerMode = ViewerBackend;
 export type ViewerTarget = "all" | "selection";
@@ -115,6 +117,7 @@ export type AnnotationGroup = {
   label: string;
   atomIndices: number[];
   color?: AnnotationColor;
+  showAtoms?: boolean;
 };
 
 export type ViewerMarker = { label: string; position: [number, number, number]; color: number };
@@ -132,6 +135,7 @@ export type AnnotationRenderResult = {
 export type AtomPick = {
   atomIndex: number;
   label?: string;
+  scope?: "atom" | "residue";
 };
 
 export type ViewerAdapterContext = {
@@ -233,23 +237,13 @@ export async function replayViewerTransientVisuals(
   state: ViewerTransientVisualState,
 ): Promise<void> {
   await adapter.clearMeasurements?.();
-  if (state.interactionOverlays.length) {
-    await adapter.showInteractions?.([...state.interactionOverlays]);
-  }
+  await adapter.showInteractions?.([...state.interactionOverlays]);
   for (const request of state.measurementRequests) {
     await adapter.addMeasurement?.(request);
   }
 }
 
-export const ANNOTATION_PALETTE: readonly AnnotationColor[] = [
-  { name: "yellow", value: 0xffd54f },
-  { name: "cyan", value: 0x4dd0e1 },
-  { name: "magenta", value: 0xce93d8 },
-  { name: "orange", value: 0xffa726 },
-  { name: "green", value: 0x66bb6a },
-  { name: "red", value: 0xef5350 },
-  { name: "blue", value: 0x42a5f5 },
-];
+export const ANNOTATION_PALETTE: readonly AnnotationColor[] = annotationPalette;
 
 export function normalizedAnnotationGroups(groups: AnnotationGroup[]): AnnotationGroup[] {
   return groups.flatMap((group) => {

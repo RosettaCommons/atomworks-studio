@@ -1,5 +1,6 @@
 import type {
   AnnotationGroup,
+  AtomPick,
   AnnotationRenderResult,
   ViewerAdapter,
   ViewerAdapterContext,
@@ -26,6 +27,7 @@ import {
 
 export type {
   AnnotationGroup,
+  AtomPick,
   ViewerBackend,
   ViewerCameraAction,
   ViewerColor,
@@ -88,7 +90,7 @@ export class MolecularViewer {
     private readonly container: HTMLElement,
     private readonly backendLabel: HTMLElement,
     private mode: ViewerMode,
-    private readonly onPick: (atomIndex: number, label?: string) => void,
+    private readonly onPick: (pick: AtomPick) => void,
     private readonly onRenderError: (error: unknown) => void = (error) => { throw error; },
   ) {}
 
@@ -122,7 +124,7 @@ export class MolecularViewer {
     this.updateAnnotationDiagnostics();
     const adapter = await createAdapter(backend, {
       container: this.container,
-      onPick: ({ atomIndex, label }) => this.onPick(atomIndex, label),
+      onPick: (pick) => this.onPick(pick),
     });
     try {
       await adapter.initialize();
@@ -309,6 +311,12 @@ export class MolecularViewer {
     await this.replayTransientVisuals();
   }
 
+  async resetView(): Promise<void> {
+    await this.clearAllVisuals();
+    this.selectedAtomIndices = [];
+    await this.activate(this.mode);
+  }
+
   async clearAllVisuals(): Promise<void> {
     this.representations = [];
     this.annotationGroups = [];
@@ -327,7 +335,7 @@ export class MolecularViewer {
   async showAnnotation(groups: AnnotationGroup[]): Promise<void> {
     if (!this.adapter) throw new Error("Molecular viewer is not initialized");
     this.annotationGroups = groups;
-    this.updateAnnotationDiagnostics(await this.adapter.showAnnotation(groups));
+    this.updateAnnotationDiagnostics(this.structures.length ? await this.adapter.showAnnotation(groups) : undefined);
     await this.replayRepresentations();
     await this.replayTransientVisuals();
   }

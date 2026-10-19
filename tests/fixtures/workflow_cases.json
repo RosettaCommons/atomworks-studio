@@ -1,25 +1,21 @@
 [
   {
-    "name": "ppi", "example_id": "protein_binder", "atoms": 925,
+    "name": "ppi", "example_id": "protein_binder", "atoms": 926,
     "actions": [
       {"kind":"condition","key":"hotspot","query":"atom_name != ''","enabled":false},
       {"kind":"condition","key":"hotspot","query":"(chain_id == 'A') & ((res_id == 56) | (res_id == 115) | (res_id == 123))","enabled":true},
-      {"kind":"condition","key":"index","query":"chain_id == 'A'","enabled":true},
-      {"kind":"pair","query":"(chain_id == 'A') & (atom_name == 'CA') & ((res_id == 56) | (res_id == 115))","value":8.5},
-      {"kind":"realize"}, {"kind":"undo"}
+      {"kind":"condition","key":"index","query":"chain_id == 'A'","enabled":true}
     ]
   },
   {
-    "name":"enzyme", "file":"mcsa_ph2.cif", "atoms":33,
+    "name":"enzyme", "file":"mcsa_ph2.cif", "atoms":34,
     "actions":[
       {"kind":"condition","key":"coordinate","query":"res_name == 'PH2'","enabled":true},
       {"kind":"condition","key":"hbond","query":"(res_name == 'LYS') & (atom_name == 'NZ')","enabled":true,"value":1},
       {"kind":"condition","key":"hbond","query":"(res_name == 'PH2') & (element == 'O')","enabled":true,"value":2},
       {"kind":"condition","key":"rasa","query":"res_name == 'PH2'","enabled":true,"value":3},
       {"kind":"charge","query":"(res_name == 'PH2') & (atom_name == 'O4')","value":-1},
-      {"kind":"undo"},
-      {"kind":"pair","query":"((res_name == 'LYS') & (atom_name == 'NZ')) | ((res_name == 'PH2') & (atom_name == 'O4'))","value":3.0},
-      {"kind":"realize"}, {"kind":"undo"}
+      {"kind":"undo"}
     ]
   },
   {
@@ -27,8 +23,7 @@
     "actions":[
       {"kind":"condition","key":"coordinate","query":"res_name == 'IAI'","enabled":true},
       {"kind":"condition","key":"rasa","query":"res_name == 'IAI'","enabled":true,"value":3},
-      {"kind":"group","key":"index_group","query":"res_name == 'IAI'"},
-      {"kind":"realize"}, {"kind":"undo"}
+      {"kind":"group","key":"index_group","query":"res_name == 'IAI'"}
     ]
   }
 ]

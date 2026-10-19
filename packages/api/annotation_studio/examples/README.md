@@ -2,10 +2,12 @@
 
 Eight inputs from the private RFD4 NIM, revision
 `3a8a1f6f2ed6bab37757d2471b5007971175225d`, under `nim/examples/*/request.json`.
-The enzyme, motif, ligand binder, VHH, partial-diffusion and inverse-folding
-CIF contents are unchanged. Antibody and unconditional condition specs were
-converted with the native RFD4 condition-spec builder and standard-annotation
-serializer. Antibody framework/target conditions and excluded CDR H3 are retained.
+Motif, partial-diffusion and inverse-folding CIF contents are unchanged.
+Enzyme and VHH inputs include missing heavy atoms with free coordinates.
+Antibody and unconditional condition specs use the standard-annotation serializer;
+the antibody uses separate internal heavy/light framework groups and a fixed target.
+SAM uses the positioned conformer from RFD4’s interaction examples while leaving
+coordinate conditioning off. See `docs/PROVENANCE.md` for sources and preparation.
 
 `examples.json` pairs each CIF with its sampling task. Partial diffusion uses
 40% of the trajectory; inverse folding uses the native inverse-folding sampler.

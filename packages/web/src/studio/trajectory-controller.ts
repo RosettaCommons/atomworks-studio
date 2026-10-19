@@ -20,7 +20,7 @@ export class TrajectoryController {
   constructor(
     private readonly viewer: MolecularViewer,
     private readonly restore: () => Promise<void>,
-    private readonly log: (message: string) => void,
+    private readonly log: (message: string, level?: "info" | "error") => void,
   ) {}
 
   bind(source: string): void {
@@ -95,7 +95,7 @@ export class TrajectoryController {
       if (this.active) {
         await this.restore();
       }
-      this.log(String(error));
+      this.log(String(error), "error");
       this.active = false;
       this.lockEditor(false);
     } finally {
@@ -113,7 +113,7 @@ export class TrajectoryController {
       this.label.value = `Frame ${index + 1} / ${this.viewer.trajectoryFrameCount}`;
     } catch (error) {
       this.pause();
-      this.log(String(error));
+      this.log(String(error), "error");
     } finally {
       this.busy = false;
       if (this.pendingFrame !== null) {

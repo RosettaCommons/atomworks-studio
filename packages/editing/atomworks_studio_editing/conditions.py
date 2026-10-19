@@ -19,6 +19,7 @@ class AtomWorksConditionProvider(NeutralConditionProvider):
             default=True if condition is C_IDX else False,
             invert_mask=condition is C_IDX,
             condition=condition,
+            visible=condition not in (C_NTR, C_CTR),
         )
         for condition, label in (
             (C_SEQ, "Sequence conditioning"),

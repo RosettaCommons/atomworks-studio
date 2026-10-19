@@ -1,6 +1,6 @@
 """Charge editing wizard for the AtomWorks PyMOL plugin.
 
-Provides :py:class:`ChargeWizard`, a dockable tab that edits the integer
+Provides :py:class:`ChargeWizard`, an editor that edits the integer
 ``charge`` annotation on the active :py:class:`AtomArrayPlus`.
 """
 
@@ -24,7 +24,7 @@ def _read_charges(arr: AtomArrayPlus) -> np.ndarray:
 
 
 class ChargeWizard:
-    """Tab for editing the ``charge`` field on the active AtomArrayPlus.
+    """Controls for editing the ``charge`` field on the active AtomArrayPlus.
 
     Operations apply to the current PyMOL ``sele`` selection:
 

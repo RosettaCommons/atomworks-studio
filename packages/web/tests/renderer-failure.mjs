@@ -33,7 +33,7 @@ try {
     await page.waitForFunction(() => document.querySelector("#status")?.textContent?.includes("Ready."));
 
     assert.equal(await page.locator(".example-load").first().isEnabled(), true);
-    assert.equal(await page.locator("#workspace").getAttribute("data-studio-tab"), "atomworks");
+    assert.ok(await page.locator("#atomworks-studio-popover").isVisible());
     await page.locator('.example-load[data-example="antibody_design"]').click();
     await page.waitForFunction(
       () => document.querySelector("#structure-summary")?.textContent?.includes("Atoms"),
@@ -41,6 +41,7 @@ try {
     assert.equal(await page.locator("#validate").isEnabled(), true);
 
     await page.locator(".load-options > summary").click();
+    await page.locator("#parse-preset").selectOption("manual");
     await page.locator("#parse-assembly").fill("asym");
     await page.locator("#parse-hydrogen_policy").selectOption("remove");
     await page.locator("#file-input").setInputFiles(
@@ -58,8 +59,7 @@ try {
       const original = await snapshot();
       for (const mode of ["molstar", "patinae"]) {
         await page.locator('[data-menu="overflow"]').evaluate(menu => { menu.open = true; });
-        if (mode === "patinae") await page.locator("#command-catalog button").click();
-        else await page.locator("#viewer-mode").selectOption(mode);
+        await page.locator("#viewer-mode").selectOption(mode);
         await page.waitForFunction(() => !document.querySelector("#viewer-mode").disabled);
       }
       await page.waitForFunction(() => document.querySelector("#status").textContent.includes("Renderer switch failed")

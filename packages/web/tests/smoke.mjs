@@ -28,12 +28,6 @@ async function assertNoSevereAccessibilityIssues(page, context) {
   );
 }
 
-async function showEdit(page) {
-  await page.keyboard.press("Escape");
-  if (!(await page.locator("#atomworks-studio-menu").evaluate((menu) => menu.open))) {
-    await page.locator("#atomworks-studio-menu > summary").click();
-  }
-}
 
 let page;
 const errors = [];
@@ -63,12 +57,18 @@ try {
     viewerMode,
   );
   assert.deepEqual(await page.locator(".viewer-menu > summary").allTextContents(), [
-    "Style", "Select", "Analyze", "Edit", "View", "More",
+    "Style", "Analyze", "View", "Backend",
   ]);
-  assert.deepEqual(await page.locator("#selection-syntax option").allTextContents(), [
-    "PyMOL commands", "AtomWorks query",
-  ]);
+  assert.deepEqual(await page.locator("#selection-syntax option").allTextContents(),
+    viewerMode === "molstar" ? ["AtomWorks query"] : ["PyMOL commands", "AtomWorks query"]);
   assert.equal(await page.locator(".drawer-stack > details").count(), 3);
+  assert.equal(await page.locator("#restraint-distance, #add-restraint, #remove-restraint").count(), 0);
+  assert.equal(await page.locator('#condition option[value="distance"]').count(), 0);
+  assert.equal(await page.locator("#open-editor, #open-objects, #open-selections, #open-measurements").count(), 0);
+  await page.locator('[data-menu="overflow"] > summary').click();
+  assert.equal(await page.locator("#command-search").isVisible(), viewerMode === "patinae");
+  assert.equal(await page.locator("#command-catalog button").count() > 0, viewerMode === "patinae");
+  await page.keyboard.press("Escape");
   if (viewerMode === "patinae") {
     assert.match(
       (await page.locator("#viewer").getAttribute("data-picking")) ?? "",
@@ -81,22 +81,23 @@ try {
   assert.equal((await page.request.get(new URL("/atomworks_logo_dark.svg", baseUrl).toString())).ok(), true);
   assert.equal(await page.locator("h1").innerText(), "AtomWorks Studio");
 
-  await showEdit(page);
+  await page.keyboard.press("Escape");
   assert.equal(await page.locator(".example-load").count(), 9);
   assert.equal(await page.locator('[data-example="antibody_design"]').isEnabled(), true);
   if (viewerMode === "molstar") {
     await page.locator('[data-example="unconditional"]').click();
     await page.waitForFunction(() => document.querySelector("#status")?.textContent?.includes("Loaded Unconditional"));
     assert.equal(await page.locator(".sequence-segment").innerText(), "[250–250]");
-    await page.locator(".sequence-segment").click();
-    await page.waitForFunction(() => document.querySelector(".sequence-segment")?.classList.contains("realized"));
-    assert.match(await page.locator(".sequence-segment").innerText(), /^250×X$/);
-    await page.locator(".sequence-segment").click();
-    await page.waitForFunction(() => !document.querySelector(".sequence-segment")?.classList.contains("realized"));
-    assert.equal(await page.locator(".sequence-segment").innerText(), "[250–250]");
+    assert.equal(await page.locator("button.sequence-segment").count(), 0);
+    assert.equal(await page.locator("#sequence-realize, #sequence-collapse, #realize-segments, #collapse-segments").count(), 0);
     for (const [id, label] of [["enzyme_design", "Enzyme"], ["small_molecule_binder", "Small-molecule"]]) {
       await page.locator("#examples-panel").evaluate(panel => { panel.open = true; });
+      const inspected = page.waitForResponse(response => response.url().endsWith("/import/inspect"));
       await page.locator(`[data-example="${id}"]`).click();
+      if ((await (await inspected).json()).preset === null) {
+        await page.locator('dialog #parse-preset').selectOption("minimal");
+        await page.locator('dialog button[value="import"]').click();
+      }
       await page.waitForFunction(label => document.querySelector("#status")?.textContent?.includes(`Loaded ${label}`), label);
     }
     assert.equal(
@@ -122,9 +123,9 @@ try {
   assert.match(status, /(Patinae|Mol\*) loaded 66 atoms; lossless WASM found [1-9]\d* annotation categories/);
   assert.match(await page.locator("#structure-summary").innerText(), /66/);
   assert.equal(await page.locator("#download").isEnabled(), true);
-  await showEdit(page);
-  assert.deepEqual(await page.locator("#pick-scope option").allTextContents(), ["Atom", "Residue", "Chain"]);
-  await showEdit(page);
+  await page.keyboard.press("Escape");
+  assert.deepEqual(await page.locator("#pick-scope option").allTextContents(), ["Atoms", "Residues", "Chains"]);
+  await page.keyboard.press("Escape");
   assert.ok(await page.locator(".sequence-dock .sequence-token").count(), "top sequence dock has residues");
   const sequenceResidues = page.locator(".sequence-dock .sequence-token[data-atoms]");
   await sequenceResidues.first().click();
@@ -140,15 +141,12 @@ try {
   assert.equal(await page.locator("#sequence-toggle").innerText(), "Show sequence");
   await page.locator("#sequence-toggle").click();
   assert.equal(await page.locator("#sequence-view").isVisible(), true);
-  await showEdit(page);
-  await page.waitForFunction(
-    () => document.querySelector("#workspace")?.getAttribute("data-studio-tab") === "atomworks",
-  );
-  assert.equal(await page.locator("#atomworks-studio-menu").getAttribute("open"), "");
+  await page.keyboard.press("Escape");
+  await page.locator("#atomworks-studio-popover").waitFor({ state: "visible" });
   await page.locator("#editor-tab-annotations").click();
   assert.ok(await page.locator("#annotation-list").isVisible(), "AtomWorks annotations are in the Studio menu");
   await assertNoSevereAccessibilityIssues(page, "the loaded editor");
-  assert.equal(await page.locator("#workspace").getAttribute("data-studio-tab"), "atomworks");
+  assert.ok(await page.locator("#atomworks-studio-popover").isVisible());
   const studioCards = page.locator('#editor-panel-annotations > .card');
   assert.equal(
     await studioCards.evaluateAll((cards) =>
@@ -157,13 +155,13 @@ try {
     true,
     "AtomWorks cards use one full-width column",
   );
-  await showEdit(page);
+  await page.keyboard.press("Escape");
   assert.deepEqual(await page.locator("#charge-action option").allTextContents(), ["Set", "Add delta"]);
-  assert.equal(await page.locator("#annotation-search").count(), 1);
+  assert.equal(await page.locator("#annotation-search").count(), 0);
+  assert.equal(await page.getByRole("heading", { name: "Conditions on this structure" }).count(), 1);
   assert.equal(await page.locator("#condition-feedback").count(), 1);
-  assert.ok(await page.locator("#known-chain-ids option").count() > 0);
   assert.equal(await page.locator("#close-residue-gaps").count(), 1);
-  assert.equal(await page.locator("#assign-chain").count(), 1);
+  assert.equal(await page.locator("#assign-chain").count(), 0);
   assert.equal(await page.locator("#segment-new-chain").count(), 1);
   if (await page.locator("#condition option").count()) {
     await page.locator("#apply-condition").click();
@@ -373,7 +371,7 @@ try {
     }, "consent is bound to the revision used for the target-loss preview");
     await page.unroute(`${authoringUrl}/conditions`);
   }
-  await showEdit(page);
+  await page.keyboard.press("Escape");
   const alternateViewer = viewerMode === "patinae" ? "molstar" : "patinae";
   await page.locator('[data-menu="overflow"]').evaluate((menu) => { menu.open = true; });
   await page.locator("#viewer-mode").selectOption(alternateViewer);
@@ -383,55 +381,35 @@ try {
     { timeout: 30_000 },
   );
   assert.match(await page.locator("#selection-count").innerText(), /^0 atoms/);
+  await page.waitForFunction(() => !document.querySelector("#viewer-mode").disabled);
   await page.locator('[data-menu="overflow"]').evaluate((menu) => { menu.open = true; });
+  assert.equal(await page.locator('[data-menu="view"]').count(), 0);
+  assert.equal(await page.locator("#command-search").isVisible(), alternateViewer === "patinae");
+  assert.equal(await page.locator("#command-catalog button").count() > 0, alternateViewer === "patinae");
   await page.locator("#viewer-mode").selectOption(viewerMode);
   await page.waitForFunction(
     (backend) => document.querySelector("#viewer")?.getAttribute("data-backend") === backend,
     viewerMode,
     { timeout: 30_000 },
   );
+  await page.waitForFunction(() => !document.querySelector("#viewer-mode").disabled);
+  await page.locator('[data-menu="overflow"] > summary').click();
+  assert.equal(await page.locator("#command-search").isVisible(), viewerMode === "patinae");
+  await page.keyboard.press("Escape");
   await page.locator("#selection-syntax").selectOption("expression");
   await page.locator("#viewer-command").fill("(atom_id == 1) | (atom_id == 2)");
   await page.locator("#run-viewer-command").click();
   await page.waitForFunction(() => document.querySelector("#selection-count")?.textContent?.startsWith("2 atoms"));
-  await showEdit(page);
+  await page.keyboard.press("Escape");
   if (await page.locator('#condition option[value="distance"]').count()) {
     await page.locator("#condition").selectOption("distance");
     assert.equal(await page.locator("#pair-distance").getAttribute("type"), "number");
-    assert.equal(await page.locator("#scope").inputValue(), "atom");
-    assert.equal(await page.locator("#scope").isDisabled(), true);
+    assert.equal(await page.locator("#scope").count(), 0);
     assert.equal(await page.locator("#apply-condition").isHidden(), true);
     assert.equal(await page.locator("#pair-use-selection").isEnabled(), true);
     assert.match(await page.locator("#condition-feedback").innerText(), /define one pair/);
   }
-  if (await page.locator('#condition option[value="internal_coordinate"]').count()) {
-    await page.locator("#condition").selectOption("internal_coordinate");
-    let clearRequests = 0;
-    const trackClear = (request) => {
-      if (request.url().endsWith("/internal-coords/clear-targets")) clearRequests += 1;
-    };
-    page.on("request", trackClear);
-    await page.locator("#clear-internal-targets").click();
-    await page.locator('dialog.confirmation button[value="cancel"]').click();
-    await page.waitForTimeout(100);
-    page.off("request", trackClear);
-    assert.equal(clearRequests, 0, "cancelling saved-target discard must not mutate the document");
-    let confirmedClear = null;
-    await page.route(`${authoringUrl}/internal-coords/clear-targets`, async (route) => {
-      confirmedClear = route.request().postDataJSON();
-      await route.fulfill({ json: authoringResponse });
-    });
-    await page.locator("#clear-internal-targets").click();
-    const cleared = page.waitForResponse(response => response.url().endsWith("/internal-coords/clear-targets"));
-    await page.locator('dialog.confirmation button[value="confirm"]').click();
-    await cleared;
-    await page.waitForFunction(() => !document.querySelector("#viewer-mode")?.disabled);
-    assert.ok(confirmedClear, "confirming explicit target clearing sends the edit");
-    assert.equal(confirmedClear.expected_revision, authoringResponse.structure.revision);
-    assert.equal(confirmedClear.atom_indices.length, 2);
-    await page.unroute(`${authoringUrl}/internal-coords/clear-targets`);
-  }
-  await showEdit(page);
+  await page.keyboard.press("Escape");
   await page.locator('[data-menu="analyze"] > summary').click();
   assert.equal(
     await page.locator('[data-menu="analyze"] .viewer-menu-popover').evaluate((popover) => {
@@ -448,7 +426,7 @@ try {
     () => !document.querySelector("#measurement-list")?.textContent?.includes("No measurements"),
   );
   assert.notEqual((await page.locator("#measurement-list").innerText()).trim(), "");
-  await showEdit(page);
+  await page.keyboard.press("Escape");
   for (const [kind, expression, count] of [
     ["angle", "(atom_id == 1) | (atom_id == 2) | (atom_id == 3)", 3],
     ["dihedral", "(atom_id == 1) | (atom_id == 2) | (atom_id == 3) | (atom_id == 4)", 4],
@@ -468,7 +446,7 @@ try {
       (measurementKind) => document.querySelector("#status")?.textContent?.includes(`${measurementKind} measurement added`),
       kind,
     );
-    await showEdit(page);
+    await page.keyboard.press("Escape");
   }
   await page.locator('[data-menu="analyze"] > summary').click();
   await page.locator('input[name="interaction-type"]').evaluateAll((inputs) => {
@@ -486,25 +464,19 @@ try {
   assert.doesNotMatch(await page.locator("#measurement-list").innerText(), /hbond/i);
   await page.locator(".interaction-result").click();
   assert.match(await page.locator("#selection-count").innerText(), /^2 atoms/);
-  await showEdit(page);
-  await page.locator('[data-menu="view"] > summary').click();
-  await page.locator('[data-camera="reset"]').click();
-  assert.equal(
-    await page.locator('[data-menu="view"]').evaluate((menu) => menu.hasAttribute("open")),
-    true,
-    "view controls remain open after camera actions",
-  );
+  await page.keyboard.press("Escape");
+  await page.locator('[data-menu="style"] > summary').click();
   const canvasBounds = await page.locator("#viewer canvas").first().boundingBox();
   assert.ok(canvasBounds, "viewer canvas has a clickable layout box");
   await page.mouse.click(canvasBounds.x + 400, canvasBounds.y + 300);
   assert.equal(await page.locator("#viewer-toolbar").isVisible(), true);
   assert.equal(
-    await page.locator('[data-menu="view"]').evaluate((menu) => menu.hasAttribute("open")),
+    await page.locator('[data-menu="style"]').evaluate((menu) => menu.hasAttribute("open")),
     true,
     "canvas interaction does not hide controls",
   );
   assert.equal(await page.evaluate(() => window.scrollY), 0, "canvas interaction cannot scroll controls away");
-  await page.locator('[data-background="black"]').click();
+  await page.keyboard.press("Escape");
   if (viewerMode === "patinae") {
     await page.locator('[data-menu="style"] > summary').click();
     assert.equal(await page.locator('[data-representation="ribbon"]').isEnabled(), true);
@@ -520,7 +492,7 @@ try {
     await page.locator("#viewer-command").fill("has_bonds()");
     await page.locator("#run-viewer-command").click();
     await page.waitForFunction(
-      () => document.querySelector("#status")?.textContent?.includes("AtomWorks expression query selected"),
+      () => document.querySelector("#status")?.textContent?.includes("AtomWorks expression query applied"),
     );
     assert.doesNotMatch(await page.locator("#selection-count").innerText(), /^0 atoms/);
     await page.locator("#selection-syntax").selectOption("patinae");
@@ -530,29 +502,26 @@ try {
     assert.doesNotMatch(await page.locator("#status").textContent(), /Command failed/);
   } else {
     assert.equal(await page.locator("#style-menu").isVisible(), true);
-    assert.equal(await page.locator("#selection-syntax option").first().isDisabled(), true);
+    assert.equal(await page.locator('#selection-syntax option[value="patinae"]').count(), 0);
     assert.equal(await page.locator("#viewer-command").isEnabled(), true);
   }
   // 760 physical pixels at 125% browser zoom yields a 608 CSS-pixel viewport.
   await page.setViewportSize({ width: 608, height: 620 });
   assert.equal(await page.locator("#viewer-toolbar").isVisible(), true);
-  assert.equal(await page.locator('[data-menu="studio"] > summary').isVisible(), true);
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   assert.equal(await page.evaluate(() => window.scrollY), 0, "application shell remains viewport-locked");
   const headerBox = await page.locator("header").boundingBox();
   assert.ok(headerBox && headerBox.height <= 150, "header remains compact at the responsive baseline");
-  await showEdit(page);
-  await page.waitForFunction(
-    () => document.querySelector("#workspace")?.getAttribute("data-studio-tab") === "atomworks",
-  );
+  await page.keyboard.press("Escape");
+  await page.locator("#atomworks-studio-popover").waitFor({ state: "visible" });
   const studioPanelBox = await page.locator("#atomworks-studio-popover").boundingBox();
   assert.ok(studioPanelBox, "Studio panel is visible at the responsive baseline");
   assert.ok(studioPanelBox.x >= 0 && studioPanelBox.x + studioPanelBox.width <= 608, "Studio panel stays within the viewport");
   assert.ok(studioPanelBox.y >= 0 && studioPanelBox.y + studioPanelBox.height <= 620, "Studio panel stays within the viewport height");
   await assertNoSevereAccessibilityIssues(page, "the narrow loaded editor");
-  await showEdit(page);
+  await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 1400, height: 900 });
-  await showEdit(page);
+  await page.keyboard.press("Escape");
   assert.ok(await page.locator(".annotation-row").count(), "stored annotations are summarized");
   assert.ok(await page.locator(".annotation-field-row").count() >= 4);
   await page.locator("#editor-tab-annotations").click();

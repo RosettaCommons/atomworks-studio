@@ -26,7 +26,7 @@
   {
     "name": "enzyme_design",
     "example_id": "enzyme_design",
-    "atoms": 15,
+    "atoms": 22,
     "actions": [
       {
         "kind": "condition",
@@ -48,19 +48,13 @@
       },
       {
         "kind": "undo"
-      },
-      {
-        "kind": "realize"
-      },
-      {
-        "kind": "undo"
       }
     ]
   },
   {
     "name": "inverse_folding",
     "example_id": "inverse_folding",
-    "atoms": 481,
+    "atoms": 989,
     "actions": [
       {
         "kind": "condition",
@@ -97,19 +91,13 @@
         "key": "coordinate",
         "query": "res_name == 'ASP'",
         "enabled": true
-      },
-      {
-        "kind": "realize"
-      },
-      {
-        "kind": "undo"
       }
     ]
   },
   {
     "name": "nanobody",
     "example_id": "nanobody",
-    "atoms": 1547,
+    "atoms": 1548,
     "actions": [
       {
         "kind": "condition",
@@ -119,19 +107,13 @@
       },
       {
         "kind": "undo"
-      },
-      {
-        "kind": "realize"
-      },
-      {
-        "kind": "undo"
       }
     ]
   },
   {
     "name": "partial_diffusion",
     "example_id": "partial_diffusion",
-    "atoms": 481,
+    "atoms": 989,
     "actions": [
       {
         "kind": "condition",
@@ -172,12 +154,6 @@
         "kind": "group",
         "key": "index_group",
         "query": "res_name == 'SAM'"
-      },
-      {
-        "kind": "realize"
-      },
-      {
-        "kind": "undo"
       }
     ]
   },
@@ -185,13 +161,6 @@
     "name": "unconditional",
     "example_id": "unconditional",
     "atoms": 1,
-    "actions": [
-      {
-        "kind": "realize"
-      },
-      {
-        "kind": "undo"
-      }
-    ]
+    "actions": []
   }
 ]

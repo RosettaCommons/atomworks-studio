@@ -17,6 +17,7 @@ from atomworks_studio_pymol.state import PluginState
 from pymol.Qt import QtCore, QtWidgets
 
 from atomworks_studio_rfd4 import CONDITION_PROVIDER
+from atomworks_studio_rfd4.model import C_CRDGRP
 from atomworks_studio_rfd4.pymol.coordinate_edit import commit_document_edit
 
 logger = logging.getLogger("atomworks_studio_pymol")
@@ -47,7 +48,7 @@ class GroupEditor(QtWidgets.QWidget, BaseAnnotationEditor):
         header.setWordWrap(True)
         layout.addWidget(header)
 
-        if cls.__doc__:
+        if cls is not C_CRDGRP and cls.__doc__:
             doc = QtWidgets.QLabel(cls.__doc__.strip().split("\n")[0])
             doc.setWordWrap(True)
             layout.addWidget(doc)
@@ -77,7 +78,6 @@ class GroupEditor(QtWidgets.QWidget, BaseAnnotationEditor):
         layout.addWidget(self._btn_add)
         layout.addWidget(self._btn_new)
         layout.addWidget(self._btn_remove)
-
         layout.addSpacing(6)
         self._status = QtWidgets.QLabel("")
         self._status.setWordWrap(True)
@@ -127,6 +127,9 @@ class GroupEditor(QtWidgets.QWidget, BaseAnnotationEditor):
         active = self._active()
         if active is None:
             self._group_combo.addItem("(no active object)", None)
+            self._group_combo.setEnabled(False)
+            self._btn_add.setEnabled(False)
+            self._btn_delete.setEnabled(False)
             self._group_combo.blockSignals(False)
             return
 
@@ -136,6 +139,13 @@ class GroupEditor(QtWidgets.QWidget, BaseAnnotationEditor):
         document.condition_provider = CONDITION_PROVIDER
         for group in document.condition_groups(self._annotation_cls.name):
             self._group_combo.addItem(f"Group {group['id']} ({group['count']} atoms)", group["id"])
+
+        has_groups = self._group_combo.count() > 0
+        if not has_groups:
+            self._group_combo.addItem("No groups yet — create one from a selection", None)
+        self._group_combo.setEnabled(has_groups)
+        self._btn_add.setEnabled(has_groups)
+        self._btn_delete.setEnabled(has_groups)
 
         selected_index = self._group_combo.findData(selected)
         if selected_index >= 0:

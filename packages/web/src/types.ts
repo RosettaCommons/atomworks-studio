@@ -5,9 +5,17 @@ export type ConditionDefinition = {
   default: number | boolean | string | null;
   values?: Record<string, number>;
   group_editor?: boolean;
+  invert_mask?: boolean;
+  editor_group?: string;
+  option_label?: string;
+  minimum?: number;
+  maximum?: number;
+  step?: number;
+  decimals?: number;
 };
 
 export type StudioSchema = {
+  document_operations?: string[];
   editor_tabs: Array<{ id: string; label: string }>;
   conditions: Record<string, ConditionDefinition>;
   bond_types: string[];
@@ -73,6 +81,7 @@ export type StructureSummary = {
   name: string;
   atom_count: number;
   chain_ids: string[];
+  next_chain_id: string;
   sequence: SequenceChain[];
   condition_counts: Record<string, number>;
   annotations: AnnotationSummary[];

@@ -25,13 +25,16 @@ try {
   const loaded = await (await upload).json();
   const session = loaded.session_id;
   await ui.waitForFunction(() => document.querySelector("#structure-summary")?.textContent?.includes("66"));
-  assert.equal(await ui.locator("#workspace").getAttribute("data-studio-tab"), "atomworks");
+  assert.ok(await ui.locator("#atomworks-studio-popover").isVisible());
 
   async function select(expression, count) {
     await ui.locator("#selection-syntax").selectOption("expression");
     await ui.locator("#viewer-command").fill(expression);
     await ui.locator("#run-viewer-command").click();
     await ui.waitForFunction((count) => document.querySelector("#selection-count")?.textContent?.startsWith(`${count} atom`), count);
+    const atoms = `${count} atom${count === 1 ? "" : "s"}`;
+    assert.equal(await ui.locator("#active-selection-count").textContent(), `${atoms} in active selection`);
+    assert.equal(await ui.locator("#structure-edit-feedback").textContent(), `${atoms} selected`);
   }
   async function edit(button, endpoint) {
     const response = page.waitForResponse((r) => r.url().endsWith(endpoint) && r.request().method() === "POST");
@@ -45,6 +48,17 @@ try {
     return (await (await page.request.get(`${baseUrl}api/v1/sessions/${session}`)).json()).structure;
   }
 
+  await select("(atom_id >= 1) & (atom_id <= 10)", 10);
+  await ui.locator("#editor-tab-main").click();
+  await ui.locator("#selections-drawer > summary").click();
+  assert.equal(await ui.locator("#active-selection-count").innerText(), "10 atoms in active selection");
+  await ui.locator("#clear-selection").click();
+  assert.equal(await ui.locator("#active-selection-count").innerText(), "0 atoms in active selection");
+  await ui.locator(".sequence-token").first().click();
+  const picked = (await ui.locator("#selection-count").innerText()).split(" selected")[0];
+  assert.notEqual(picked, "0 atoms");
+  assert.equal(await ui.locator("#active-selection-count").innerText(), `${picked} in active selection`);
+  await ui.locator("#clear-selection").click();
   await ui.locator("#editor-tab-annotations").click();
   await ui.locator("#condition").selectOption("index_group");
   await select("atom_id == 1", 1);
@@ -52,15 +66,15 @@ try {
   const group = created.edit_result.group_id;
   assert.match(await ui.locator("#selection-count").innerText(), /^0 atoms/);
   await ui.locator("#condition-group").selectOption(String(group));
-  assert.match(await ui.locator("#condition-group option:checked").innerText(), /1 atoms/);
-  await select("atom_id == 2", 1);
+  assert.match(await ui.locator("#condition-group option:checked").innerText(), /65 atoms/);
+  await select("atom_id == 65", 1);
   await edit("#group-add", "/groups");
-  assert.match(await ui.locator("#condition-group option:checked").innerText(), /2 atoms/);
+  assert.match(await ui.locator("#condition-group option:checked").innerText(), /66 atoms/);
   await ui.locator("#annotation-list > .annotation-row").filter({ hasText: "Index Group" }).click();
   await ui.waitForFunction(() => Number(document.querySelector("#viewer")?.dataset.annotationAtoms) > 0);
   await select("atom_id == 3", 1);
   await edit("#group-add", "/groups");
-  assert.match(await ui.locator("#selection-count").innerText(), /^0 atoms/);
+  assert.match(await ui.locator("#selection-count").innerText(), /^1 atom/);
   const inspected = (await (await page.request.get(`${baseUrl}api/v1/sessions/${session}/annotations/index_group`)).json()).annotation;
   assert.equal(Number(await ui.locator("#viewer").getAttribute("data-annotation-atoms")),
     new Set(inspected.values.flatMap((value) => value.atom_indices)).size);
@@ -76,11 +90,11 @@ try {
   await ui.locator("#centroid-chain").selectOption(chain);
   await ui.locator("#centroid-fill").click();
   const values = await Promise.all(["x", "y", "z"].map((axis) => ui.locator(`#condition-value-${axis}`).inputValue()));
-  assert.ok(values.every((value) => Number.isFinite(Number(value))));
+  assert.ok(values.every((value) => /^-?\d+\.\d$/.test(value)));
   await edit("#centroid-set", "/centroids");
   assert.equal(await ui.locator("#viewer").getAttribute("data-centroid-markers"), "1");
   assert.deepEqual((await summary()).condition_editors.centroids.chain_centroid.find((entry) => entry.chain === chain).target
-    .map((value) => value.toFixed(3)), values);
+    .map((value) => value.toFixed(1)), values);
   if (process.env.ANNOTATION_SCREENSHOT_DIR) {
     await page.screenshot({ path: resolve(process.env.ANNOTATION_SCREENSHOT_DIR, `${backend}-centroid.png`) });
   }
@@ -100,49 +114,51 @@ try {
   await edit("#centroid-clear", "/centroids");
   assert.equal(await ui.locator("#viewer").getAttribute("data-centroid-markers"), "0");
 
-  await ui.locator("#condition").selectOption("distance");
-  await select("(atom_id == 1) | (atom_id == 2)", 2);
-  await ui.locator("#pair-use-selection").click();
-  await ui.waitForFunction(() => document.querySelector("#pair-atom-0")?.textContent?.includes("/"));
-  const distanceResponse = page.waitForResponse((r) => r.url().includes("/atom-distance?"));
-  await ui.locator("#pair-actual").click();
-  const distance = (await (await distanceResponse).json()).distance;
-  await ui.waitForFunction((distance) => document.querySelector("#pair-distance")?.value === distance.toFixed(2), distance);
-  await ui.locator("#pair-add").click();
-  assert.equal(await ui.locator("#pair-table tbody tr").count(), 1);
-  assert.equal((await summary()).condition_editors.restraints.length, 0, "pair editing is staged until Apply");
-  let releaseApply;
-  let applyReceived;
-  const applying = new Promise((resolve) => { applyReceived = resolve; });
-  const release = new Promise((resolve) => { releaseApply = resolve; });
-  await page.route("**/distance-restraints/replace", async (route) => {
-    const response = await route.fetch(); applyReceived(); await release;
-    await route.fulfill({ response });
-  });
-  const applied = edit("#pair-apply", "/distance-restraints/replace");
-  await applying;
-  for (const id of ["pair-add", "pair-clear", "pair-reload", "pair-apply"]) {
-    assert.equal(await ui.locator(`#${id}`).isDisabled(), true, `${id} is disabled while Apply is pending`);
+  if (await ui.locator('#condition option[value="distance"]').count()) {
+    await ui.locator("#condition").selectOption("distance");
+    await select("(atom_id == 1) | (atom_id == 2)", 2);
+    await ui.locator("#pair-use-selection").click();
+    await ui.waitForFunction(() => document.querySelector("#pair-atom-0")?.textContent?.includes("/"));
+    const distanceResponse = page.waitForResponse((r) => r.url().includes("/atom-distance?"));
+    await ui.locator("#pair-actual").click();
+    const distance = (await (await distanceResponse).json()).distance;
+    await ui.waitForFunction((distance) => document.querySelector("#pair-distance")?.value === distance.toFixed(2), distance);
+    await ui.locator("#pair-add").click();
+    assert.equal(await ui.locator("#pair-table tbody tr").count(), 1);
+    assert.equal((await summary()).condition_editors.restraints.length, 0, "pair editing is staged until Apply");
+    let releaseApply;
+    let applyReceived;
+    const applying = new Promise((resolve) => { applyReceived = resolve; });
+    const release = new Promise((resolve) => { releaseApply = resolve; });
+    await page.route("**/distance-restraints/replace", async (route) => {
+      const response = await route.fetch(); applyReceived(); await release;
+      await route.fulfill({ response });
+    });
+    const applied = edit("#pair-apply", "/distance-restraints/replace");
+    await applying;
+    for (const id of ["pair-add", "pair-clear", "pair-reload", "pair-apply"]) {
+      assert.equal(await ui.locator(`#${id}`).isDisabled(), true, `${id} is disabled while Apply is pending`);
+    }
+    releaseApply(); await applied;
+    await page.unroute("**/distance-restraints/replace");
+    assert.equal((await summary()).condition_editors.restraints.length, 1);
+    await ui.locator("#pair-table tbody button").first().click();
+    assert.match(await ui.locator("#selection-count").innerText(), /^2 atoms/);
+    await ui.locator("#pair-delete").click();
+    await edit("#pair-apply", "/distance-restraints/replace");
+    assert.equal((await summary()).condition_editors.restraints.length, 0);
+    await edit("#undo", "/undo");
+    assert.equal(await ui.locator("#pair-table tbody tr").count(), 1);
+    await ui.locator("#pair-table tbody button").first().click();
+    await ui.locator("#pair-delete").click();
+    await edit("#undo", "/undo");
+    assert.match(await ui.locator("#pair-draft-status").innerText(), /structure changed/);
+    assert.equal(await ui.locator("#pair-apply").isDisabled(), true);
+    await ui.locator("#pair-reload").click();
+    assert.equal(await ui.locator("#pair-apply").isDisabled(), false);
   }
-  releaseApply(); await applied;
-  await page.unroute("**/distance-restraints/replace");
-  assert.equal((await summary()).condition_editors.restraints.length, 1);
-  await ui.locator("#pair-table tbody button").first().click();
-  assert.match(await ui.locator("#selection-count").innerText(), /^2 atoms/);
-  await ui.locator("#pair-delete").click();
-  await edit("#pair-apply", "/distance-restraints/replace");
-  assert.equal((await summary()).condition_editors.restraints.length, 0);
-  await edit("#undo", "/undo");
-  assert.equal(await ui.locator("#pair-table tbody tr").count(), 1);
-  await ui.locator("#pair-table tbody button").first().click();
-  await ui.locator("#pair-delete").click();
-  await edit("#undo", "/undo");
-  assert.match(await ui.locator("#pair-draft-status").innerText(), /structure changed/);
-  assert.equal(await ui.locator("#pair-apply").isDisabled(), true);
-  await ui.locator("#pair-reload").click();
-  assert.equal(await ui.locator("#pair-apply").isDisabled(), false);
 
-  await ui.locator("#editor-tab-charges").click();
+  await ui.locator("#editor-tab-structure").click();
   const beforeProtonation = await summary();
   await ui.locator("#protonation-ph").fill("7.4");
   const protonated = await edit("#protonate", "/protonate");
@@ -162,7 +178,7 @@ try {
   if (process.env.ANNOTATION_SCREENSHOT_DIR) {
     await page.screenshot({ path: resolve(process.env.ANNOTATION_SCREENSHOT_DIR, `${backend}-qol.png`) });
   }
-  console.log(`Editor QoL passed (${backend}): group actions, persistent colors, centroids/markers, pair staging, protonation/Undo, loading presets.`);
+  console.log(`Editor QoL passed (${backend}): group actions, persistent colors, centroids/markers, supported condition editors, protonation/Undo, loading presets.`);
 } catch (error) {
   console.error("Editor diagnostics:", await ui?.evaluate(() => ({
     status: document.querySelector("#status")?.textContent,

@@ -1,3 +1,4 @@
+import { unpositionedAtomIndices } from "./viewers/unpositioned-atoms";
 import { TrajectoryController } from "./studio/trajectory-controller";
 import initCifCore, { inspect_cif } from "./wasm/annotation_studio_core.js";
 import { api, apiText } from "./api";
@@ -24,7 +25,7 @@ import type {
   StructureSummary,
   StudioSchema,
 } from "./types";
-import { MolecularViewer } from "./viewers";
+import { MolecularViewer, type AtomPick } from "./viewers";
 import "./style.css";
 
 const combineInput = element<HTMLInputElement>("combine-input");
@@ -115,9 +116,14 @@ function persistSession(response: SessionResponse, message?: string): void {
   persistSessionStorage(response, message);
 }
 
-function log(message: string): void {
+function log(message: string, level: "info" | "error" = "info"): void {
   const stamp = new Date().toLocaleTimeString();
   element("status-message").textContent = message.split("\n")[0];
+  element("status-message").classList.toggle("error-text", level === "error");
+  if (level === "error") {
+    element("error-message").textContent = message;
+    element("error-banner").hidden = false;
+  }
   statusElement.textContent = `[${stamp}] ${message}\n${statusElement.textContent ?? ""}`.slice(0, 5000);
 }
 
@@ -125,7 +131,12 @@ function updateSelectionUi(): void {
   const count = selectionController.size;
   const scope = pickScope.value as SelectionScope;
   selectionCount.textContent =
-    `${count} atom${count === 1 ? "" : "s"} selected · ${scope} picking`;
+    `${count} atom${count === 1 ? "" : "s"} selected`;
+  element("picking-help").textContent = scope === "atom"
+    ? "Cartoon: show sticks · Atom: add/remove"
+    : "Click to add · Click again to remove";
+  element("active-selection-count").textContent =
+    `${count} atom${count === 1 ? "" : "s"} in active selection`;
   const hasSession = sessionId !== null;
   conditionController?.updateSelectionUi(hasSession);
   structureEditController?.updateSelectionUi(hasSession);
@@ -133,13 +144,13 @@ function updateSelectionUi(): void {
   analysisController?.updateSelectionUi(hasSession);
   element<HTMLButtonElement>("inspect-bonds").disabled = !hasSession;
   element<HTMLButtonElement>("infer-bonds").disabled = !hasSession;
-  element<HTMLButtonElement>("add-restraint").disabled = !hasSession || count !== 2;
-  element<HTMLButtonElement>("remove-restraint").disabled = !hasSession || count !== 2;
   sequenceController?.syncSelection();
+  viewerToolbarController?.renderDrawers();
 }
 
 function renderSummary(summary: StructureSummary): void {
   lastSummary = summary;
+  analysisController?.clearBondInspection();
   element("document-name").textContent = summary.name;
   element("empty-state").hidden = true;
   element<HTMLDetailsElement>("examples-panel").open = false;
@@ -152,8 +163,8 @@ function renderSummary(summary: StructureSummary): void {
       <dt>Undo</dt><dd>${summary.undo_depth}/10</dd>
     </dl>`;
   sequenceController?.render(summary.sequence);
-  annotationController?.render(summary.annotations, summary.stored_fields, summary.scalar_fields);
-  structureEditController?.updateKnownChains(summary.chain_ids);
+  annotationController?.render(summary.annotations);
+  structureEditController?.updateNextChainId(summary.next_chain_id);
   conditionController?.update(summary);
   element<HTMLButtonElement>("undo").disabled = summary.undo_depth === 0;
   if (summary.validation.length) {
@@ -164,7 +175,7 @@ function renderSummary(summary: StructureSummary): void {
 
 function enableSessionControls(enabled: boolean): void {
   for (const id of [
-    "download", "validate", "reset-residues", "realize-segments", "collapse-segments",
+    "download", "validate", "close-structure", "reset-conditions", "reset-residues",
   ]) {
     element<HTMLButtonElement>(id).disabled = !enabled;
   }
@@ -178,7 +189,16 @@ async function loadViewerCif(cif: string, name: string): Promise<void> {
     finite_atom_count: number;
     condition_categories: string[];
   };
-  if (wasmSummary.finite_atom_count === 0) {
+  const missingCoordinates = unpositionedAtomIndices(cif).length;
+  const hasCoordinates = missingCoordinates < wasmSummary.atom_count;
+  element("style-unavailable").hidden = hasCoordinates;
+  element("unpositioned-state").hidden = hasCoordinates;
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-representation], [data-color]")) {
+    button.disabled = !hasCoordinates;
+  }
+  element("coordinate-summary").hidden = missingCoordinates === 0;
+  element("coordinate-summary").textContent = `${missingCoordinates} atoms have no coordinates. They remain in the document and sequence but are not rendered.`;
+  if (missingCoordinates === wasmSummary.atom_count) {
     await molecularViewer.loadCifs([]);
     log("No coordinates to display. The design's sequence and conditions remain editable.");
     return;
@@ -198,30 +218,37 @@ async function loadViewerCif(cif: string, name: string): Promise<void> {
   );
 }
 
-async function handleAtomPicked(atomIndex: number, label?: string): Promise<void> {
+async function handleAtomPicked({ atomIndex, label, scope: hitScope = "atom" }: AtomPick): Promise<void> {
   if (!sessionId || trajectoryController?.active) return;
-  if (await conditionController?.handleAtomPicked(atomIndex)) return;
-  if (await analysisController?.handleAtomPicked(atomIndex, label)) return;
-  const scope = pickScope.value as SelectionScope;
+  if (hitScope === "atom") {
+    if (await conditionController?.handleAtomPicked(atomIndex)) return;
+    if (await analysisController?.handleAtomPicked(atomIndex, label)) return;
+  }
+  const picking = selectionController.pickingScope;
+  if (picking === "atom" && hitScope === "residue") {
+    log("Local sticks shown. Click a visible atom to add or remove it from the selection.");
+    return;
+  }
+  const scope = picking;
+  const targetSession = sessionId;
   try {
-    const resolved = scope === "atom"
-      ? { atom_indices: [atomIndex] }
-      : await api<{ atom_indices: number[]; count: number }>(
-        `/api/sessions/${sessionId}/selections/resolve`,
+    const remove = await selectionController.applyResolved("toggle", async () => {
+      if (scope === "atom") return [atomIndex];
+      const resolved = await api<{ atom_indices: number[] }>(
+        `/api/sessions/${targetSession}/selections/resolve`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ atom_indices: [atomIndex], scope }),
         },
       );
-    const remove = selectionController.toggle(resolved.atom_indices);
-    log(
-      `${label ?? `Atom ${atomIndex}`} · ${remove ? "removed" : "selected"} ` +
-      `${resolved.atom_indices.length} atom${resolved.atom_indices.length === 1 ? "" : "s"} (${scope})`,
-    );
+      return resolved.atom_indices;
+    });
+    if (remove === null) return;
+    log(`${label ?? `Atom ${atomIndex}`} · ${remove ? "removed" : "selected"} (${scope})`);
     void annotationController?.inspectAtom(atomIndex);
   } catch (error) {
-    log(`Could not resolve ${scope} selection: ${String(error)}`);
+    log(`Could not resolve ${scope} selection: ${String(error)}`, "error");
   }
 }
 
@@ -309,15 +336,18 @@ function mutate(path: string, body?: unknown, propagateError = false): Promise<v
       trajectoryController = null;
       conditionController?.acceptMutation(path, response);
       persistSession(response);
+      const resetConditions = path === "/conditions/reset";
       const structural = /^\/(?:delete|segments|reset-residue-ids|protonate)/.test(path)
         || response.structure.atom_count !== lastSummary?.atom_count;
-      if (structural) await molecularViewer.clearAllVisuals();
+      if (resetConditions) await molecularViewer.resetView();
+      else if (structural) await molecularViewer.clearAllVisuals();
       const annotationEdit = path === "/internal-coords"
         || /^\/(?:conditions|groups|centroids|distance-restraints)(?:\/|$)/.test(path);
       if (annotationEdit && response.edit_result?.changed !== false) {
         selectionController.clear();
       }
-      await refreshFromServer(response.structure, !structural);
+      await refreshFromServer(response.structure, !structural && !resetConditions);
+      if (resetConditions) annotationController?.setDetail("Choose a condition above, or click an atom to see its conditions.");
       const message = response.edit_result?.message ?? "Annotation Studio state updated.";
       conditionController?.setFeedback(message);
       log(message);
@@ -326,7 +356,7 @@ function mutate(path: string, body?: unknown, propagateError = false): Promise<v
       if (sessionId === targetSession) {
         const message = `Error: ${String(error)}`;
         conditionController?.setFeedback(message);
-        log(message);
+        log(message, "error");
       }
       if (propagateError) throw error;
     }
@@ -334,6 +364,7 @@ function mutate(path: string, body?: unknown, propagateError = false): Promise<v
 }
 
 async function initialize(): Promise<void> {
+  element("dismiss-error").addEventListener("click", () => { element("error-banner").hidden = true; });
   document.body.classList.toggle("embedded", query.get("embed") === "1");
   const host = query.get("host");
   document.body.classList.toggle("host-vscode", host === "vscode");
@@ -357,7 +388,7 @@ async function initialize(): Promise<void> {
         await refreshFromServer(response.structure);
         enableSessionControls(true);
       }
-    }).catch((failure) => log(`Renderer recovery failed: ${String(failure)}`)),
+    }).catch((failure) => log(`Renderer recovery failed: ${String(failure)}`, "error")),
   );
   viewerToolbarController = new ViewerToolbarController({
     viewer: () => molecularViewer,
@@ -374,6 +405,7 @@ async function initialize(): Promise<void> {
     selection: selectionController,
     getSessionId: () => sessionId,
     getAtomCount: () => lastSummary?.atom_count ?? 0,
+    getSequence: () => lastSummary?.sequence ?? [],
     mutate,
     renderViewerDrawers: () => viewerToolbarController?.renderDrawers(),
     log,
@@ -387,12 +419,12 @@ async function initialize(): Promise<void> {
     log,
   });
   conditionController = new ConditionController({
+    log,
     selection: selectionController, mutate, getRevision: () => lastSummary?.revision, getSessionId: () => sessionId,
-    onMarkersChanged: () => void runVisualUpdate(refreshCentroidMarkers).catch((error) => log(String(error))),
+    onMarkersChanged: () => void runVisualUpdate(refreshCentroidMarkers).catch((error) => log(String(error), "error")),
   });
   sequenceController = new SequenceController({
     selection: selectionController,
-    mutate,
     inspectAtom: (atomIndex) => annotationController!.inspectAtom(atomIndex),
   });
   structureEditController = new StructureEditController({
@@ -464,12 +496,10 @@ async function initialize(): Promise<void> {
     applyCapabilities({});
     element("style-menu").hidden = true;
     pickScope.disabled = true;
-    selectionSyntax.querySelector<HTMLOptionElement>('option[value="patinae"]')!.disabled = true;
-    if (selectionSyntax.value === "patinae") {
-      selectionSyntax.value = "expression";
-      selectionSyntax.dispatchEvent(new Event("change"));
-    }
-    log(`Renderer initialization failed; editing remains available: ${String(error)}`);
+    selectionSyntax.querySelector('option[value="patinae"]')?.remove();
+    selectionSyntax.value = "expression";
+    selectionSyntax.dispatchEvent(new Event("change"));
+    log(`Renderer initialization failed; editing remains available: ${String(error)}`, "error");
   };
   try {
     await molecularViewer.initialize();
@@ -483,7 +513,7 @@ async function initialize(): Promise<void> {
         viewerModeSelect.value = "molstar";
         viewerToolbarController.refreshCapabilities();
         updateSelectionUi();
-        log(`Patinae (WebGPU) unavailable; using Mol* (WebGL) instead: ${String(error)}`);
+        log(`Patinae (WebGPU) unavailable; using Mol* (WebGL) instead: ${String(error)}`, "error");
       } catch (fallbackError) {
         degradeToEditingOnly(fallbackError);
       }
@@ -531,4 +561,4 @@ if (import.meta.env.PROD && window.parent === window && "serviceWorker" in navig
   void navigator.serviceWorker.register("/sw.js").catch(error => console.warn("Offline installation unavailable", error));
 }
 
-void initialize().catch((error) => log(`Initialization failed: ${String(error)}`));
+void initialize().catch((error) => log(`Initialization failed: ${String(error)}`, "error"));

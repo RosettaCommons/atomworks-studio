@@ -1,5 +1,13 @@
 import { StateTransforms } from "molstar/lib/mol-plugin-state/transforms";
 import { Viewer as MolstarViewer } from "molstar/lib/apps/viewer/app";
+import { FocusLoci } from "molstar/lib/mol-plugin/behavior/dynamic/representation";
+import { FocusLoci as FocusCamera } from "molstar/lib/mol-plugin/behavior/dynamic/camera";
+import { ButtonsType } from "molstar/lib/mol-util/input/input-observer";
+import { Binding } from "molstar/lib/mol-util/binding";
+import { Bond, Structure } from "molstar/lib/mol-model/structure";
+import { PluginStateObject, PluginStateTransform } from "molstar/lib/mol-plugin-state/objects";
+import { StateObject } from "molstar/lib/mol-state";
+import { ParamDefinition } from "molstar/lib/mol-util/param-definition";
 import { OrderedSet } from "molstar/lib/mol-data/int";
 import {
   StructureElement,
@@ -13,6 +21,8 @@ import type { StructureRepresentationProps } from "molstar/lib/mol-plugin-state/
 import { Color } from "molstar/lib/mol-util/color";
 import { Shape } from "molstar/lib/mol-model/shape";
 import { ShapeRepresentation } from "molstar/lib/mol-repr/shape/representation";
+import { Lines } from "molstar/lib/mol-geo/geometry/lines/lines";
+import { LinesBuilder } from "molstar/lib/mol-geo/geometry/lines/lines-builder";
 import { Mesh } from "molstar/lib/mol-geo/geometry/mesh/mesh";
 import { MeshBuilder } from "molstar/lib/mol-geo/geometry/mesh/mesh-builder";
 import { addSphere } from "molstar/lib/mol-geo/geometry/mesh/builder/sphere";
@@ -23,7 +33,6 @@ import { unpositionedAtomIndices } from "./unpositioned-atoms";
 import {
   ANNOTATION_PALETTE,
   annotationRenderResult,
-  interactionsToViewerOverlays,
   normalizedAnnotationGroups,
   normalizeViewerMeasurementRequest,
   type AnnotationGroup,
@@ -40,6 +49,27 @@ import {
   type ViewerRepresentationAction,
   type ViewerTarget,
 } from "./contract";
+
+// The render root contains only positioned atoms. Focus, camera, representations,
+// and picking therefore share the same geometry, while source indices stay intact.
+const PositionedStructure = PluginStateTransform.BuiltIn({
+  name: "studio-positioned-structure",
+  display: { name: "Positioned atoms" },
+  from: PluginStateObject.Molecule.Model,
+  to: PluginStateObject.Molecule.Structure,
+  params: { excluded: ParamDefinition.Value<number[]>([]) },
+})({
+  apply({ a, params }) {
+    const full = Structure.ofModel(a.data);
+    const excluded = StructureElement.Schema.toLoci(full, { items: { atom_index: params.excluded } });
+    const visible = StructureElement.Loci.toStructure(
+      StructureElement.Loci.subtract(StructureElement.Loci.all(full), excluded),
+    );
+    if (!visible.elementCount) return StateObject.Null;
+    return new PluginStateObject.Molecule.Structure(Structure.create(visible.units), { label: a.label });
+  },
+  dispose({ b }) { b?.data.customPropertyDescriptors.dispose(); },
+});
 
 const COMPARISON_COLORS = {
   cyan: 0x00ffff,
@@ -70,17 +100,21 @@ export class MolstarAdapter implements ViewerAdapter {
   private resizeObserver: ResizeObserver | null = null;
   private selectedAtomIndices: number[] = [];
   private annotationGroups: AnnotationGroup[] = [];
+  private annotationComponent: string | undefined;
   private displayComponents = new Map<string, Map<string, {
     loci: StructureElement.Loci; ref?: string; props?: StructureRepresentationProps;
   }>>();
   private comparisonColors = new Map<string, number>();
   private measurements: ViewerMeasurement[] = [];
+  private interactionRepresentation: ShapeRepresentation<ViewerInteraction[], Lines, typeof Lines.Params> | null = null;
+  private unpositionedAtoms = new Set<number>();
   private markerRepresentation: ShapeRepresentation<ViewerMarker[], Mesh, typeof Mesh.Params> | null = null;
-  private unpositionedAtoms: number[] = [];
 
   constructor(private readonly context: ViewerAdapterContext) {}
 
   async initialize(): Promise<void> {
+    this.context.container.dataset.renderedAtoms = "0";
+    this.context.container.dataset.renderedStructures = "0";
     this.viewer = await MolstarViewer.create(this.context.container, {
       extensions: [],
       layoutIsExpanded: false,
@@ -97,6 +131,8 @@ export class MolstarAdapter implements ViewerAdapter {
     if (!this.viewer.plugin.canvas3d) {
       throw new Error("Mol* could not create a WebGL rendering context.");
     }
+    // Camera changes belong to loading, explicit View actions, and user navigation.
+    this.viewer.plugin.canvas3d.setProps({ camera: { manualReset: true } });
     // Docking the inspector and toggling sequence change the canvas without
     // resizing the browser window. Keep Mol*'s drawing buffer in step.
     this.resizeObserver = new ResizeObserver(() => this.viewer?.plugin.handleResize());
@@ -107,15 +143,36 @@ export class MolstarAdapter implements ViewerAdapter {
       }
     }
     this.viewer.plugin.managers.interactivity.setProps({ granularity: "element" });
-    this.viewer.subscribe(this.viewer.plugin.behaviors.interaction.click, ({ current }) => {
-      if (!StructureElement.Loci.is(current.loci) || current.loci.elements.length === 0) return;
-      const group = current.loci.elements[0];
+    await this.viewer.plugin.state.updateBehavior(FocusLoci, (params) => {
+      params.bindings.clickFocus = Binding.Empty;
+      params.bindings.clickFocusAdd = Binding.Empty;
+      params.bindings.clickFocusExtend = Binding.Empty;
+    });
+    await this.viewer.plugin.state.updateBehavior(FocusCamera, (params) => {
+      for (const name of ["clickCenterFocus", "clickCenterFocusSelectMode"] as const) {
+        const binding: Binding = params.bindings[name];
+        params.bindings[name] = {
+          ...binding, triggers: binding.triggers.filter((trigger) => trigger.buttons !== ButtonsType.Flag.Primary),
+        };
+      }
+    });
+    this.viewer.subscribe(this.viewer.plugin.behaviors.interaction.click, ({ current, button }) => {
+      if (button !== ButtonsType.Flag.Primary) return;
+      const loci = Bond.isLoci(current.loci) ? Bond.toFirstStructureElementLoci(current.loci) : current.loci;
+      if (!StructureElement.Loci.is(loci) || loci.elements.length === 0) return;
+      const scope = StructureElement.Loci.size(loci) > 1 ? "residue" : "atom";
+      if (scope === "residue") {
+        this.viewer!.plugin.managers.structure.focus.setFromLoci(loci);
+        this.viewer!.plugin.managers.camera.focusLoci(loci);
+      }
+      const group = loci.elements[0];
       if (OrderedSet.size(group.indices) === 0) return;
       const elementIndex = group.unit.elements[OrderedSet.getAt(group.indices, 0)];
-      const location = StructureElement.Location.create(current.loci.structure, group.unit, elementIndex);
+      const location = StructureElement.Location.create(loci.structure, group.unit, elementIndex);
       const atomIndex = StructureProperties.atom.sourceIndex(location);
       this.context.onPick({
         atomIndex,
+        scope,
         label: [
           StructureProperties.chain.auth_asym_id(location),
           StructureProperties.residue.auth_seq_id(location),
@@ -130,14 +187,34 @@ export class MolstarAdapter implements ViewerAdapter {
     this.displayComponents.clear();
     this.comparisonColors.clear();
     this.annotationGroups = [];
+    this.annotationComponent = undefined;
+    this.clearSelection();
+    this.viewer.plugin.managers.structure.focus.clear();
+    await this.showInteractions([]);
     await this.viewer.plugin.clear();
-    await this.viewer.loadStructureFromData(cif, "mmcif", { dataLabel: name });
-    this.unpositionedAtoms = unpositionedAtomIndices(cif);
-    if (this.unpositionedAtoms.length) {
-      this.selectedAtomIndices = this.unpositionedAtoms;
-      await this.setRepresentation("everything", "selection", "hide");
-      this.clearSelection();
+    this.context.container.dataset.renderedAtoms = "0";
+    this.context.container.dataset.renderedStructures = "0";
+    this.unpositionedAtoms = new Set(unpositionedAtomIndices(cif));
+    await this.loadPositionedStructure(cif, name);
+    this.viewer.plugin.managers.camera.reset();
+  }
+
+  private async loadPositionedStructure(cif: string, name: string): Promise<string> {
+    const plugin = this.viewer!.plugin;
+    const data = await plugin.builders.data.rawData({ data: cif, label: name });
+    const trajectory = await plugin.builders.structure.parseTrajectory(data, "mmcif");
+    const model = await plugin.builders.structure.createModel(trajectory);
+    const structure = await plugin.state.data.build().to(model).apply(PositionedStructure, {
+      excluded: unpositionedAtomIndices(cif),
+    }).commit();
+    if (structure.obj?.data.elementCount) {
+      await plugin.builders.structure.representation.applyPreset(structure, "auto");
     }
+    this.context.container.dataset.renderedAtoms = String(
+      plugin.managers.structure.hierarchy.current.structures.reduce((count, ref) => count + (ref.cell.obj?.data.elementCount ?? 0), 0),
+    );
+    this.context.container.dataset.renderedStructures = String(plugin.managers.structure.hierarchy.current.structures.length);
+    return structure.ref;
   }
 
   trajectoryFrameCount(): number {
@@ -156,14 +233,22 @@ export class MolstarAdapter implements ViewerAdapter {
 
   async loadCifs(structures: ViewerStructure[]): Promise<void> {
     if (!this.viewer) throw new Error("Mol* is not initialized");
-    this.unpositionedAtoms = [];
+    this.unpositionedAtoms.clear();
     this.displayComponents.clear();
     this.comparisonColors.clear();
     this.annotationGroups = [];
+    this.annotationComponent = undefined;
+    this.clearSelection();
+    this.viewer.plugin.managers.structure.focus.clear();
+    await this.showInteractions([]);
     await this.viewer.plugin.clear();
+    this.context.container.dataset.renderedAtoms = "0";
+    this.context.container.dataset.renderedStructures = "0";
     for (const [index, structure] of structures.entries()) {
-      await this.viewer.loadStructureFromData(structure.cif, "mmcif", { dataLabel: structure.name });
-      const reference = this.viewer.plugin.managers.structure.hierarchy.current.structures.at(-1);
+      const ref = await this.loadPositionedStructure(structure.cif, structure.name);
+      const reference = this.viewer.plugin.managers.structure.hierarchy.current.structures.find(
+        entry => entry.cell.transform.ref === ref,
+      );
       if (!reference) continue;
       const fallback = ["cyan", "magenta", "orange", "green"][index % 4] as keyof typeof COMPARISON_COLORS;
       const colorName = structure.color && structure.color in COMPARISON_COLORS
@@ -195,10 +280,27 @@ export class MolstarAdapter implements ViewerAdapter {
 
   async showAnnotation(groups: AnnotationGroup[]): Promise<AnnotationRenderResult> {
     if (!this.viewer) throw new Error("Mol* is not initialized");
-    const normalized = normalizedAnnotationGroups(groups);
+    if (!this.viewer.plugin.managers.structure.hierarchy.current.structures.length) return annotationRenderResult([]);
+    const normalized = normalizedAnnotationGroups(groups.map(group => ({
+      ...group, atomIndices: group.atomIndices.filter(index => !this.unpositionedAtoms.has(index)),
+    })));
+    await this.clearAnnotation();
     this.annotationGroups = normalized;
     const { reference } = this.currentStructure();
-    await clearStructureOverpaint(this.viewer.plugin, reference.components);
+    const atomSites = normalized.filter(group => group.showAtoms).flatMap(group => group.atomIndices);
+    if (atomSites.length) {
+      const context = StructureElement.Loci.extendToWholeResidues(this.lociFor([...new Set(atomSites)]));
+      const component = await this.viewer.plugin.builders.structure.tryCreateComponent(reference.cell.transform.ref, {
+        type: { name: "bundle", params: StructureElement.Bundle.fromLoci(context) },
+        nullIfEmpty: true, label: "Condition sites",
+      }, "studio-condition-sites");
+      if (component) {
+        this.annotationComponent = component.ref;
+        await this.viewer.plugin.builders.structure.representation.addRepresentation(component, {
+          type: "ball-and-stick", color: "element-symbol", typeParams: { sizeAspectRatio: 1 },
+        });
+      }
+    }
     if (normalized.length === 0) {
       this.clearSelection();
       return annotationRenderResult(normalized);
@@ -217,7 +319,7 @@ export class MolstarAdapter implements ViewerAdapter {
         const color = group.color ?? ANNOTATION_PALETTE[index % ANNOTATION_PALETTE.length];
         await setStructureOverpaint(
           this.viewer.plugin,
-          reference.components,
+          this.currentStructure().reference.components,
           Color(color.value),
           async (structure) =>
             StructureElement.Schema.toLoci(structure, {
@@ -235,14 +337,16 @@ export class MolstarAdapter implements ViewerAdapter {
     if (StructureElement.Loci.size(loci) !== result.atomCount) {
       throw new Error("Mol* annotation union does not match AtomWorks atom indices");
     }
-    this.viewer.plugin.managers.interactivity.lociSelects.select({ loci });
-    this.viewer.plugin.managers.camera.focusLoci(loci);
     return result;
   }
 
   async clearAnnotation(): Promise<void> {
     this.annotationGroups = [];
     if (!this.viewer) return;
+    if (this.annotationComponent) {
+      await this.viewer.plugin.state.data.build().delete(this.annotationComponent).commit();
+      this.annotationComponent = undefined;
+    }
     const reference = this.viewer.plugin.managers.structure.hierarchy.current.structures[0];
     if (reference) await clearStructureOverpaint(this.viewer.plugin, reference.components);
   }
@@ -252,6 +356,7 @@ export class MolstarAdapter implements ViewerAdapter {
     this.clearSelection();
     if (!atomIndices.length) return;
     this.selectedAtomIndices = [...new Set(atomIndices)];
+    if (!this.viewer.plugin.managers.structure.hierarchy.current.structures.length) return;
     const loci = this.lociFor(this.selectedAtomIndices);
     this.viewer.plugin.managers.interactivity.lociSelects.select({ loci });
   }
@@ -260,7 +365,6 @@ export class MolstarAdapter implements ViewerAdapter {
     if (!this.viewer) return;
     this.viewer.plugin.managers.interactivity.lociSelects.deselectAll();
     this.viewer.plugin.managers.interactivity.lociHighlights.clearHighlights();
-    this.viewer.plugin.managers.structure.focus.clear();
     this.selectedAtomIndices = [];
   }
 
@@ -281,13 +385,8 @@ export class MolstarAdapter implements ViewerAdapter {
       if (target === "selection" && index > 0) continue;
       const structure = reference.cell.obj?.data;
       if (!structure) continue;
-      let selected = target === "all" ? StructureElement.Loci.all(structure) :
+      const selected = target === "all" ? StructureElement.Loci.all(structure) :
         StructureElement.Schema.toLoci(structure, { items: { atom_index: this.selectedAtomIndices } });
-      if (action !== "hide" && this.unpositionedAtoms.length && index === 0) {
-        selected = StructureElement.Loci.subtract(selected, StructureElement.Schema.toLoci(structure, {
-          items: { atom_index: this.unpositionedAtoms },
-        }));
-      }
       const root = reference.cell.transform.ref;
       let components = this.displayComponents.get(root);
       if (!components) {
@@ -295,6 +394,7 @@ export class MolstarAdapter implements ViewerAdapter {
         // Preserve the preset's visible atoms, then use one component per representation.
         // Native bundle components remove hidden geometry, including picking.
         for (const component of reference.components) {
+          if (component.cell.transform.ref === this.annotationComponent) continue;
           const data = component.cell.obj?.data;
           if (!data) continue;
           const loci = StructureElement.Loci.remap(StructureElement.Loci.all(data), structure);
@@ -316,7 +416,9 @@ export class MolstarAdapter implements ViewerAdapter {
           }
         }
         const update = plugin.state.data.build();
-        for (const component of reference.components) update.delete(component.cell.transform.ref);
+        for (const component of reference.components) {
+          if (component.cell.transform.ref !== this.annotationComponent) update.delete(component.cell.transform.ref);
+        }
         await update.commit();
         this.displayComponents.set(root, components);
       }
@@ -420,10 +522,34 @@ export class MolstarAdapter implements ViewerAdapter {
   }
 
   async showInteractions(interactions: ViewerInteraction[]): Promise<void> {
-    await this.clearMeasurements();
-    for (const overlay of interactionsToViewerOverlays(interactions)) {
-      await this.addMeasurement(overlay);
+    if (!this.viewer) return;
+    if (this.interactionRepresentation) {
+      this.viewer.plugin.canvas3d?.remove(this.interactionRepresentation);
+      this.interactionRepresentation.destroy();
+      this.interactionRepresentation = null;
     }
+    this.context.container.dataset.interactionContacts = "0";
+    this.context.container.dataset.interactionRenderObjects = "0";
+    if (!interactions.length || !this.viewer.plugin.managers.structure.hierarchy.current.structures.length) return;
+    const visible = interactions.filter(contact =>
+      !this.unpositionedAtoms.has(contact.atom1) && !this.unpositionedAtoms.has(contact.atom2));
+    if (!visible.length) return;
+    const representation = ShapeRepresentation<ViewerInteraction[], Lines, typeof Lines.Params>((_ctx, data) => {
+      const builder = LinesBuilder.create();
+      data.forEach((contact, index) => {
+        const start = StructureElement.Loci.getBoundingSphere(this.lociFor([contact.atom1])).center;
+        const end = StructureElement.Loci.getBoundingSphere(this.lociFor([contact.atom2])).center;
+        builder.addFixedLengthDashes(start, end, 0.25, index);
+      });
+      return Shape.create("Interaction contacts", data, builder.getLines(),
+        group => Color(data[group].color), () => 0.075,
+        group => `${data[group].type}: ${data[group].label}`);
+    }, Lines.Utils);
+    await this.viewer.plugin.runTask(representation.createOrUpdate({ lineSizeAttenuation: true }, visible));
+    this.viewer.plugin.canvas3d?.add(representation);
+    this.interactionRepresentation = representation;
+    this.context.container.dataset.interactionContacts = String(visible.length);
+    this.context.container.dataset.interactionRenderObjects = String(representation.renderObjects.length);
   }
 
   async showMarkers(markers: ViewerMarker[]): Promise<void> {
@@ -451,6 +577,8 @@ export class MolstarAdapter implements ViewerAdapter {
   destroy(): void {
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
+    this.interactionRepresentation?.destroy();
+    this.interactionRepresentation = null;
     this.markerRepresentation?.destroy();
     this.markerRepresentation = null;
     this.viewer?.dispose();

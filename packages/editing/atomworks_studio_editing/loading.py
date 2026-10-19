@@ -1,8 +1,21 @@
 """Shared desktop/browser load presets and user-facing ParseConfig options."""
 
+from collections import Counter
 from dataclasses import asdict
+from io import BytesIO, StringIO
+from pathlib import Path
 
+from atomworks.io import parse
 from atomworks.io.config import ParseConfig
+from atomworks.io.template import add_missing_atoms_for_chain, infer_bonds_from_residue_names
+from atomworks.io.utils.atom_array_plus import insert_atoms
+from atomworks.io.utils.ccd import custom_ccd_residues
+from atomworks.io.utils.io_utils import read_any
+from atomworks.io.utils.link_chemistry import build_link_product
+from atomworks.io.utils.standard_annotations import STANDARD_ANNOTATIONS
+from atomworks.io.utils.standard_annotations.serialization import _LEGACY_MASK_FIELDS
+from atomworks.io.utils.standardize import standardize_atom_names
+from biotite.structure import AtomArray
 
 # UI metadata only: preset values and parsing behavior come from AtomWorks.
 LOAD_FIELDS = {
@@ -41,11 +54,11 @@ LOAD_FIELDS = {
     },
     "hydrogen_policy": {"label": "Hydrogens", "kind": "choice", "choices": ["keep", "remove"]},
     "altloc": {
-        "label": "Alternate locations",
+        "label": "altloc",
         "kind": "choice",
         "choices": ["first", "random_per_chain", "random_clash_aware"],
     },
-    "altloc_seed": {"label": "Alternate location seed (blank for random)", "kind": "integer"},
+    "altloc_seed": {"label": "altloc seed (blank for random)", "kind": "integer"},
     "model": {"label": "Model (blank for all)", "kind": "integer"},
     "remove_ccds": {"label": "Remove CCD codes (comma-separated)", "kind": "text"},
 }
@@ -95,4 +108,93 @@ def load_options_schema() -> dict:
             preset: {key: value for key, value in asdict(build_load_config(preset)).items() if key in LOAD_FIELDS}
             for preset in ("minimal", "rcsb")
         },
+    }
+
+
+def heavy_atom_inventory(
+    source: Path | StringIO | BytesIO, *, file_type: str | None = None
+) -> tuple[AtomArray, AtomArray]:
+    """Compare heavy-atom inventories without interpreting design placeholders as chemistry.
+
+    The disposable completion copy drops annotations and resolves leaving groups only.
+    It must not replace an authored document or its conditions, charges, and bonds.
+    """
+    if isinstance(source, StringIO | BytesIO):
+        source.seek(0)
+    config = build_load_config(
+        "minimal",
+        assembly="asym",
+        load_standard_annotations=False,
+        hydrogen_policy="remove",
+    ).replace(file_type=file_type)
+    parsed = parse(source, config=config)
+    original = parsed["asym_unit"][0]
+    with custom_ccd_residues(original._custom_ccd_registry):
+        original = standardize_atom_names(
+            original,
+            on_mismatch="raise",
+            on_mismatch_non_heavy="filter",
+            non_canonical_only=False,
+        )
+        templates, positions = [], []
+        for chain, info in parsed["chain_info"].items():
+            missing, locations = add_missing_atoms_for_chain(
+                sequence=info["res_name"],
+                res_ids=info["res_id"],
+                atom_array=original,
+                chain_mask=original.chain_id == chain,
+                chain_type=info["chain_type"],
+                hydrogen_policy="remove",
+            )
+            templates.extend(missing)
+            positions.extend(locations)
+        completed = (
+            insert_atoms(original.copy(), templates, positions, on_annotation_mismatch_policy="drop")
+            if templates
+            else original.copy()
+        )
+        completed = infer_bonds_from_residue_names(completed, sanitize=False)
+        completed, _ = build_link_product(completed)
+    return original, completed
+
+
+def inspect_import(source: Path | StringIO | BytesIO, *, file_type: str | None = None) -> dict:
+    """Infer an import preset without changing the source or loading a document.
+
+    For annotated inputs, compare the asymmetric unit before/after AtomWorks heavy-atom
+    completion. Existing unresolved (NaN-coordinate) atom records are already present.
+    If completion cannot be checked, require an explicit choice rather than guessing.
+    """
+    cif = read_any(source, file_type=file_type)
+    block = cif.block
+    names = {name for annotation in STANDARD_ANNOTATIONS for name in (annotation.full_name, *annotation.aliases)}
+    saved = bool(
+        names.intersection(block) or (names | set(_LEGACY_MASK_FIELDS.values())).intersection(block["atom_site"])
+    )
+    if not saved:
+        return {"preset": "rcsb", "message": "No saved StandardAnnotations. Using Unannotated input."}
+    try:
+        original, completed = heavy_atom_inventory(source, file_type=file_type)
+        atom_sets = [
+            Counter(zip(atoms.chain_id, atoms.res_id, atoms.ins_code, atoms.res_name, atoms.atom_name, strict=True))
+            for atoms in (original, completed)
+        ]
+        added = sum((atom_sets[1] - atom_sets[0]).values())
+    except Exception as error:
+        return {
+            "preset": None,
+            "message": f"Saved StandardAnnotations found, but missing atoms could not be checked: {error}. "
+            "Choose a preset or Custom settings.",
+        }
+    if added:
+        return {
+            "preset": None,
+            "message": f"This file has saved StandardAnnotations and {added} missing heavy atoms. "
+            "Adding atoms changes annotation indices, so both cannot be enabled together. "
+            "Choose Annotated CIF to keep annotations and the existing atom list, or Unannotated input "
+            "to discard saved annotations and add missing atoms. Custom settings are also available.",
+        }
+    return {
+        "preset": "minimal",
+        "message": "Saved StandardAnnotations found; no missing heavy atoms. Using Annotated CIF.",
     }

@@ -15,7 +15,7 @@ from types import MappingProxyType
 
 import numpy as np
 from atomworks.io.utils.standard_annotations.base import STANDARD_ANNOTATIONS, Level
-from atomworks.ml.conditions import C_CRD, C_DIS, C_IDX, C_SEQ
+from atomworks.ml.conditions import C_CRD, C_CTR, C_IDX, C_NTR, C_SEQ
 from atomworks.ml.conditions.base import ConditionBase
 from atomworks_studio_editing.annotations import editing_type, is_boolean, is_structure_derived
 from atomworks_studio_editing.contracts import (
@@ -27,7 +27,18 @@ from atomworks_studio_editing.contracts import (
 )
 
 from atomworks_studio_rfd4.internal_coordinate import edit_absolute_coordinates, edit_coordinate_group
-from atomworks_studio_rfd4.model import C_CATH, C_CENTROID, C_CRDGRP, C_IDXGRP, C_INTCRD, C_RAS, source_root
+from atomworks_studio_rfd4.model import (
+    C_CATH,
+    C_CENTROID,
+    C_CRDGRP,
+    C_IDXGRP,
+    C_INTCRD,
+    C_MCOORD,
+    C_NA_SS_STATE,
+    C_RAS,
+    C_SALT,
+    source_root,
+)
 
 _KEY_OVERRIDES: dict[type[ConditionBase], str] = {C_RAS: "rasa"}
 _LABEL_OVERRIDES: dict[type[ConditionBase], str] = {
@@ -37,14 +48,15 @@ _LABEL_OVERRIDES: dict[type[ConditionBase], str] = {
     C_RAS: "RASA",
     C_INTCRD: "Internal coordinate",
     C_CENTROID: "Chain centroid",
-    C_DIS: "Distance restraints",
     C_CATH: "CATH fold",
+    C_SALT: "Salt bridge",
+    C_MCOORD: "Metal coordination",
+    C_NA_SS_STATE: "Nucleic Acid Secondary Structure",
 }
 _COUNT_UNIT_OVERRIDES: dict[type[ConditionBase], CountUnit] = {
     C_IDXGRP: "groups",
     C_CRDGRP: "groups",
     C_CENTROID: "chains",
-    C_DIS: "pairs",
 }
 _DEFAULT_OVERRIDES: dict[type[ConditionBase], ConditionDefault] = {
     C_IDX: True,
@@ -57,9 +69,8 @@ _DEFAULT_OVERRIDES: dict[type[ConditionBase], ConditionDefault] = {
 def editable_condition_classes() -> tuple[type[ConditionBase], ...]:
     """Return conditions supported by Studio's current generic editors.
 
-    The value semantics still come entirely from the StandardAnnotation
-    contract. Studio adds one capability boundary: its pair editor currently
-    supports distance restraints only, while text conditions use a validated text editor.
+    Generic pairwise distance annotations are not supported RFD4 inputs.
+    Their presence in AtomWorks' registry does not imply model support.
     """
     return tuple(
         annotation
@@ -69,10 +80,8 @@ def editable_condition_classes() -> tuple[type[ConditionBase], ...]:
 
 
 def _supports_studio_editor(condition: type[ConditionBase]) -> bool:
-    if editing_type(condition) is None:
+    if editing_type(condition) is None or condition.n_body != 1:
         return False
-    if condition.n_body != 1:
-        return condition is C_DIS
     try:
         condition_kind(condition)
     except TypeError:
@@ -100,8 +109,6 @@ def condition_kind(condition: type[ConditionBase]) -> ConditionKind:
     if condition is C_INTCRD:
         # This mask edit also assigns a fresh coordinate group and clears C_CRD.
         return "operation"
-    if condition.n_body == 2:
-        return "pair"
     if is_boolean(condition) or is_structure_derived(condition):
         return "mask"
     if enum_type(condition) is not None:
@@ -154,6 +161,7 @@ def build_condition_definitions() -> tuple[ConditionDefinition, ...]:
     """Build Studio definitions from the live StandardAnnotation registry."""
     definitions = []
     for condition in editable_condition_classes():
+        probability = condition.name.startswith("sequence-probability-")
         key = condition_key(condition)
         kind = condition_kind(condition)
         default = _condition_default(condition, kind)
@@ -169,11 +177,17 @@ def build_condition_definitions() -> tuple[ConditionDefinition, ...]:
                 default=default,
                 invert_mask=condition is C_IDX,
                 condition=condition,
+                visible=condition not in (C_NTR, C_CTR, C_INTCRD),
                 group_editor=condition in (C_IDXGRP, C_CRDGRP),
                 reserved_group_ids=(-1, 0) if condition is C_CRDGRP else (),
                 enum_values=enum_values,
                 normalize_value=normalize_cath_label if condition is C_CATH else None,
-                whole_residues=condition.name.startswith("sequence-probability-") or condition is C_CATH,
+                editor_group="Sequence probability" if probability else None,
+                option_label=condition.token_name if probability else None,
+                minimum=0.0 if probability else None,
+                maximum=1.0 if probability else None,
+                step=0.1 if probability or condition is C_CENTROID else None,
+                decimals=2 if probability else 1 if condition is C_CENTROID else None,
                 active_mask=getattr(C_CRDGRP, "is_internal", None) if condition is C_INTCRD else None,
                 mutate=(
                     {C_CRD: edit_absolute_coordinates, C_CRDGRP: edit_coordinate_group}.get(condition)

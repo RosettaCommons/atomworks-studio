@@ -18,7 +18,7 @@ try {
   await page.locator("#file-input").setInputFiles(fileURLToPath(new URL("../../../tests/fixtures/SAM_hbonds.cif", import.meta.url)));
   const initial = await (await uploaded).json();
   await page.waitForFunction(() => !document.querySelector("#download").disabled);
-  await page.locator("#editor-tab-charges").click();
+  await page.locator("#editor-tab-structure").click();
   assert.equal(await page.locator("#protonation-ph").inputValue(), "7.4");
   for (const width of [1440, 760, 390]) {
     await page.setViewportSize({ width, height: 1000 });

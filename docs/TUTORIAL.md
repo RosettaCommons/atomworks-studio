@@ -34,7 +34,7 @@ Viewer styling and selection do not edit the CIF.
 1. With a residue selected, open **Edit → Annotations** and choose **Sequence conditioning**.
 2. Leave **Enable condition** checked and choose **Apply to selection**.
    The confirmation reports the affected atoms; successful edits clear the selection.
-3. Under **Inspect annotations**, choose the Sequence conditioning row to color its atoms.
+3. Under **Conditions on this structure**, choose the Sequence conditioning row to color its atoms.
 4. Choose **Undo** to restore the preceding document state. Select the residue
    again and repeat the edit if you want to keep it.
 
@@ -74,13 +74,15 @@ Choose **Small-molecule binder · SAM** from the NIM examples to work with a lig
 Save and reopen after editing. Bond inference from CCD needs a configured
 `CCD_MIRROR_PATH`; loading existing stored bonds does not require inference.
 
-## Groups and restraints
+## Groups and segments
 
-Use groups, pair restraints, and expandable segments to describe a structure.
-Group actions operate on the current selection. Pair restraints need two atom
-endpoints; their table is staged until you apply it. Save expandable segments
+Use groups and expandable segments to describe an RFD4 input.
+Group actions operate on the current selection. Save expandable segments
 collapsed when their length should remain unspecified. Editing these annotations
 does not run a model.
+
+Generic AtomWorks distance restraints are not supported RFD4 design conditions.
+RFD4's editor excludes them; Analyze can measure current distances without adding conditions.
 
 For native PyMOL workflows, continue with the [panel guide](PYMOL.md).
 For the same browser editor inside VS Code, see [VS Code and Cursor](VSCODE.md).

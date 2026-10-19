@@ -56,9 +56,15 @@ class ConditionDefinition:
     condition: type[ConditionBase]
     enum_values: tuple[ConditionValue, ...] = ()
     normalize_value: Callable[[object], object] | None = None
-    whole_residues: bool = False
+    editor_group: str | None = None
+    option_label: str | None = None
+    minimum: float | None = None
+    maximum: float | None = None
+    step: float | None = None
+    decimals: int | None = None
     active_mask: Callable[[AtomArrayPlus], object] | None = None
     mutate: Callable[[AtomArrayPlus, object, bool, object], None] | None = None
+    visible: bool = True
     group_editor: bool = False
     reserved_group_ids: tuple[int, ...] = ()
 
@@ -71,7 +77,11 @@ class ConditionDefinition:
             "default": self.default,
             "label": self.label,
             "group_editor": self.group_editor,
+            "invert_mask": self.invert_mask,
         }
+        for field in ("editor_group", "option_label", "minimum", "maximum", "step", "decimals"):
+            if (value := getattr(self, field)) is not None:
+                schema[field] = value
         if self.enum_values:
             schema["values"] = {member.name: member.value for member in self.enum_values}
         return schema

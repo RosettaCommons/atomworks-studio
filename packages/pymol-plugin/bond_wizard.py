@@ -7,6 +7,7 @@ removing, and inferring bonds on the active :py:class:`AtomArrayPlus`.
 import logging
 import os
 
+from atomworks_studio_editing.document import BOND_TYPES
 from atomworks_studio_pymol.bridge import (
     _pymol_resi_to_res_id_ins_code,
     reload_structure_in_pymol,
@@ -18,18 +19,6 @@ from pymol import cmd
 from pymol.Qt import QtCore, QtWidgets
 
 logger = logging.getLogger("atomworks_studio_pymol")
-
-# Bond types offered in the dropdown, in display order.
-_BOND_TYPE_OPTIONS: list[BondType] = [
-    BondType.SINGLE,
-    BondType.DOUBLE,
-    BondType.TRIPLE,
-    BondType.AROMATIC,
-    BondType.AROMATIC_SINGLE,
-    BondType.AROMATIC_DOUBLE,
-    BondType.COORDINATION,
-    BondType.ANY,
-]
 
 _POLL_MS = 200  # QTimer polling interval (ms) for atom picking
 
@@ -87,8 +76,7 @@ class BondWizard:
         type_row = QtWidgets.QHBoxLayout()
         type_row.addWidget(QtWidgets.QLabel("Bond type:"))
         self._type_combo = QtWidgets.QComboBox()
-        for bt in _BOND_TYPE_OPTIONS:
-            self._type_combo.addItem(bt.name)
+        self._type_combo.addItems(list(BOND_TYPES))
         type_row.addWidget(self._type_combo)
         type_row.addStretch()
         layout.addLayout(type_row)
@@ -232,7 +220,7 @@ class BondWizard:
     # ------------------------------------------------------------------
 
     def _current_bond_type(self) -> BondType:
-        return _BOND_TYPE_OPTIONS[self._type_combo.currentIndex()]
+        return BOND_TYPES[self._type_combo.currentText()]
 
     def _resolve_picked(self, obj_name: str) -> tuple[int, int] | None:
         """Resolve both picked atoms' identity keys to current row indices.

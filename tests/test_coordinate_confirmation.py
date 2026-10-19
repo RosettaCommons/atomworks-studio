@@ -37,6 +37,7 @@ def test_native_coordinate_confirmation(monkeypatch, operation, answer):
     original_groups = C_CRDGRP.annotation(document.array).copy()
     state = SimpleNamespace(
         active="test",
+        condition_provider=CONDITION_PROVIDER,
         documents={"test": document},
         arrays={"test": document.array},
         document=lambda name: document,
@@ -274,8 +275,10 @@ def test_native_index_group_edit_still_commits_and_undoes(monkeypatch):
     editor._new_group_from_selection()
     application.processEvents()
     assert document.revision == revision + 1
-    assert C_IDXGRP.annotation(document.array)[0] == max(1, int(original.max()) + 1)
-    np.testing.assert_equal(C_IDXGRP.annotation(document.array)[1:], original[1:])
+    token = document.resolve_indices([0], "residue")
+    np.testing.assert_equal(C_IDXGRP.annotation(document.array)[token], max(1, int(original.max()) + 1))
+    other = np.setdiff1d(np.arange(len(document.array)), token)
+    np.testing.assert_equal(C_IDXGRP.annotation(document.array)[other], original[other])
     assert document.undo()
     np.testing.assert_equal(C_IDXGRP.annotation(document.array, default="generate"), original)
     editor.close()

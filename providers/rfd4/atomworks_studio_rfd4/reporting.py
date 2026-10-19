@@ -10,6 +10,7 @@ from atomworks.ml.conditions import C_CRD, C_IDX, C_SEQ
 from atomworks.ml.conditions.base import ConditionBase
 from atomworks_studio_editing.annotations import editing_type, has_stored_mask
 
+from atomworks_studio_rfd4.condition_contract import CONDITION_DEFINITIONS
 from atomworks_studio_rfd4.model import (
     C_CENTROID,
     C_CRDGRP,
@@ -51,7 +52,8 @@ def _index_group_summary(arr: AtomArrayPlus) -> list[str]:
 def _coord_group_summary(arr: AtomArrayPlus) -> list[str]:
     if not C_CRDGRP.has_annotation(arr):
         return []
-    n_groups = len(np.unique(C_CRDGRP.annotation(arr, default="raise")))
+    groups = C_CRDGRP.annotation(arr, default="raise")
+    n_groups = len(np.unique(groups[groups != C_CRDGRP.UNKNOWN_COORDS]))
     return [f'Coordinate groups: {n_groups} groups  (check "Color by coord group" view)']
 
 
@@ -107,7 +109,7 @@ def _mask_summary(condition: type[ConditionBase], arr: AtomArrayPlus) -> list[st
     values, unit = _summary_values(condition, arr, mask.values if isinstance(mask, AnnotationList2D) else mask)
     if not values.any():
         return []
-    label = _SUMMARY_LABELS.get(condition, condition.name)
+    label = _SUMMARY_LABELS.get(condition, next(d.label for d in CONDITION_DEFINITIONS if d.condition is condition))
     return [f"{label}: {int(values.sum())} {unit}"]
 
 
@@ -140,7 +142,7 @@ def _enum_summary(condition: type[ConditionBase], arr: AtomArrayPlus, enum_cls: 
         section.append(f"  {enum_val.name}: {int(value_mask.sum())} {unit}")
     if not section:
         return []
-    label = _SUMMARY_LABELS.get(condition, condition.name)
+    label = _SUMMARY_LABELS.get(condition, next(d.label for d in CONDITION_DEFINITIONS if d.condition is condition))
     return [f"{label}:\n" + "\n".join(section)]
 
 
@@ -155,8 +157,9 @@ def summarize_conditions(arr: AtomArrayPlus, *, include_host_summarized: bool = 
         report is the only one the user sees.
     """
     lines: list[str] = []
-    for condition in editable_conditions():
-        if condition in _NO_SUMMARY:
+    for definition in CONDITION_DEFINITIONS:
+        condition = definition.condition
+        if not definition.visible or condition in _NO_SUMMARY:
             continue
         if condition in _HOST_SUMMARIZED and not include_host_summarized:
             continue

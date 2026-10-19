@@ -11,18 +11,17 @@ Provides:
 import importlib
 import logging
 from collections.abc import Callable
+from pathlib import Path
 
 import numpy as np
 from atomworks.enums import ChainType
 from atomworks.io.config import ParseConfig
 from atomworks.io.utils.atom_array_plus import AtomArrayPlus
 from atomworks.io.utils.io_utils import to_cif_file
-from atomworks.io.utils.standard_annotations.base import STANDARD_ANNOTATIONS
-from atomworks.ml.conditions import C_CRD, C_CTR, C_DIS, C_IDX, C_NTR, C_SEQ
-from atomworks.ml.conditions.base import ConditionBase
-from atomworks_studio_editing.annotations import editing_type, has_stored_mask
+from atomworks.ml.conditions import C_CRD, C_DIS, C_IDX, C_SEQ
+from atomworks_studio_editing.annotations import has_stored_mask
 from atomworks_studio_editing.layout import EDITOR_TABS
-from atomworks_studio_editing.loading import LOAD_FIELDS, build_load_config
+from atomworks_studio_editing.loading import LOAD_FIELDS, build_load_config, inspect_import
 from atomworks_studio_editing.validation import validate_atom_array_for_save
 from atomworks_studio_pymol.bond_wizard import BondWizard
 from atomworks_studio_pymol.bridge import (
@@ -32,7 +31,6 @@ from atomworks_studio_pymol.bridge import (
     reload_structure_in_pymol,
     selection_to_indices,
 )
-from atomworks_studio_pymol.chain_wizard import ChainWizard
 from atomworks_studio_pymol.charge_wizard import ChargeWizard
 from atomworks_studio_pymol.display import count_hidden_nan_atoms
 from atomworks_studio_pymol.editors import editor_for, is_excluded
@@ -127,16 +125,6 @@ def _builtin_annotation_summary(arr: AtomArrayPlus) -> str:
         if is_unindexed.any():
             lines.append(f"Index conditioning: {int(is_unindexed.sum())} atoms unindexed")
 
-    if has_stored_mask(C_NTR, arr):
-        n = _residue_count(C_NTR.mask(arr, default="generate"))
-        if n > 0:
-            lines.append(f"N-terminus: {n} residues marked")
-
-    if has_stored_mask(C_CTR, arr):
-        n = _residue_count(C_CTR.mask(arr, default="generate"))
-        if n > 0:
-            lines.append(f"C-terminus: {n} residues marked")
-
     # 2-body conditions: report the number of stored pairs.
     for condition_cls, label in [(C_DIS, "Distance restraints")]:
         if condition_cls.has_annotation(arr):
@@ -187,37 +175,38 @@ _PRESET_CONFIGS: dict[str, ParseConfig] = {
 
 
 class LoadCIFDialog:
-    """Dialog for choosing parse options before loading a CIF file.
-
-    Provides a preset selector (``RCSB`` or ``Minimal + Annotations``) and an
-    expandable *Advanced* panel exposing every :py:class:`~atomworks.io.config.ParseConfig`
-    option. Selecting a preset repopulates the advanced fields with that preset's
-    values. Invalid combinations are not guarded here — the parser will raise
-    at load time if needed.
-    """
+    """Choose inferred presets or manual settings before importing a CIF."""
 
     def __init__(self, parent: QtWidgets.QWidget | None = None):
+        self._base_preset = "minimal"
         self._dialog = QtWidgets.QDialog(parent)
         self._dialog.setWindowTitle("Load CIF — Options")
         layout = QtWidgets.QVBoxLayout(self._dialog)
 
         # ---- Preset selector ----
-        layout.addWidget(QtWidgets.QLabel("<b>Preset</b>"))
+        layout.addWidget(QtWidgets.QLabel("<b>Parse settings</b>"))
         preset_row = QtWidgets.QHBoxLayout()
         self._preset_group = QtWidgets.QButtonGroup(self._dialog)
         self._preset_group.setExclusive(True)
-        self._rb_rcsb = QtWidgets.QRadioButton("Unannotated input structure")
+        self._rb_rcsb = QtWidgets.QRadioButton("Unannotated input")
         self._rb_rcsb.setToolTip("For raw RCSB PDB structures: adds missing heavy atoms, converts MSE→MET, etc. ")
         self._rb_minimal = QtWidgets.QRadioButton("Annotated CIF")
         self._rb_minimal.setToolTip(
             "For CIFs produced by this plugin or models that output annotated CIFs: "
             "loads all StandardAnnotations without adding or modifying atoms."
         )
-        self._rb_minimal.setChecked(True)
+        self._rb_auto = QtWidgets.QRadioButton("Infer")
+        self._rb_manual = QtWidgets.QRadioButton("Custom")
+        self._rb_auto.setToolTip("Infer a preset from the file")
+        self._rb_auto.setChecked(True)
+        self._preset_group.addButton(self._rb_auto)
+        self._preset_group.addButton(self._rb_manual)
+        preset_row.addWidget(self._rb_auto)
         self._preset_group.addButton(self._rb_rcsb)
         self._preset_group.addButton(self._rb_minimal)
         preset_row.addWidget(self._rb_rcsb)
         preset_row.addWidget(self._rb_minimal)
+        preset_row.addWidget(self._rb_manual)
         preset_row.addStretch()
         layout.addLayout(preset_row)
 
@@ -343,7 +332,7 @@ class LoadCIFDialog:
 
         # ---- OK/Cancel ----
         btns = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
-        btns.accepted.connect(self._dialog.accept)
+        btns.accepted.connect(self._accept)
         btns.rejected.connect(self._dialog.reject)
         layout.addWidget(btns)
 
@@ -351,6 +340,8 @@ class LoadCIFDialog:
         self._btn_advanced.toggled.connect(self._on_advanced_toggled)
         self._rb_rcsb.toggled.connect(self._on_preset_changed)
         self._rb_minimal.toggled.connect(self._on_preset_changed)
+        self._rb_auto.toggled.connect(self._on_preset_changed)
+        self._rb_manual.toggled.connect(self._on_preset_changed)
         self._chk_load_sa.toggled.connect(lambda c: self._warning_label.setVisible(not c))
 
         # Initial population from default preset
@@ -358,11 +349,20 @@ class LoadCIFDialog:
 
     def _on_advanced_toggled(self, checked: bool) -> None:
         self._advanced.setVisible(checked)
+        if checked:
+            self._rb_manual.setChecked(True)
         self._btn_advanced.setText(("▾ Hide" if checked else "▸ Show") + " advanced settings")
         self._dialog.adjustSize()
 
-    def _on_preset_changed(self) -> None:
+    def _on_preset_changed(self, checked: bool = True) -> None:
+        if not checked:
+            return
+        if self._rb_manual.isChecked():
+            self._btn_advanced.setChecked(True)
+            return
+        self._btn_advanced.setChecked(False)
         key = "rcsb" if self._rb_rcsb.isChecked() else "minimal_with_annotations"
+        self._base_preset = "rcsb" if self._rb_rcsb.isChecked() else "minimal"
         self._apply_preset(_PRESET_CONFIGS[key])
 
     def _apply_preset(self, cfg: ParseConfig) -> None:
@@ -405,6 +405,23 @@ class LoadCIFDialog:
 
         self._edit_remove_ccds.setText(",".join(cfg.remove_ccds))
 
+    def _accept(self) -> None:
+        try:
+            if not Path(self.path).is_file():
+                raise ValueError("Choose a CIF file before importing.")
+            if self._rb_auto.isChecked():
+                inspection = inspect_import(Path(self.path))
+                if inspection["preset"] is None:
+                    QtWidgets.QMessageBox.warning(self._dialog, "Choose import settings", inspection["message"])
+                    return
+                radio = self._rb_rcsb if inspection["preset"] == "rcsb" else self._rb_minimal
+                radio.setChecked(True)
+            _ = self.config  # Validate manual combinations before closing the dialog.
+        except Exception as error:
+            QtWidgets.QMessageBox.critical(self._dialog, "Cannot import CIF", str(error))
+            return
+        self._dialog.accept()
+
     def _browse(self) -> None:
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
             self._dialog, "Select CIF", "", "CIF Files (*.cif *.bcif *.cif.gz);;All Files (*)"
@@ -438,7 +455,7 @@ class LoadCIFDialog:
         remove_ccds = tuple(s.strip() for s in ccds_text.split(",") if s.strip()) if ccds_text else ()
 
         return build_load_config(
-            "rcsb" if self._rb_rcsb.isChecked() else "minimal",
+            self._base_preset,
             assembly=self._edit_assembly.text(),
             load_standard_annotations=self._chk_load_sa.isChecked(),
             add_missing_atoms=self._chk_add_missing.isChecked(),
@@ -469,7 +486,7 @@ class ExpandableSegmentInsertDialog:
     insertion as a new standalone chain.
     """
 
-    def __init__(self, parent: QtWidgets.QWidget | None = None):
+    def __init__(self, parent: QtWidgets.QWidget | None = None, *, default_chain_id: str = ""):
         self._dialog = QtWidgets.QDialog(parent)
         self._dialog.setWindowTitle("Insert Expandable Segment")
         layout = QtWidgets.QVBoxLayout(self._dialog)
@@ -511,7 +528,7 @@ class ExpandableSegmentInsertDialog:
         chain_id_row = QtWidgets.QHBoxLayout()
         chain_id_row.addWidget(QtWidgets.QLabel("Chain ID:"))
         self._chain_id_edit = QtWidgets.QLineEdit()
-        self._chain_id_edit.setPlaceholderText("e.g. Z")
+        self._chain_id_edit.setText(default_chain_id)
         self._chain_id_edit.setMaximumWidth(60)
         chain_id_row.addWidget(self._chain_id_edit)
         chain_id_row.addStretch()
@@ -638,14 +655,15 @@ class MainPanel:
         clear_btn.setToolTip("Delete all tracked structures and fully reset plugin state.")
         util_row.addWidget(summarize_btn)
         util_row.addWidget(clear_btn)
+        reset_conditions_btn = QtWidgets.QPushButton("Reset conditions to defaults")
+        reset_conditions_btn.setToolTip("Reset all conditions on the active structure. Undo restores them.")
+        layout.addWidget(reset_conditions_btn)
         layout.addLayout(util_row)
 
         layout.addSpacing(4)
 
         # Expandable segments & Delete
         gap_btn = QtWidgets.QPushButton("Insert Expandable Segment...")
-        realize_btn = QtWidgets.QPushButton("Realize Segments")
-        collapse_btn = QtWidgets.QPushButton("Collapse Segments")
         reset_res_id_btn = QtWidgets.QPushButton("Reset Res ID")
         reset_res_id_btn.setToolTip(
             "Re-index residues per chain_iid so the first residue in each chain "
@@ -654,10 +672,6 @@ class MainPanel:
         delete_btn = QtWidgets.QPushButton("Delete selection")
         undo_btn = QtWidgets.QPushButton("Undo")
         layout.addWidget(gap_btn)
-        realize_collapse_row = QtWidgets.QHBoxLayout()
-        realize_collapse_row.addWidget(realize_btn)
-        realize_collapse_row.addWidget(collapse_btn)
-        layout.addLayout(realize_collapse_row)
         layout.addWidget(reset_res_id_btn)
         layout.addWidget(delete_btn)
         layout.addWidget(undo_btn)
@@ -715,25 +729,27 @@ class MainPanel:
 
         layout.addStretch()
 
-
         # ---- Annotations tab ----
         self._annotation_wizard = AnnotationWizard(state)
 
-        # ---- Bonds tab ----
-        self._bond_wizard = BondWizard(state)
-
-        # ---- Charges tab ----
+        # ---- Structure tab ----
         self._charge_wizard = ChargeWizard(state)
-
-        # ---- Chains tab ----
-        self._chain_wizard = ChainWizard(state)
+        self._bond_wizard = BondWizard(state)
+        structure_widget = QtWidgets.QWidget()
+        structure_layout = QtWidgets.QVBoxLayout(structure_widget)
+        structure_layout.addWidget(QtWidgets.QLabel("<b>Charges</b>"))
+        self._charge_wizard.widget.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
+        structure_layout.addWidget(self._charge_wizard.widget)
+        structure_layout.addWidget(QtWidgets.QLabel("<b>Bonds</b>"))
+        structure_layout.addWidget(self._bond_wizard.widget)
+        structure_scroll = QtWidgets.QScrollArea()
+        structure_scroll.setWidgetResizable(True)
+        structure_scroll.setWidget(structure_widget)
 
         tab_widgets = {
             "main": main_widget,
             "annotations": self._annotation_wizard.widget,
-            "bonds": self._bond_wizard.widget,
-            "charges": self._charge_wizard.widget,
-            "chains": self._chain_wizard.widget,
+            "structure": structure_scroll,
         }
         for key, label in EDITOR_TABS:
             tabs.addTab(tab_widgets[key], label)
@@ -744,9 +760,8 @@ class MainPanel:
         save_btn.clicked.connect(self._save_active)
         summarize_btn.clicked.connect(self._summarize_changes)
         clear_btn.clicked.connect(self._clear_session)
+        reset_conditions_btn.clicked.connect(self._reset_conditions)
         gap_btn.clicked.connect(self._insert_expandable_segment)
-        realize_btn.clicked.connect(self._realize_expandable_segments)
-        collapse_btn.clicked.connect(self._collapse_expandable_segments)
         reset_res_id_btn.clicked.connect(self._reset_res_id)
         delete_btn.clicked.connect(self._delete_selection)
         undo_btn.clicked.connect(self._undo)
@@ -852,6 +867,19 @@ class MainPanel:
         except Exception as e:
             QtWidgets.QMessageBox.critical(self._widget, "Save Error", str(e))
 
+    def _reset_conditions(self) -> None:
+        obj_name = self._state.active
+        if not obj_name:
+            return
+        self._state.get_synced_array(obj_name)
+        try:
+            self._state.document(obj_name).reset_conditions()
+        except Exception as error:
+            QtWidgets.QMessageBox.warning(self._widget, "Condition reset failed", str(error))
+            return
+        cmd.deselect()
+        reload_structure_in_pymol(obj_name)
+
     def _clear_session(self) -> None:
         reply = QtWidgets.QMessageBox.question(
             self._widget,
@@ -926,15 +954,15 @@ class MainPanel:
             QtWidgets.QMessageBox.warning(self._widget, "No active object", "Load a structure first.")
             return
 
-        dlg = ExpandableSegmentInsertDialog(self._widget)
+        dlg = ExpandableSegmentInsertDialog(
+            self._widget, default_chain_id=self._state.document(obj_name).next_chain_id()
+        )
         if not dlg.exec_():
             return
 
         try:
             document = self._state.document(obj_name)
             if dlg.new_chain:
-                if not dlg.new_chain_id:
-                    raise ValueError("Chain ID is required when inserting as a new chain.")
                 document.insert_segment(
                     dlg.seg_min,
                     dlg.seg_max,
@@ -958,36 +986,6 @@ class MainPanel:
             QtWidgets.QMessageBox.critical(self._widget, "Segment Insert Error", str(e))
             return
 
-        reload_structure_in_pymol(obj_name)
-
-    def _realize_expandable_segments(self) -> None:
-        obj_name = self._state.active
-        if not obj_name or obj_name not in self._state.arrays:
-            QtWidgets.QMessageBox.warning(self._widget, "No active object", "Load a structure first.")
-            return
-
-        try:
-            document = self._state.document(obj_name)
-            document.realize_segments()
-            self._state.set_array(obj_name, document.array)
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(self._widget, "Realize Segments Error", str(e))
-            return
-        reload_structure_in_pymol(obj_name)
-
-    def _collapse_expandable_segments(self) -> None:
-        obj_name = self._state.active
-        if not obj_name or obj_name not in self._state.arrays:
-            QtWidgets.QMessageBox.warning(self._widget, "No active object", "Load a structure first.")
-            return
-
-        try:
-            document = self._state.document(obj_name)
-            document.collapse_segments()
-            self._state.set_array(obj_name, document.array)
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(self._widget, "Collapse Segments Error", str(e))
-            return
         reload_structure_in_pymol(obj_name)
 
     def _reset_res_id(self) -> None:
@@ -1155,7 +1153,7 @@ class AnnotationWizard:
         left = QtWidgets.QVBoxLayout()
 
         self._search = QtWidgets.QLineEdit()
-        self._search.setPlaceholderText("Search annotations...")
+        self._search.setPlaceholderText("Search conditions...")
         left.addWidget(self._search)
 
         self._list = QtWidgets.QListWidget()
@@ -1199,25 +1197,16 @@ class AnnotationWizard:
         self._list.addItem(header_item)
         self._annotation_classes.append(None)
 
+        listed_groups = set()
         for definition in self._state.condition_provider.definitions:
             cls = definition.condition
-            if is_excluded(cls):
+            if not definition.visible or is_excluded(cls):
                 continue
-            self._list.addItem(definition.label)
-            self._annotation_classes.append(cls)
-
-        # Standard Annotations group (exclude conditions to avoid duplication)
-        header_item2 = QtWidgets.QListWidgetItem("── Standard Annotations ──")
-        header_item2.setFlags(QtCore.Qt.NoItemFlags)
-        self._list.addItem(header_item2)
-        self._annotation_classes.append(None)
-
-        for cls in STANDARD_ANNOTATIONS:
-            if issubclass(cls, ConditionBase):
-                continue  # already listed under Conditions
-            if editing_type(cls) is None or is_excluded(cls):
-                continue
-            self._list.addItem(cls.name)
+            if definition.editor_group:
+                if definition.editor_group in listed_groups:
+                    continue
+                listed_groups.add(definition.editor_group)
+            self._list.addItem(definition.editor_group or definition.label)
             self._annotation_classes.append(cls)
 
     def _filter_list(self, text: str) -> None:

@@ -121,7 +121,7 @@ test("interaction conversion preserves overlay identity and styling", () => {
   });
 });
 
-test("transient replay keeps interactions separate and replays measurements afterward", async () => {
+for (const includeContacts of [true, false]) test(`transient replay replaces contacts (${includeContacts}) and preserves user measurements`, async () => {
   const events: unknown[] = [];
   const interactions: ViewerInteraction[] = [
     {
@@ -150,12 +150,12 @@ test("transient replay keeps interactions separate and replays measurements afte
         return [];
       },
     },
-    { interactionOverlays: interactions, measurementRequests: measurements },
+    { interactionOverlays: includeContacts ? interactions : [], measurementRequests: measurements },
   );
 
   assert.deepEqual(events, [
     "clear",
-    ["interactions", interactions],
+    ["interactions", includeContacts ? interactions : []],
     ["measurement", measurements[0]],
   ]);
 });

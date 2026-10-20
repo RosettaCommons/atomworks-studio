@@ -9,10 +9,12 @@ app_port: 7860
 This Docker Space runs the same editor and guide as the installed application.
 It edits structures; it does not run a model.
 
-Copy this directory to a new **private Docker Space**. Put the three wheels
+Copy this directory to a Docker Space. Put the three wheels
 `atomworks_studio`, `atomworks_studio_editing`, and
-`atomworks_annotation_studio_rfd4` from a verified Studio build in `wheels/`.
-The packages are not yet published on PyPI. Do not copy the PyMOL wheel here.
+`atomworks_annotation_studio_rfd4` from a verified Studio build (or the
+matching release download) in `wheels/`. Do not copy the PyMOL wheel here.
+Once the version you deploy is on PyPI, you can instead replace the `COPY` and
+wheel `pip install` lines in the Dockerfile with `pip install atomworks-studio==<version>`.
 The Docker build installs public dependencies and runs as UID 1000 on port 7860.
 
 To test locally from this directory:

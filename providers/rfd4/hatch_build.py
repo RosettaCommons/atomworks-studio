@@ -21,6 +21,4 @@ class CustomBuildHook(BuildHookInterface):
             path = source / name
             if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
                 raise RuntimeError(f"RFD4 {name} does not match pinned RosettaCommons revision {metadata['revision']}")
-        build_data.setdefault("force_include", {})[str(manifest)] = (
-            "atomworks_studio_rfd4/_upstream/UPSTREAM.toml"
-        )
+        build_data.setdefault("force_include", {})[str(manifest)] = "atomworks_studio_rfd4/_upstream/UPSTREAM.toml"

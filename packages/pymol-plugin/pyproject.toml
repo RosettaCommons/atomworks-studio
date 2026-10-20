@@ -4,15 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "atomworks-studio-pymol"
-version = "0.1.0"
+version = "0.0.1"
 description = "PyMOL interface for authoring AtomWorks annotated CIF files"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = "BSD-3-Clause"
 dependencies = [
     "atomworks[ml]==3.0.1",
-    "atomworks-studio-editing>=0.1.0,<0.2",
-    "atomworks-annotation-studio-rfd4==0.1.0",
+    "atomworks-studio-editing>=0.0.1,<0.1",
+    "atomworks-annotation-studio-rfd4==0.0.1",
 ]
 
 [project.urls]

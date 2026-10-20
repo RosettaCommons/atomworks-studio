@@ -59,8 +59,8 @@ is needed. Python 3.12 is supported. RFD4 annotation definitions are included; n
 <p>Pip installs either package. The PyMOL plugin belongs in the Python environment
 that runs PyMOL; Conda supplies PyMOL, Qt, and compatible native libraries.
 Register the plugin once, then use <strong>Plugin → AtomWorks Studio</strong>.</p>
-<p>Studio itself is still a review build. Use source or the built Studio wheels
-below; the public AtomWorks dependency resolves automatically from PyPI.</p>
+<p>Both packages are published on PyPI; the public AtomWorks dependency
+resolves automatically.</p>
 </section>
 <section id="what-the-pip-installation-provides">
 <h2>What the pip installation provides<a class="headerlink" href="#what-the-pip-installation-provides" title="Link to this heading">¶</a></h2>
@@ -108,22 +108,17 @@ and GPU provisioning belong to the model deployment. The optional
 <a class="reference internal" href="INTEGRATIONS.html#model-enabled-gradio-host"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">gradio</span></code> extra</span></a> connects that deployment
 to the same editor.</p>
 </section>
-<section id="install-built-wheels">
-<h2>Install built wheels<a class="headerlink" href="#install-built-wheels" title="Link to this heading">¶</a></h2>
-<p>Build from a bootstrapped checkout:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>build
-uv<span class="w"> </span>run<span class="w"> </span>scripts/check_distribution_assets.py<span class="w"> </span>dist
-</pre></div>
-</div>
+<section id="install-from-pypi">
+<h2>Install from PyPI<a class="headerlink" href="#install-from-pypi" title="Link to this heading">¶</a></h2>
 <p>The Studio wheel and source archive contain the API, compiled browser, WASM, and searchable guide.
 Installing built wheels does not require Node, Rust, or the source checkout.
-In a fresh Python 3.12 environment, with the Studio wheels in <code class="docutils literal notranslate"><span class="pre">dist/</span></code>:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--find-links<span class="w"> </span>dist<span class="w"> </span>dist/atomworks_studio-0.1.0-*.whl
+In a fresh Python 3.12 environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>atomworks-studio
 atomworks-studio
 </pre></div>
 </div>
 <p>For an existing PyMOL environment, install only the plugin:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--find-links<span class="w"> </span>dist<span class="w"> </span>dist/atomworks_studio_pymol-0.1.0-*.whl
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>atomworks-studio-pymol
 atomworks-studio-pymol<span class="w"> </span>install
 </pre></div>
 </div>
@@ -164,6 +159,15 @@ atomworks-studio
 <h2>Release checks<a class="headerlink" href="#release-checks" title="Link to this heading">¶</a></h2>
 <p>See <a class="reference internal" href="ACCEPTANCE.html"><span class="std std-doc">acceptance checks</span></a> for installed-package and interface tests,
 and the <a class="reference internal" href="RELEASE.html"><span class="std std-doc">release guide</span></a> for version tags and publishing.</p>
+</section>
+<section id="install-built-wheels">
+<h2>Install built wheels<a class="headerlink" href="#install-built-wheels" title="Link to this heading">¶</a></h2>
+<p>To test a local build, build from a bootstrapped checkout and install from <code class="docutils literal notranslate"><span class="pre">dist/</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>build
+uv<span class="w"> </span>run<span class="w"> </span>scripts/check_distribution_assets.py<span class="w"> </span>dist
+python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--find-links<span class="w"> </span>dist<span class="w"> </span>atomworks-studio
+</pre></div>
+</div>
 </section>
 </section>
 

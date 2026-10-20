@@ -14,8 +14,8 @@ Pip installs either package. The PyMOL plugin belongs in the Python environment
 that runs PyMOL; Conda supplies PyMOL, Qt, and compatible native libraries.
 Register the plugin once, then use **Plugin → AtomWorks Studio**.
 
-Studio itself is still a review build. Use source or the built Studio wheels
-below; the public AtomWorks dependency resolves automatically from PyPI.
+Both packages are published on PyPI; the public AtomWorks dependency
+resolves automatically.
 
 ## What the pip installation provides
 
@@ -53,28 +53,21 @@ and GPU provisioning belong to the model deployment. The optional
 [`gradio` extra](INTEGRATIONS.md#model-enabled-gradio-host) connects that deployment
 to the same editor.
 
-## Install built wheels
-
-Build from a bootstrapped checkout:
-
-```bash
-make build
-uv run scripts/check_distribution_assets.py dist
-```
+## Install from PyPI
 
 The Studio wheel and source archive contain the API, compiled browser, WASM, and searchable guide.
 Installing built wheels does not require Node, Rust, or the source checkout.
-In a fresh Python 3.12 environment, with the Studio wheels in `dist/`:
+In a fresh Python 3.12 environment:
 
 ```bash
-python -m pip install --find-links dist dist/atomworks_studio-0.1.0-*.whl
+python -m pip install atomworks-studio
 atomworks-studio
 ```
 
 For an existing PyMOL environment, install only the plugin:
 
 ```bash
-python -m pip install --find-links dist dist/atomworks_studio_pymol-0.1.0-*.whl
+python -m pip install atomworks-studio-pymol
 atomworks-studio-pymol install
 ```
 
@@ -120,3 +113,13 @@ Open <http://127.0.0.1:8000/>. Set another address with
 
 See [acceptance checks](ACCEPTANCE.md) for installed-package and interface tests,
 and the [release guide](RELEASE.md) for version tags and publishing.
+
+## Install built wheels
+
+To test a local build, build from a bootstrapped checkout and install from `dist/`:
+
+```bash
+make build
+uv run scripts/check_distribution_assets.py dist
+python -m pip install --find-links dist atomworks-studio
+```

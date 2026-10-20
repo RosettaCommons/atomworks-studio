@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "atomworks-studio-editing"
-version = "0.1.0"
+version = "0.0.1"
 readme = { text = "Shared document editing for AtomWorks Studio. Provides molecular structure and annotation edits, selections, protonation, CIF serialization, and transactional Undo for the browser and native PyMOL interfaces.", content-type = "text/markdown" }
 description = "Shared annotated-CIF editing primitives for AtomWorks Studio editors"
 requires-python = ">=3.12,<3.13"

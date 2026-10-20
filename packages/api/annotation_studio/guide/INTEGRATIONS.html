@@ -52,13 +52,13 @@ published, install the wheels from a verified build with <code class="docutils l
 
 <span class="n">providers</span> <span class="o">=</span> <span class="n">load_providers</span><span class="p">()</span>
 <span class="n">document</span> <span class="o">=</span> <span class="n">StudioDocument</span><span class="o">.</span><span class="n">from_cif</span><span class="p">(</span>
-    <span class="n">Path</span><span class="p">(</span><span class="s2">"input.cif"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(),</span>
+    <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;input.cif&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(),</span>
     <span class="n">condition_provider</span><span class="o">=</span><span class="n">providers</span><span class="o">.</span><span class="n">condition_provider</span><span class="p">,</span>
     <span class="n">validation_provider</span><span class="o">=</span><span class="n">providers</span><span class="o">.</span><span class="n">validation_provider</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="n">indices</span> <span class="o">=</span> <span class="n">document</span><span class="o">.</span><span class="n">query_indices</span><span class="p">(</span><span class="s2">"sel('*/*/*/CA')"</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-<span class="n">document</span><span class="o">.</span><span class="n">set_condition</span><span class="p">(</span><span class="s2">"sequence"</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span>
-<span class="n">Path</span><span class="p">(</span><span class="s2">"annotated.cif"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">document</span><span class="o">.</span><span class="n">to_cif</span><span class="p">())</span>
+<span class="n">indices</span> <span class="o">=</span> <span class="n">document</span><span class="o">.</span><span class="n">query_indices</span><span class="p">(</span><span class="s2">&quot;sel(&#39;*/*/*/CA&#39;)&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<span class="n">document</span><span class="o">.</span><span class="n">set_condition</span><span class="p">(</span><span class="s2">&quot;sequence&quot;</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span>
+<span class="n">Path</span><span class="p">(</span><span class="s2">&quot;annotated.cif&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">document</span><span class="o">.</span><span class="n">to_cif</span><span class="p">())</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">StudioDocument(array,</span> <span class="pre">...)</span></code> also accepts an AtomWorks <code class="docutils literal notranslate"><span class="pre">AtomArrayPlus</span></code> directly.
@@ -70,7 +70,7 @@ when preparing model inputs; serialization alone is not a validation check.</p>
 <p>The executable <a class="reference external" href="https://github.com/RosettaCommons/atomworks-studio/blob/main/examples/annotate.py">annotation example</a>
 uses these same calls. From the repository:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>examples/annotate.py<span class="w"> </span>packages/api/annotation_studio/examples/protein_binder.cif<span class="w"> </span>annotated.cif<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--query<span class="w"> </span><span class="s2">"sel('*/*/*/CA')"</span><span class="w"> </span>--condition<span class="w"> </span>hotspot
+<span class="w">  </span>--query<span class="w"> </span><span class="s2">&quot;sel(&#39;*/*/*/CA&#39;)&quot;</span><span class="w"> </span>--condition<span class="w"> </span>hotspot
 </pre></div>
 </div>
 </section>
@@ -155,13 +155,13 @@ returns <code class="docutils literal notranslate"><span class="pre">designs</sp
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">gradio_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
 
-<span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">"https://&lt;space&gt;.hf.space/design/"</span><span class="p">,</span> <span class="n">token</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"HF_TOKEN"</span><span class="p">])</span>
+<span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;https://&lt;space&gt;.hf.space/design/&quot;</span><span class="p">,</span> <span class="n">token</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;HF_TOKEN&quot;</span><span class="p">])</span>
 <span class="n">result</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
-    <span class="n">Path</span><span class="p">(</span><span class="s2">"input.cif"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(),</span>
-    <span class="p">{</span><span class="s2">"task"</span><span class="p">:</span> <span class="s2">"antibody_design"</span><span class="p">,</span> <span class="s2">"thinking"</span><span class="p">:</span> <span class="s2">"medium"</span><span class="p">,</span> <span class="s2">"samples"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"seed"</span><span class="p">:</span> <span class="mi">42</span><span class="p">},</span>
-    <span class="n">api_name</span><span class="o">=</span><span class="s2">"/generate_cif"</span><span class="p">,</span>
+    <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;input.cif&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(),</span>
+    <span class="p">{</span><span class="s2">&quot;task&quot;</span><span class="p">:</span> <span class="s2">&quot;antibody_design&quot;</span><span class="p">,</span> <span class="s2">&quot;thinking&quot;</span><span class="p">:</span> <span class="s2">&quot;medium&quot;</span><span class="p">,</span> <span class="s2">&quot;samples&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;seed&quot;</span><span class="p">:</span> <span class="mi">42</span><span class="p">},</span>
+    <span class="n">api_name</span><span class="o">=</span><span class="s2">&quot;/generate_cif&quot;</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="n">Path</span><span class="p">(</span><span class="s2">"design.cif"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">"designs"</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+<span class="n">Path</span><span class="p">(</span><span class="s2">&quot;design.cif&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;designs&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
 </pre></div>
 </div>
 <p>The editor button and this endpoint call the same validated model callback.</p>

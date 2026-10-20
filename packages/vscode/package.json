@@ -3,7 +3,7 @@
   "displayName": "AtomWorks Studio",
   "description": "Inspect and edit molecular structures with AtomWorks Studio inside VS Code.",
   "icon": "icon.png",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "publisher": "rfd4-proteina-team",
   "author": {
     "name": "RFD4-Proteina Team"

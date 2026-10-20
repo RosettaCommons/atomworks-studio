@@ -50,9 +50,7 @@ class RFD4GenerationProvider:
             task = gr.Dropdown(
                 choices=[(label, key) for key, label in TASKS.items()], value="unconditional", label="Task", scale=3
             )
-            thinking = gr.Radio(
-                ["low", "medium", "high"], value="medium", label="Thinking", scale=2, min_width=260
-            )
+            thinking = gr.Radio(["low", "medium", "high"], value="medium", label="Thinking", scale=2, min_width=260)
             samples = gr.Number(value=1, precision=0, minimum=1, maximum=8, label="Designs")
             seed = gr.Number(value=42, precision=0, minimum=0, maximum=2**32 - 1, label="Seed")
         with gr.Accordion("Sampling", open=False), gr.Row():

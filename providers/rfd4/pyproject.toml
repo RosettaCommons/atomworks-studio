@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "atomworks-annotation-studio-rfd4"
-version = "0.1.0"
+version = "0.0.1"
 readme = { text = "RFD4 annotation adapter for AtomWorks Studio. Pinned RosettaCommons annotation definitions are included; no model runtime or weights are included.", content-type = "text/markdown" }
 description = "RFD4 provider adapter for AtomWorks Annotation Studio"
 requires-python = ">=3.12,<3.13"
 license = "BSD-3-Clause"
 dependencies = [
-    "atomworks-studio-editing>=0.1.0,<0.2",
+    "atomworks-studio-editing>=0.0.1,<0.1",
     "numpy>=1.26,<3",
 ]
 

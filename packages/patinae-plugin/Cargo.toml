@@ -1,6 +1,6 @@
 [package]
 name = "patinae-annotation-studio"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2021"
 license = "BSD-3-Clause"
 description = "Patinae desktop launcher for the shared AtomWorks Annotation Studio"

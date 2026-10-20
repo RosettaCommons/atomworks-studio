@@ -84,7 +84,7 @@ ml = [
 
 [[package]]
 name = "atomworks-annotation-studio-rfd4"
-version = "0.1.0"
+version = "0.0.1"
 source = { editable = "providers/rfd4" }
 dependencies = [
     { name = "atomworks-studio-editing" },
@@ -99,7 +99,7 @@ requires-dist = [
 
 [[package]]
 name = "atomworks-studio"
-version = "0.1.0"
+version = "0.0.1"
 source = { editable = "." }
 dependencies = [
     { name = "atomworks", extra = ["ml"] },
@@ -151,7 +151,7 @@ dev = [{ name = "ruff", specifier = ">=0.16.9" }]
 
 [[package]]
 name = "atomworks-studio-editing"
-version = "0.1.0"
+version = "0.0.1"
 source = { editable = "packages/editing" }
 dependencies = [
     { name = "atomworks", extra = ["ml"] },
@@ -166,7 +166,7 @@ requires-dist = [
 
 [[package]]
 name = "atomworks-studio-pymol"
-version = "0.1.0"
+version = "0.0.1"
 source = { editable = "packages/pymol-plugin" }
 dependencies = [
     { name = "atomworks", extra = ["ml"] },

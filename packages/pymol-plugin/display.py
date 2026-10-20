@@ -198,10 +198,7 @@ def get_atom_array_style_cmd(
     # Style the backbone for each polymer chain with a color spectrum
     for chain_id in struc.get_chains(atom_array):
         if (~atom_array.hetero[atom_array.chain_id == chain_id]).any():
-            commands.append(
-                f"spectrum resi, blue cyan green yellow orange red, "
-                f"{obj} and chain {chain_id} and elem C"
-            )
+            commands.append(f"spectrum resi, blue cyan green yellow orange red, {obj} and chain {chain_id} and elem C")
 
     # Add basic styling commands for protein backbone and non-polymer components
     commands.extend(

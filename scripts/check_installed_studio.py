@@ -60,7 +60,6 @@ def main() -> None:
                 "sequence",
                 "coordinate",
                 "index",
-                "distance",
                 "hotspot",
                 "cath_label",
                 "coordinate_group",

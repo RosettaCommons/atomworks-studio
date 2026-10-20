@@ -25,6 +25,8 @@ try {
    await window.adapter.initialize();
    await window.adapter.loadCif(cif,'protein');
   },{base,backend,cif});
+  // Software-rendered CI can take seconds to fit the camera to the structure; wait for it before perturbing the view.
+  if(backend==='molstar') await page.waitForFunction(()=>window.adapter.viewer.plugin.canvas3d.camera.getSnapshot().radius>1,null,{timeout:30000});
   await page.waitForTimeout(500);
   // Deliberately use a non-default view, so resetting to the whole structure fails.
   await page.evaluate(async backend=>{

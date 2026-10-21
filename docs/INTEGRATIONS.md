@@ -93,7 +93,7 @@ from atomworks_studio_rfd4.generation import RFD4GenerationProvider
 
 # generate(cif: str, options: dict) -> list[str] is supplied by your deployment.
 app = create_app(
-    provider=RFD4GenerationProvider(noise_defaults=(0.3, 0.1)),
+    provider=RFD4GenerationProvider(k_defaults=(16.0, 4.0)),
     generate_fn=generate,
 )
 ```
@@ -117,16 +117,25 @@ from gradio_client import Client
 client = Client("https://<space>.hf.space/design/", token=os.environ["HF_TOKEN"])
 result = client.predict(
     Path("input.cif").read_text(),
-    {"task": "antibody_design", "thinking": "medium", "samples": 1, "seed": 42},
+    {"thinking": "medium", "samples": 1, "seed": 42},
     api_name="/generate_cif",
 )
 Path("design.cif").write_text(result["designs"][0])
 ```
 
 The editor button and this endpoint call the same validated model callback.
+RFD4 partial diffusion is controlled by `partial_diffusion`, off by default.
+Task conditioning, including inverse folding, comes from the CIF.
+With `partial_diffusion: true`, `partial_diffusion_percent` ranges from 1 to 100 and
+defaults to 70; the deployment maps it to
+`generation.args.partial_trajectory_fraction_steps` by dividing by 100.
+The provider's `validate_input(snapshot, options)` hook rejects expandable
+segments before the model callback, using `has_expandable_segments` from the
+same exported snapshot. This includes realized segments with undefined residues.
+Generate a fully defined input first or use the partial diffusion example.
 
 The deployment owns model weights, CUDA dependencies and execution. Pass native
-noise defaults from its inference configuration to the RFD4 provider. No Torch
+`tsr_k` defaults from its inference configuration to the RFD4 provider. No Torch
 model, model download, GPU provisioning or job-provider registry is added to
 Studio. Other model providers implement the small `GenerationProvider` interface
 in `annotation_studio.gradio`. Gradio and model generation remain optional for
@@ -145,7 +154,7 @@ Install Studio in RFD4's supported Python/CUDA environment, using the model
 repository's [installation guide](https://github.com/RosettaCommons/RFD4-Proteina/blob/main/docs/installation.rst).
 The adapter loads a pinned Hugging Face checkpoint bundle once and invokes
 RFD4's native generation entry point for each request. The provider supplies
-task, recycling preset, design count, seed and noise controls.
+recycling preset, design count, seed, K controls and sampling modes.
 
 Keep model and Space repositories private during qualification. Store
 `HF_TOKEN` as a Space secret and pin `RFD4_MODEL_REVISION` to the verified model

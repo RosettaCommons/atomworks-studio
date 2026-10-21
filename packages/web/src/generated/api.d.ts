@@ -857,6 +857,8 @@ export interface components {
         ExportResponse: {
             /** Cif */
             cif: string;
+            /** Has Expandable Segments */
+            has_expandable_segments: boolean;
             /** Issues */
             issues: {
                 [key: string]: string;

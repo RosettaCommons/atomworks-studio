@@ -120,6 +120,19 @@ Repeat with `VIEWER_MODE=patinae` and `--check patinae`. The unconditional
 case has no target structure, so the test uses a temporary atom to create its
 segment through the GUI, then deletes that atom.
 
+To preview the Gradio host locally without a model or GPU:
+
+```bash
+python -m pip install -e '.[gradio]'
+python scripts/preview_generation.py --delay 20
+```
+
+Open `http://127.0.0.1:8791/design/`, load an example, then click **Generate design**.
+The preview runs the real export, progress and result-opening UI, but returns the
+unchanged input after the delay. Use `--fail` to check failure handling, or
+`--port` to run another preview alongside it. This does not run inference or
+exercise the Space's OAuth, quotas or screening services.
+
 The optional Gradio host uses the same workflow driver. Against a running host:
 
 ```bash

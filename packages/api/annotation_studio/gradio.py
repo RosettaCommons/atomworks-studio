@@ -24,6 +24,7 @@ class GenerationProvider(Protocol):
 
     def controls(self) -> dict[str, gr.Component]: ...
     def validate(self, options: dict) -> dict: ...
+    def validate_input(self, snapshot: dict, options: dict) -> None: ...
     def example_options(self, example: dict) -> dict: ...
 
 
@@ -141,6 +142,7 @@ def create_demo(
             validated = provider.validate(options or {})
             session_id, _ = await handoff.open("input.cif", cif)
             snapshot = await handoff.export(session_id, provider.warning_checks)
+            provider.validate_input(snapshot, validated)
             return {
                 "designs": await run_cifs(snapshot["cif"], validated),
                 "warnings": [issue["message"] for issue in snapshot["issues"]],
@@ -155,6 +157,7 @@ def create_demo(
                 progress(None, desc="Checking current edits…")
                 options = provider.validate(dict(zip(controls, values, strict=True)))
                 snapshot = await handoff.export(session_id, provider.warning_checks)
+                provider.validate_input(snapshot, options)
                 with tempfile.TemporaryDirectory(prefix="studio-generation-") as directory:
                     progress(None, desc="Generating design (including any GPU wait)…")
                     results = await run_cifs(snapshot["cif"], options)
@@ -248,7 +251,39 @@ def create_app(*, provider: GenerationProvider, generate_fn: Callable[[str, dict
         create_demo(studio, provider=provider, generate_fn=generate_fn),
         path="/design",
         theme=gr.themes.Default(primary_hue="blue"),
-        css=".gradio-container { max-width: 1600px !important; } #studio-editor { padding: 0; }",
+        css="""
+        .gradio-container { max-width: 1600px !important; }
+        #studio-editor { padding: 0; }
+        /* Gradio's progress overlay is absolute; a one-line status cannot size it. */
+        #generation-status:has([data-testid="status-tracker"]:not(.hide)) { min-height: 144px; }
+        #generation-status [data-testid="status-tracker"] svg { display: none; }
+        #generation-status [data-testid="status-tracker"]:not(.hide) {
+            min-height: 144px; flex-direction: row; gap: 12px;
+        }
+        #generation-status [data-testid="status-tracker"]:not(.hide)::before {
+            content: "🔥"; font-size: 34px; line-height: 1.3; transform-origin: 50% 90%;
+            animation: studio-flame 1.5s ease-in-out infinite;
+        }
+        #generation-status [data-testid="status-tracker"]:not(.hide)::after {
+            content: "Sizzling..."; width: 10ch; font-size: 22px; font-weight: 500;
+            animation: studio-dots 1.5s step-end infinite;
+        }
+        #partial-diffusion-percent:has(input:disabled) { opacity: 0.5; filter: grayscale(1); }
+        @keyframes studio-flame {
+            0%, 100% { transform: rotate(-4deg) scale(.96); filter: drop-shadow(0 0 4px #ff8a0033); }
+            35% { transform: rotate(3deg) scale(1.08); filter: drop-shadow(0 0 10px #ff8a0066); }
+            65% { transform: rotate(-2deg) scale(1); filter: drop-shadow(0 0 6px #ff8a0044); }
+        }
+        @keyframes studio-dots {
+            0%, 100% { content: "Sizzling."; }
+            33.333% { content: "Sizzling.."; }
+            66.666% { content: "Sizzling..."; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #generation-status [data-testid="status-tracker"]::before,
+            #generation-status [data-testid="status-tracker"]::after { animation: none; }
+        }
+        """,
         max_file_size="10mb",
         show_error=False,
         ssr_mode=False,

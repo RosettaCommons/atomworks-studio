@@ -1,4 +1,6 @@
 FROM python:3.12-slim
+   RUN pip install --no-cache-dir --upgrade "pip>=26.2.2" \
+       && pip install --no-cache-dir torch==2.7.1 ...
 RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --uid 1000 studio

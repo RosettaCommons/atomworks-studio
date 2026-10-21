@@ -26,7 +26,7 @@ class RFD4GenerationProvider:
     """Present model options; the deployment supplies a CIF-to-CIF callback."""
 
     title = "RFD4-Proteina"
-    default_example = "ptm_binder"
+    default_example = "enzyme_design"
     warning_checks = frozenset({"missing_atoms"})
 
     def __init__(self, *, k_defaults: tuple[float, float]):

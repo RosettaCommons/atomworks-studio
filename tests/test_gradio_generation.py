@@ -30,6 +30,8 @@ def test_edit_generate_reopen(samples, stable_cif_metadata):
 
     async def run():
         handoff = StudioHandoff(app)
+        assert "example=ptm_binder" in handoff.frame(example=provider.default_example)
+        assert "example=" not in handoff.frame("existing-session", example=provider.default_example)
         source = Path(__file__).parents[1] / "tests/fixtures/inverse_folding_2kl8.cif"
         session, _ = await handoff.open("input.cif", source.read_text())
         async with httpx.AsyncClient(transport=handoff.transport, base_url="http://studio") as client:

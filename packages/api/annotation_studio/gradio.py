@@ -20,6 +20,7 @@ class GenerationProvider(Protocol):
     """UI and validation supplied by a model's Studio provider."""
 
     title: str
+    default_example: str | None
     warning_checks: frozenset[str]
 
     def controls(self) -> dict[str, gr.Component]: ...
@@ -76,10 +77,12 @@ class StudioHandoff:
         session_id = session["session_id"]
         return session_id, self.frame(session_id)
 
-    def frame(self, session_id: str | None = None) -> str:
+    def frame(self, session_id: str | None = None, *, example: str | None = None) -> str:
         query = "embed=1"
         if session_id:
             query += "&amp;session=" + html.escape(quote(session_id, safe=""))
+        elif example:
+            query += "&amp;example=" + html.escape(quote(example, safe=""))
         return (
             f'<iframe src="{self.editor_path}?{query}" title="AtomWorks Studio" '
             'style="width:100%;height:76vh;min-height:620px;border:0" '
@@ -125,7 +128,9 @@ def create_demo(
         status = gr.Markdown(
             "Open a CIF or choose an example in Studio, then generate a design.", elem_id="generation-status"
         )
-        editor = gr.HTML(handoff.frame(), elem_id="studio-editor", js_on_load=HOST_BRIDGE)
+        editor = gr.HTML(
+            handoff.frame(example=provider.default_example), elem_id="studio-editor", js_on_load=HOST_BRIDGE
+        )
         api_cif = gr.Textbox(visible=False)
         api_options = gr.JSON(visible=False)
         api_result = gr.JSON(visible=False)

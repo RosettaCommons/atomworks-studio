@@ -232,3 +232,58 @@ test("combine posts and refreshes inside the viewer update queue", async () => {
   assert.equal(await open(new File(["data_part\n"], "part.cif"), "target", true), true);
   assert.deepEqual(events, ["combine:true", "refresh:true"]);
 });
+
+// Embed the studio in a host frame and record the ready/changed notifications it posts upward.
+type HostMessage = { source?: string; type?: string; session_id?: string };
+function embedInHost(parentOrigin = "http://host.test"): HostMessage[] {
+  const messages: HostMessage[] = [];
+  const win = globalThis.window as unknown as { location: { search: string }; parent: unknown };
+  win.location.search = `?parent_origin=${encodeURIComponent(parentOrigin)}`;
+  win.parent = { postMessage: (message: HostMessage) => { messages.push(message); } };
+  return messages;
+}
+const readyNotifications = (messages: HostMessage[]) => messages.filter((message) => message.type === "ready");
+
+test("a terminal display failure during restore notifies the host exactly once", async () => {
+  resetEnvironment((url) => schemaRoute(url)
+    ?? (url.endsWith("/api/v1/sessions/live") ? json(sessionResponse("live")) : undefined)
+    ?? (url.endsWith("/api/v1/sessions/live/cif") ? new Response("data_design\n") : undefined), "live");
+  const messages = embedInHost();
+  harness.inspectCif = () => { throw new Error("CIF parse error"); };
+  await startStudio();
+  const ready = readyNotifications(messages);
+  assert.equal(ready.length, 1);
+  assert.equal(ready[0].session_id, "live");
+});
+
+test("a terminal display failure on open notifies the host exactly once", async () => {
+  resetEnvironment((url) => schemaRoute(url)
+    ?? (url.endsWith("/api/v1/sessions/opened/cif") ? new Response("data_design\n") : undefined));
+  const messages = embedInHost();
+  await startStudio();
+  harness.inspectCif = () => { throw new Error("CIF parse error"); };
+  await assert.rejects(sessionOptions().onOpened(sessionResponse("opened")), /CIF parse error/);
+  const ready = readyNotifications(messages);
+  assert.equal(ready.length, 1);
+  assert.equal(ready[0].session_id, "opened");
+});
+
+test("a recovered display failure on open notifies the host exactly once", async () => {
+  resetEnvironment((url) => schemaRoute(url)
+    ?? (url.endsWith("/api/v1/sessions/opened/cif") ? new Response("data_design\n") : undefined));
+  const messages = embedInHost();
+  await startStudio();
+  // The first two refresh attempts fail with a recoverable Patinae error; recovery then succeeds.
+  let attempts = 0;
+  harness.inspectCif = () => {
+    attempts += 1;
+    if (attempts <= 2) throw new Error("Patinae viewer stopped after WASM call");
+    return { atom_count: 1, condition_categories: [] };
+  };
+  const recovered = sessionResponse("opened");
+  (recovered.structure as { condition_editors?: unknown }).condition_editors = { centroids: {} };
+  await sessionOptions().onOpened(recovered);
+  const ready = readyNotifications(messages);
+  assert.equal(ready.length, 1);
+  assert.equal(ready[0].session_id, "opened");
+});

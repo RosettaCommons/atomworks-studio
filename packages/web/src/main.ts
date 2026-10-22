@@ -654,9 +654,14 @@ async function initialize(): Promise<void> {
         // The server session is open even if it cannot be displayed; keep it savable and closable.
         persistSession(response);
         enableSessionControls(true);
-        await recoverRenderer(error);
-        await refreshFromServer(response.structure, false);
-        notifyHost("ready");
+        try {
+          // Notify the host even if recovery fails, so it still learns the session id; a terminal
+          // failure still rejects for the caller, and a successful recovery notifies only once.
+          await recoverRenderer(error);
+          await refreshFromServer(response.structure, false);
+        } finally {
+          notifyHost("ready");
+        }
       } finally {
         workspace.inert = false;
       }

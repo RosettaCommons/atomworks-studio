@@ -243,7 +243,12 @@ An annotated file with no missing heavy atoms uses **Annotated CIF**, preserving
 annotations and atom list. Existing atom records with unresolved coordinates count as present;
 adding missing records does not predict their coordinates.
 
-When a file has both saved StandardAnnotations and missing heavy atoms, Studio asks you to
+A missing terminal OXT is the exception: design outputs routinely omit it, so an annotated file
+whose only missing heavy atoms are OXT on a free C-terminal carboxyl (the end of a chain, or of a
+separately placed segment such as a motif residue) still uses **Annotated CIF**, and the import
+message says how many are left absent.
+
+When a file has both saved StandardAnnotations and other missing heavy atoms, Studio asks you to
 choose a preset or **Custom** before importing. AtomWorks cannot retain annotation
 indices while adding atoms (or converting MSE to MET). Choosing Unannotated input
 discards saved annotations; choosing Annotated CIF leaves missing atoms absent. Custom settings

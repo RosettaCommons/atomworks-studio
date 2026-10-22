@@ -507,8 +507,9 @@ function mutate(path: string, body?: unknown, propagateError = false): Promise<v
  * the server says is missing is forgotten; anything else keeps it, says so, and offers another go.
  */
 async function restoreSession(savedSession: string): Promise<boolean> {
+  let restored: SessionResponse | null = null;
   try {
-    const restored = await api<SessionResponse>(`/api/sessions/${savedSession}`);
+    restored = await api<SessionResponse>(`/api/sessions/${savedSession}`);
     // Only adopt the id once the server has confirmed the session, or the editor points at a document that is gone.
     sessionId = savedSession;
     currentName = restored.structure.name;
@@ -521,6 +522,15 @@ async function restoreSession(savedSession: string): Promise<boolean> {
     log(message ?? "Restored native AtomWorks session.");
     return true;
   } catch (error) {
+    if (restored) {
+      // The server has the session but it could not be shown. Keep it, so Download and Close still reach its edits,
+      // and tell an embedding host it is ready: it is waiting for the session id.
+      persistSession(restored);
+      enableSessionControls(true);
+      notifyHost("ready");
+      showError(`Your session was reopened but could not be displayed: ${String(error)}`);
+      return false;
+    }
     sessionId = null;
     const gone = error instanceof ApiError && (error.status === 404 || error.status === 403);
     if (gone) {
@@ -641,10 +651,11 @@ async function initialize(): Promise<void> {
         enableSessionControls(true);
         notifyHost("ready");
       } catch (error) {
-        await recoverRenderer(error);
+        // The server session is open even if it cannot be displayed; keep it savable and closable.
         persistSession(response);
-        await refreshFromServer(response.structure, false);
         enableSessionControls(true);
+        await recoverRenderer(error);
+        await refreshFromServer(response.structure, false);
         notifyHost("ready");
       } finally {
         workspace.inert = false;
@@ -823,7 +834,7 @@ async function initialize(): Promise<void> {
     }, log);
     trajectoryController.bind(query.get("trajectory")!);
   }
-  if (!restoredSession) log("Ready. Open a CIF to start.");
+  if (!restoredSession && sessionId === null) log("Ready. Open a CIF to start.");
   const pendingExample = query.has("session") ? null : example ?? sessionStorage.getItem(PENDING_EXAMPLE_KEY);
   if (pendingExample) {
     sessionStorage.removeItem(PENDING_EXAMPLE_KEY);

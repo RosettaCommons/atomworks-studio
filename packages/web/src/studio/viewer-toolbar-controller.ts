@@ -10,24 +10,8 @@ import type {
   ViewerRepresentationAction,
   ViewerTarget,
 } from "../viewers";
+import { findPatinaeCommand, patinaeCommandAllowed, STUDIO_UNSAFE_PATINAE_COMMANDS } from "./patinae-commands";
 import { VIEWER_STORAGE_KEY } from "./persistence";
-
-const FALLBACK_SAFE_PATINAE_COMMANDS = new Set([
-  "show",
-  "hide",
-  "color",
-  "zoom",
-  "center",
-  "orient",
-  "enable",
-  "disable",
-  "toggle",
-]);
-
-const STUDIO_UNSAFE_PATINAE_COMMANDS = new Set([
-  "alter", "bond", "create", "delete", "extract", "fuse", "load", "load_traj",
-  "pseudoatom", "rotate", "transform_selection", "translate", "unbond",
-]);
 
 export interface ViewerToolbarControllerOptions {
   viewer: () => MolecularViewer;
@@ -292,14 +276,8 @@ export class ViewerToolbarController {
       return;
     }
     const catalog = viewer.getCommandCatalog();
-    const metadata = catalog.find((entry) =>
-      entry.name.toLowerCase() === verb
-      || entry.aliases?.some((alias) => alias.toLowerCase() === verb)
-    );
-    const allowed = catalog.length
-      ? metadata?.webSafe !== false && metadata !== undefined && !STUDIO_UNSAFE_PATINAE_COMMANDS.has(metadata.name)
-      : FALLBACK_SAFE_PATINAE_COMMANDS.has(verb);
-    if (!allowed) {
+    const metadata = findPatinaeCommand(catalog, verb);
+    if (!patinaeCommandAllowed(catalog, verb, metadata)) {
       throw new Error(
         STUDIO_UNSAFE_PATINAE_COMMANDS.has(metadata?.name ?? verb)
           ? `Command '${verb}' would desynchronize the annotated CIF. Use AtomWorks Studio editing controls instead.`

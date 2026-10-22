@@ -6,7 +6,7 @@ import {
   type MeasurementRequest,
 } from "@baker-laboratory/patinae-viewer";
 
-import { documentAtomIndices, nativeAtomIndices } from "./atom-identity";
+import { documentAtomIndexForHit, documentAtomIndices, nativeAtomIndices } from "./atom-identity";
 import { carbonIndicesByChain, unpositionedAtomIndices } from "./unpositioned-atoms";
 import { chainColor } from "../chain-colors";
 import {
@@ -123,7 +123,9 @@ export class PatinaeAdapter implements ViewerAdapter {
     "show cartoon",
     "show sticks, not polymer",
   ];
-  private colorCommands: string[] = [];
+  private selectedAtomIndices: number[] = [];
+  // Capture document atoms when a color is applied, not the later contents of "sele".
+  private colorOperations: { color: ViewerColor; atomIndices: number[] | null }[] = [];
   private backgroundCommand = "bg_color black";
   private pickingEnabled = false;
   private selectionOverlayEnabled = false;
@@ -176,10 +178,11 @@ export class PatinaeAdapter implements ViewerAdapter {
     if (picking) {
       this.viewer.on("atom-picked", (hit) => {
         if (hit.atom_index === null) return;
-        const identity = this.atomIdentities.find(
-          (atom) => atom.object_name === hit.object_name && atom.atom_index === hit.atom_index,
-        );
-        const documentIndex = identity?.document_index ?? hit.atom_index;
+        const documentIndex = documentAtomIndexForHit(this.atomIdentities, {
+          object_name: hit.object_name,
+          atom_index: hit.atom_index,
+        });
+        if (documentIndex === null) return;
         this.context.onPick({
           atomIndex: documentIndex,
           label: `${hit.chain ?? "?"}/${hit.residue ?? "?"}: atom ${documentIndex}`,
@@ -246,7 +249,7 @@ export class PatinaeAdapter implements ViewerAdapter {
     const atoms = this.atomIdentities
       .map((atom) => `${atom.object_name}/${atom.atom_index}/${atom.chain_id}/${atom.element}`)
       .join("|");
-    return [atoms, this.displayCommands.join(";"), this.colorCommands.join(";"), this.backgroundCommand].join("\n");
+    return [atoms, this.displayCommands.join(";"), this.colorCommandsForPlan().join(";"), this.backgroundCommand].join("\n");
   }
 
   /**
@@ -256,6 +259,15 @@ export class PatinaeAdapter implements ViewerAdapter {
    * Carbons are coloured by chain from the shared palette, so chains read the same here, in the sequence bar and in
    * Mol*. Mol* does this with a colour theme; Patinae takes commands, so the same palette is applied per chain.
    */
+  /**
+   * User colours as commands for the base style. Each colour is replayed on the document atoms it was applied to, not
+   * on whatever `sele` holds when the style is rebuilt, so a later selection or another document cannot inherit it.
+   */
+  private colorCommandsForPlan(): string[] {
+    return this.colorOperations.map(({ color, atomIndices }) =>
+      `color ${color}, ${atomIndices ? this.nativeSelection(atomIndices) : "all"}`);
+  }
+
   private buildStylePlan(): StylePlan {
     const awaited = [...this.displayCommands, "color atomic"];
     const immediate: string[] = [];
@@ -264,7 +276,7 @@ export class PatinaeAdapter implements ViewerAdapter {
         const hex = chainColor(chain).toString(16).padStart(6, "0");
         awaited.push(`color 0x${hex}, ${this.nativeSelection(indices)}`);
       }
-      awaited.push(...this.colorCommands);
+      awaited.push(...this.colorCommandsForPlan());
       immediate.push(this.backgroundCommand);
       const coordinateRows = parseAtomSiteBooleanColumn(
         this.cif,
@@ -416,6 +428,7 @@ export class PatinaeAdapter implements ViewerAdapter {
 
   async loadCifs(structures: ViewerStructure[]): Promise<void> {
     if (!this.viewer) throw new Error("Patinae is not initialized");
+    this.clearColors();
     for (const objectName of this.viewer.getObjectNames()) this.viewer.execute(`delete ${objectName}`);
     const loaded = structures.map((structure, index) => {
       const objectName = `compare_${index + 1}_${structure.name.replace(/[^A-Za-z0-9_]/g, "_")}`;
@@ -529,6 +542,7 @@ export class PatinaeAdapter implements ViewerAdapter {
   setSelection(atomIndices: number[]): void {
     if (!this.viewer) return;
     const indices = [...new Set(atomIndices)].sort((left, right) => left - right);
+    this.selectedAtomIndices = indices;
     this.viewer.execute(indices.length
       ? `select sele, ${this.nativeSelection(indices)}`
       : "select sele, none");
@@ -552,9 +566,20 @@ export class PatinaeAdapter implements ViewerAdapter {
 
   setColor(color: ViewerColor, target: ViewerTarget): void {
     if (!this.viewer) return;
-    const command = `color ${color}, ${target === "selection" ? "sele" : "all"}`;
-    this.colorCommands.push(command);
-    this.viewer.execute(command);
+    if (this.cif !== null) {
+      if (target === "all") this.colorOperations = [];
+      if (target === "all" || this.selectedAtomIndices.length) {
+        this.colorOperations.push({
+          color,
+          atomIndices: target === "selection" ? [...this.selectedAtomIndices] : null,
+        });
+      }
+    }
+    this.viewer.execute(`color ${color}, ${target === "selection" ? "sele" : "all"}`);
+  }
+
+  clearColors(): void {
+    this.colorOperations = [];
   }
 
   setBackground(color: "black" | "white"): void {
@@ -683,6 +708,8 @@ export class PatinaeAdapter implements ViewerAdapter {
     this.viewer = null;
     this.interactionNames.clear();
     this.atomIdentities = [];
+    this.selectedAtomIndices = [];
+    this.colorOperations = [];
     this.cif = null;
     this.stylePlan = null;
     this.savedLiveLook = null;

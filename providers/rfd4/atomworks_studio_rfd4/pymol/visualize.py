@@ -7,6 +7,7 @@ entries in :py:mod:`atomworks_studio_pymol.views`.
 Only imported inside a running PyMOL process.
 """
 
+import hashlib
 import json
 from importlib.resources import files
 
@@ -34,7 +35,10 @@ _PALETTE = [name for name, _ in _PALETTE_RGB]
 # Overflow highlight decisions, keyed by (object, annotation, available groups).
 # Views rerun after every reload, so the choice is asked once and then reused;
 # ``None`` records a cancelled prompt.
-_HIGHLIGHTED_GROUPS: dict[tuple[str, str, tuple[int, ...]], int | None] = {}
+# Keyed by (obj_name, annotation, group choices, atom-identity digest). The digest makes the
+# decision specific to the loaded structure, so a new object loaded under a reused name (after
+# clear_all/deletion) re-prompts instead of inheriting the previous object's highlight.
+_HIGHLIGHTED_GROUPS: dict[tuple[str, str, tuple[int, ...], str], int | None] = {}
 
 
 def _ensure_palette_registered() -> None:
@@ -78,7 +82,8 @@ def _color_by_group(
     cycled = [g for g in unique_groups if g not in named_colors]
     if len(cycled) > len(_PALETTE):
         choices = tuple(group for group in unique_groups if group >= 0)
-        decision_key = (obj_name, annotation, choices)
+        identity = hashlib.blake2b(np.ascontiguousarray(display_atom_ids(arr)).tobytes(), digest_size=8).hexdigest()
+        decision_key = (obj_name, annotation, choices, identity)
         if decision_key not in _HIGHLIGHTED_GROUPS:
             from pymol.Qt import QtWidgets
 

@@ -228,3 +228,30 @@ def test_cancelled_group_overflow_prompt_is_not_repeated_by_reloads(pymol_cmd, g
     reload_structure_in_pymol(obj_name)
     reload_structure_in_pymol(obj_name)
     assert len(prompts) == 1
+
+
+def test_group_overflow_reprompts_for_a_new_object_under_a_reused_name(pymol_cmd, group_view) -> None:
+    """A different structure loaded under a reused object name must re-ask which group to
+    highlight, instead of silently inheriting the previous object's decision."""
+    from atomworks_studio_pymol.state import STATE
+    from atomworks_studio_rfd4.pymol.visualize import _PALETTE, color_by_index_group
+
+    prompts, _ = group_view
+    obj_name, array = _load("reused_name")
+    groups = _one_group_per_residue(array)
+    assert len(set(groups.tolist())) > len(_PALETTE)
+    color_by_index_group(array, obj_name)
+    assert len(prompts) == 1
+
+    # Reuse the name for a different structure with the SAME group-id set but different atoms,
+    # so only the atom identity (not the group choices) distinguishes it from the first object.
+    STATE.clear_all()
+    pymol_cmd.reinitialize()
+    _, other = _load("reused_name")
+    # display_atom_ids is the stored atom_id; shifting it mimics a different structure while
+    # keeping the same residue count (so the group-id choices are identical).
+    other.set_annotation("atom_id", other.get_annotation("atom_id") + 100_000)
+    other_groups = _one_group_per_residue(other)
+    assert sorted(set(other_groups.tolist())) == sorted(set(groups.tolist()))
+    color_by_index_group(other, obj_name)
+    assert len(prompts) == 2, "a new object under a reused name must re-prompt"

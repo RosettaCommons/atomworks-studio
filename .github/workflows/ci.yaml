@@ -127,7 +127,7 @@ jobs:
           python -c 'import json; assert json.load(open("/tmp/space-session.json"))["session_id"]'
           test "$(docker exec studio-space id -u)" = 1000
       - run: cargo build --workspace --release --locked
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: packages
           if-no-files-found: error
@@ -153,7 +153,7 @@ jobs:
       - run: cargo install wasm-pack --locked --version 0.13.1
       - run: uv sync --all-extras --all-groups
       - run: xvfb-run -a --server-args="-screen 0 1600x1200x24" bash scripts/accept_local.sh
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: local-acceptance
@@ -165,7 +165,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - run: make docs
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: documentation
           if-no-files-found: error
@@ -206,7 +206,7 @@ jobs:
             sleep 1
           done
           python scripts/test_backend_parity.py --url http://127.0.0.1:18001/
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with: { name: backend-parity, path: artifacts/parity/ }
 

@@ -9,27 +9,29 @@ from pathlib import Path
 
 import pytest
 
-# A present ``pymol`` spec does not guarantee ``import pymol`` succeeds: the import can
-# still fail on a missing shared library or an unavailable Qt backend. Guard the real
-# import (and the launch + plugin imports it enables) so any such failure ignores this
-# package instead of aborting the whole collection session. ``find_spec`` alone cannot
-# catch that — it only proves a spec exists.
+# A present ``pymol`` spec does not guarantee ``import pymol`` succeeds: the import can still
+# fail on a missing shared library or an unavailable Qt backend. Only that dependency check is
+# guarded, and only for the errors it raises (ImportError, OSError), so this package is ignored
+# when PyMOL is unusable. Launch failures and errors in the plugin's own modules are real
+# regressions and must still fail collection rather than turn into a silently skipped package.
 try:
+    import pymol
+    from pymol import cmd
+except (ImportError, OSError):
+    pymol = None
+    collect_ignore_glob = ["*.py"]
+
+if pymol is not None:
     # Launch PyMOL headless and skip ``~/.pymolrc`` before any ``cmd`` access.
     # Without ``-k`` PyMOL sources the user's pymolrc, which for developers who
     # ran the plugin's register step re-runs ``pymol_plugin/__init__.py`` as a
     # script and calls ``addmenuitemqt`` — unavailable in library mode and raises
     # ``QtNotAvailableError``.
-    import pymol
-
     pymol.finish_launching(["pymol", "-qck"])
 
     from atomworks.io.config import ParseConfig
     from atomworks_studio_pymol.bridge import load_structure
     from atomworks_studio_pymol.state import STATE
-    from pymol import cmd
-except Exception:
-    collect_ignore_glob = ["*.py"]
 
 # Anchor: <repo>/packages/pymol-plugin/tests/conftest.py → <repo>
 REPO_ROOT = Path(__file__).resolve().parents[3]

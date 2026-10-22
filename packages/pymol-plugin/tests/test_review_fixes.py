@@ -399,3 +399,42 @@ def test_conftest_import_guard_ignores_package_when_pymol_import_fails(monkeypat
     exec(compile(source, str(conftest_path), "exec"), ns)
 
     assert ns.get("collect_ignore_glob") == ["*.py"]
+
+
+def _exec_conftest(monkeypatch, fail_on=None, error=ImportError):
+    import builtins
+
+    conftest_path = Path(__file__).resolve().parent / "conftest.py"
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if fail_on is not None and (name == fail_on or name.startswith(fail_on + ".")):
+            raise error(f"simulated failure importing {name}")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    ns: dict = {"__file__": str(conftest_path), "__name__": "conftest_guard_probe"}
+    exec(compile(conftest_path.read_text(), str(conftest_path), "exec"), ns)
+    return ns
+
+
+def test_conftest_guard_ignores_package_when_pymol_library_fails_to_load(monkeypatch):
+    ns = _exec_conftest(monkeypatch, fail_on="pymol", error=OSError)
+    assert ns.get("collect_ignore_glob") == ["*.py"]
+
+
+def test_conftest_guard_does_not_hide_plugin_import_regressions(monkeypatch):
+    """An ImportError in the plugin's own code is a regression, not a missing dependency."""
+    with pytest.raises(ImportError, match=r"atomworks_studio_pymol\.bridge"):
+        _exec_conftest(monkeypatch, fail_on="atomworks_studio_pymol.bridge")
+
+
+def test_conftest_guard_does_not_hide_launch_failures(monkeypatch):
+    import pymol
+
+    def broken_launch(_args):
+        raise RuntimeError("simulated launch regression")
+
+    monkeypatch.setattr(pymol, "finish_launching", broken_launch)
+    with pytest.raises(RuntimeError, match="launch regression"):
+        _exec_conftest(monkeypatch)

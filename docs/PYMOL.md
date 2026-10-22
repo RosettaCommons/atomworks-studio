@@ -42,7 +42,8 @@ and **Structure**. Structure contains Charges, Protonation, and Bonds, in that o
 1. Choose **Load CIF** in Main. The load dialog controls annotations, assembly,
    model, waters, hydrogens, and missing-atom preparation.
 2. Select the **Active** object. All panel edits apply to that structure.
-3. Select atoms or residues in PyMOL and edit through the appropriate tab.
+3. Select atoms or residues in PyMOL and edit through the appropriate tab. Only
+   selected atoms of the active object are edited; atoms of other objects in `sele` are ignored.
 4. Use **Summarize changes** to inspect annotations, **Undo** to revert an edit,
    and **Save Active As** to write the annotated CIF. Undo keeps ten edits per object.
 
@@ -51,6 +52,11 @@ chain conflicts, and hides the source objects. **Delete selection** removes the
 selected atoms from the active document. **Reset Res ID** renumbers each chain
 starting at 1.
 
+Loading or combining into a name already in use replaces that object and starts a new
+undo history. Names PyMOL cannot use (for example, names with spaces) are converted to
+PyMOL's legal form, such as `my design` → `my_design`. Deleting a plugin object in PyMOL
+removes it from the plugin.
+
 ## Annotations, bonds, and charges
 
 In **Annotations**, select a condition and use its editor on the current
@@ -58,7 +64,8 @@ selection. Registered extensions add model-specific editors. To mark residues
 as unindexed, disable their Index condition. PyMOL condition selections show
 which atoms carry each annotation.
 
-In **Structure → Bonds**, pick two atoms to add or remove a bond. The table lists bonds
+In **Structure → Bonds**, pick two atoms to add or remove a bond. While picking, PyMOL
+selects single atoms, and its previous mouse selection mode is restored afterwards. The table lists bonds
 involving the current selection. **Infer Bonds from CCD** merges bonds from CCD
 templates while preserving atoms and charges. It requires `CCD_MIRROR_PATH`. Check ligand and nonstandard
 bond graphs before saving; a PyMOL display alone does not establish stored bonds.
@@ -94,8 +101,8 @@ All panel operations are also available as `aw_*` console commands for scripting
 | Command | Description |
 |---|---|
 | `aw_load <path> [obj_name]` | Load a CIF into AtomWorks, inferring the import preset |
-| `aw_save <path> [obj_name]` | Save the active (or named) object as annotated CIF |
-| `aw_delete [selection] [obj_name]` | Delete selection from the active object |
+| `aw_save <path> [obj_name]` | Save the active (or named) object as annotated CIF, printing any validation issues |
+| `aw_delete [selection] [obj_name]` | Delete the selected atoms of the active (or named) object |
 | `aw_insert_segment [selection] [min] [max] [before]` | Insert an expandable segment at the selection |
 | `aw_undo [obj_name]` | Undo the last edit |
 | `aw_combine_visible [new_name]` | Combine all visible tracked objects |

@@ -133,6 +133,10 @@ class PluginState:
         (the ground truth) immediately upon detecting it, rather than letting
         the mismatch silently ride until save.
 
+        An object deleted in PyMOL (``delete obj``, the object menu) is not a
+        divergence to repair: its state is cleared and ``None`` is returned, as
+        for an untracked object, rather than reloading the object into the viewer.
+
         Args:
           interactive: Whether to pop a blocking confirmation dialog on divergence.
             Set to ``False`` for callers reachable from scripted/headless contexts
@@ -140,6 +144,10 @@ class PluginState:
             dismiss a modal -- a warning is logged instead.
         """
         if obj_name not in self.arrays:
+            return None
+        if obj_name not in cmd.get_names("objects"):
+            logger.info("'%s' was deleted in PyMOL; it is no longer tracked", obj_name)
+            self.clear_object(obj_name)
             return None
         from atomworks_studio_pymol.bridge import (
             find_pymol_array_divergence,
@@ -201,12 +209,21 @@ class PluginState:
         return document.array
 
     def clear_object(self, obj_name: str) -> None:
-        """Remove all state for a tracked object."""
+        """Remove all state for a tracked object.
+
+        ``versions`` is kept so a structure later loaded under the same name gets a
+        new version, and keys picked against the removed one stay stale.
+        """
         self.arrays.pop(obj_name, None)
         self.index_maps.pop(obj_name, None)
-        self.versions.pop(obj_name, None)
         if self.active == obj_name:
             self.active = next(iter(self.arrays), None)
+
+    def forget_deleted_objects(self) -> None:
+        """Clear state for every tracked object that no longer exists in PyMOL."""
+        existing = set(cmd.get_names("objects"))
+        for name in [name for name in self.arrays if name not in existing]:
+            self.clear_object(name)
 
     def clear_all(self) -> None:
         """Clear all state."""

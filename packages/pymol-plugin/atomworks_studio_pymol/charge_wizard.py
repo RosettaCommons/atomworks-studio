@@ -131,7 +131,7 @@ class ChargeWizard:
         if not obj_name or obj_name not in self._state.arrays:
             QtWidgets.QMessageBox.warning(self._widget, "No active object", "Load a structure first.")
             return None
-        indices = selection_to_indices("sele", self._state.index_maps[obj_name])
+        indices = selection_to_indices("sele", self._state.index_maps[obj_name], obj_name)
         if not indices:
             QtWidgets.QMessageBox.warning(self._widget, "No selection", "Make a selection in PyMOL first.")
             return None
@@ -144,11 +144,15 @@ class ChargeWizard:
             self._lbl_current.setText("Current charges: —")
             return
         indices = (
-            selection_to_indices("sele", self._state.index_maps[obj_name])
+            selection_to_indices("sele", self._state.index_maps[obj_name], obj_name)
             if "sele" in cmd.get_names("selections")
             else []
         )
         arr = self._state.get_synced_array(obj_name)
+        if arr is None:
+            self._lbl_selection.setText("Selection: (no active object)")
+            self._lbl_current.setText("Current charges: —")
+            return
         charges = _read_charges(arr)
         self._lbl_selection.setText(f"Selection: {len(indices)} atoms")
         if indices:
@@ -165,7 +169,11 @@ class ChargeWizard:
         if not obj_name or obj_name not in self._state.arrays:
             self._lbl_summary.setText("")
             return
-        charges = _read_charges(self._state.get_synced_array(obj_name))
+        arr = self._state.get_synced_array(obj_name)
+        if arr is None:
+            self._lbl_summary.setText("")
+            return
+        charges = _read_charges(arr)
         nonzero = int(np.count_nonzero(charges))
         net = int(charges.sum())
         self._lbl_summary.setText(f"Non-zero charges in active: {nonzero} atoms (net {net:+d})")
@@ -207,7 +215,10 @@ class ChargeWizard:
             return
         self._protonate_button.setEnabled(False)
         try:
-            self._state.document(obj_name).protonate(self._ph.value())
+            document = self._state.document(obj_name)
+            document.protonate(self._ph.value())
+            # Protonation adds atoms; bump the structure version so stale picked keys are rejected.
+            self._state.set_array(obj_name, document.array)
             reload_structure_in_pymol(obj_name)
             self._refresh_selection_info()
         except Exception as error:

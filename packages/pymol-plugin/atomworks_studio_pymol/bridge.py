@@ -27,7 +27,7 @@ from atomworks_studio_editing.structure_mutations import (
     refresh_chain_derived_annotations,
 )
 from biotite.structure import AtomArrayStack
-from pymol import cmd
+from pymol import CmdException, cmd
 
 from atomworks_studio_pymol.display import prepare_for_display
 from atomworks_studio_pymol.state import STATE
@@ -90,19 +90,33 @@ def _pymol_atom_key(atom) -> tuple:
     return (atom.chain, res_id, ins_code, atom.name)
 
 
-def selection_to_indices(selection: str, index_map: dict[tuple, int]) -> list[int]:
+def selection_to_indices(selection: str, index_map: dict[tuple, int], obj_name: str | None = None) -> list[int]:
     """Translate a PyMOL selection string into AtomArrayPlus atom indices.
 
     Args:
         selection: PyMOL selection expression (e.g. ``"sele"``, ``"chain A"``).
         index_map: Mapping built by :py:func:`build_index_map`.
+        obj_name: PyMOL object that *index_map* describes. When given, the selection
+            is restricted to that object. Identity keys carry no object name, so
+            without it an atom of another loaded object with the same chain, residue
+            and atom name maps onto this object. Plugin code editing a tracked object
+            must pass it; omit it only for a selection already qualified by object.
 
     Returns:
-        List of integer indices into the AtomArrayPlus.
+        List of integer indices into the AtomArrayPlus. Empty if the selection
+        does not exist (e.g. ``sele`` before the user has selected anything).
     """
+    if obj_name is not None:
+        selection = f"({selection}) and model {obj_name}"
+    try:
+        model = cmd.get_model(selection)
+    except CmdException:
+        logger.debug("selection_to_indices: invalid or missing selection %r", selection)
+        return []
+
     indices: list[int] = []
     misses: list[tuple] = []
-    for atom in cmd.get_model(selection).atom:
+    for atom in model.atom:
         key = _pymol_atom_key(atom)
         idx = index_map.get(key)
         if idx is not None:
@@ -269,6 +283,24 @@ def _load_array_into_pymol(
     cmd.load_raw(cif_str, format="cif", object=obj_name)
 
 
+def _replace_pymol_object(array: AtomArrayPlus, obj_name: str) -> None:
+    """Load *array* into PyMOL as *obj_name*, replacing any existing object of that name.
+
+    PyMOL cannot load an mmCIF into an existing object, so the old object is deleted
+    first. Callers update ``STATE`` only after this succeeds; if loading fails, the
+    structure still tracked under *obj_name* (if any) is restored in PyMOL, so the
+    plugin and the viewer never disagree about what *obj_name* holds.
+    """
+    cmd.delete(obj_name)
+    try:
+        _load_array_into_pymol(array, obj_name, hide_nans=STATE.hide_nans, show_seq_gaps=STATE.show_seq_gaps)
+    except Exception:
+        cmd.delete(obj_name)
+        if obj_name in STATE.arrays:
+            reload_structure_in_pymol(obj_name)
+        raise
+
+
 def load_structure(
     path: str | Path,
     config: ParseConfig,
@@ -280,13 +312,16 @@ def load_structure(
         path: Path to the CIF file.
         config: Parse configuration controlling assembly building, annotation
             loading, missing atoms, waters, etc.
-        obj_name: PyMOL object name.  Defaults to the file stem.
+        obj_name: PyMOL object name.  Defaults to the file stem. Converted to a
+            legal PyMOL name, replacing any existing object of that name.
 
     Returns:
         The PyMOL object name used.
     """
     path = Path(path)
-    obj_name = obj_name or path.stem
+    # PyMOL silently renames an object with an illegal name (e.g. one with spaces), so
+    # use the legal name everywhere rather than tracking a name PyMOL does not have.
+    obj_name = cmd.get_legal_name(obj_name or path.stem)
 
     result = parse(path, config=config)
 
@@ -311,9 +346,12 @@ def load_structure(
 
     refresh_chain_derived_annotations(array)
 
+    _replace_pymol_object(array, obj_name)
+    # A fresh load is a new document: the undo history of a structure previously
+    # tracked under this name does not apply to it.
+    STATE.documents.pop(obj_name, None)
     STATE.set_array(obj_name, array)
     STATE.active = obj_name
-    _load_array_into_pymol(array, obj_name, hide_nans=STATE.hide_nans, show_seq_gaps=STATE.show_seq_gaps)
     apply_current_view(array, obj_name)
 
     logger.info("Loaded %s as '%s' (%d atoms)", path.name, obj_name, len(array))
@@ -364,7 +402,7 @@ def combine_visible(new_name: str, *, allow_overwrite: bool = False) -> str:
     Source objects are hidden after combining.  The merged result becomes active.
 
     Args:
-        new_name: Name for the merged PyMOL object.
+        new_name: Name for the merged PyMOL object; converted to a legal PyMOL name.
         allow_overwrite: If ``new_name`` already names a tracked object, this must
             be set to replace it (destroying its undo history); otherwise raises.
 
@@ -375,6 +413,7 @@ def combine_visible(new_name: str, *, allow_overwrite: bool = False) -> str:
         ValueError: If ``new_name`` already names a tracked object and
             ``allow_overwrite`` is False.
     """
+    new_name = cmd.get_legal_name(new_name)
     if new_name in STATE.arrays and not allow_overwrite:
         raise ValueError(
             f"'{new_name}' is already a tracked object. Pass allow_overwrite=True to replace it "
@@ -392,13 +431,14 @@ def combine_visible(new_name: str, *, allow_overwrite: bool = False) -> str:
     document.clear_history()
     merged = document.array
 
+    _replace_pymol_object(merged, new_name)
     STATE.documents[new_name] = document
     STATE.set_array(new_name, merged)
-    _load_array_into_pymol(merged, new_name, hide_nans=STATE.hide_nans, show_seq_gaps=STATE.show_seq_gaps)
     apply_current_view(merged, new_name)
 
     for n in names:
-        cmd.disable(n)
+        if n != new_name:
+            cmd.disable(n)
     STATE.active = new_name
 
     return new_name

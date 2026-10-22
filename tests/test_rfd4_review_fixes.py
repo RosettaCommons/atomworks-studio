@@ -99,6 +99,25 @@ def test_save_validation_reports_probability_conflicting_with_exact_sequence() -
 
 
 @requires_sequence_probability
+def test_save_validation_reports_a_c_seq_conflict_and_other_violations_together() -> None:
+    """A C_SEQ conflict must not hide violations on other residues of the same structure."""
+    document = _document()
+    conflicted, other = _residue_atoms(document, 0), _residue_atoms(document, 1)
+    document.set_condition("sequence", [int(conflicted[0])], enabled=True, scope="residue")
+    document.set_condition("sequence", [int(other[0])], enabled=False, scope="residue")
+    # Then store both values the way a loaded file does (interactive edits would reject them):
+    # a probability conflicting with C_SEQ on residue 0, and mass above one on residue 1.
+    wrong = next(name for name in ("ALA", "GLY") if name != document.array.res_name[conflicted[0]])
+    _write_probability(document, wrong, conflicted, 0.5)
+    _write_probability(document, "ALA", other, 0.8)
+    _write_probability(document, "ARG", other, 0.8)
+    assert _checks(document) == {
+        "sequence_probability_conflicts_with_c_seq": "error",
+        "sequence_probability_sum_exceeds_one": "error",
+    }
+
+
+@requires_sequence_probability
 def test_save_validation_reports_nonuniform_residue_mask() -> None:
     document = _document()
     document.set_condition("sequence", [0], enabled=False, scope="residue")
@@ -255,3 +274,27 @@ def test_group_overflow_reprompts_for_a_new_object_under_a_reused_name(pymol_cmd
     assert sorted(set(other_groups.tolist())) == sorted(set(groups.tolist()))
     color_by_index_group(other, obj_name)
     assert len(prompts) == 2, "a new object under a reused name must re-prompt"
+
+
+def test_group_overflow_reprompts_for_a_same_size_structure_with_generated_ids(pymol_cmd, group_view) -> None:
+    """Without unique atom_id, display ids are generated as 1..N for any structure of that size,
+    so the decision must key on stable atom identity too."""
+    from atomworks_studio_pymol.state import STATE
+    from atomworks_studio_rfd4.pymol.visualize import _PALETTE, color_by_index_group
+
+    prompts, _ = group_view
+    obj_name, array = _load("generated_ids")
+    array.set_annotation("atom_id", np.zeros(len(array), dtype=int))  # not unique: ids are generated
+    groups = _one_group_per_residue(array)
+    assert len(set(groups.tolist())) > len(_PALETTE)
+    color_by_index_group(array, obj_name)
+    assert len(prompts) == 1
+
+    STATE.clear_all()
+    pymol_cmd.reinitialize()
+    _, other = _load("generated_ids")
+    other.set_annotation("atom_id", np.zeros(len(other), dtype=int))
+    other.res_id = other.res_id + 1000  # a different structure of the same size
+    assert sorted(set(_one_group_per_residue(other).tolist())) == sorted(set(groups.tolist()))
+    color_by_index_group(other, obj_name)
+    assert len(prompts) == 2, "a different same-size structure with generated ids must re-prompt"

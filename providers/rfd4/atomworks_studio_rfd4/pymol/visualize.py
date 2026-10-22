@@ -35,7 +35,7 @@ _PALETTE = [name for name, _ in _PALETTE_RGB]
 # Overflow highlight decisions, keyed by (object, annotation, available groups).
 # Views rerun after every reload, so the choice is asked once and then reused;
 # ``None`` records a cancelled prompt.
-# Keyed by (obj_name, annotation, group choices, atom-identity digest). The digest makes the
+# Keyed by (obj_name, annotation, group choices, structure-identity digest). The digest makes the
 # decision specific to the loaded structure, so a new object loaded under a reused name (after
 # clear_all/deletion) re-prompts instead of inheriting the previous object's highlight.
 _HIGHLIGHTED_GROUPS: dict[tuple[str, str, tuple[int, ...], str], int | None] = {}
@@ -82,7 +82,12 @@ def _color_by_group(
     cycled = [g for g in unique_groups if g not in named_colors]
     if len(cycled) > len(_PALETTE):
         choices = tuple(group for group in unique_groups if group >= 0)
-        identity = hashlib.blake2b(np.ascontiguousarray(display_atom_ids(arr)).tobytes(), digest_size=8).hexdigest()
+        # Display ids are generated as 1..N when atom_id is not unique, so they alone cannot tell two
+        # structures of the same size apart; digest the stable atom identity fields with them.
+        digest = hashlib.blake2b(digest_size=8)
+        for field in (display_atom_ids(arr), arr.chain_id, arr.res_id, arr.ins_code, arr.res_name, arr.atom_name):
+            digest.update(np.ascontiguousarray(field).tobytes())
+        identity = digest.hexdigest()
         decision_key = (obj_name, annotation, choices, identity)
         if decision_key not in _HIGHLIGHTED_GROUPS:
             from pymol.Qt import QtWidgets

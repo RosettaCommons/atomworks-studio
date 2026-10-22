@@ -49,14 +49,14 @@ class _SamplesProvider:
         return {}
 
 
-def _demo_callbacks():
+def _demo_callbacks(generate_fn=None):
     pytest.importorskip("gradio")
     from annotation_studio.gradio import create_demo
 
-    def generate(cif, options):
+    def default_generate(cif, options):
         return [cif] * options["samples"]
 
-    demo = create_demo(app, provider=_SamplesProvider(), generate_fn=generate)
+    demo = create_demo(app, provider=_SamplesProvider(), generate_fn=generate_fn or default_generate)
     return demo, {event.fn.__name__: event.fn for event in demo.fns.values() if event.fn}
 
 
@@ -92,6 +92,83 @@ def test_gradio_hand_off_works_in_identity_mode_and_releases_sessions(monkeypatc
         assert all(status(key, "alice") == 404 for key in first_results), "earlier designs must be released"
         assert all(status(key, "alice") == 200 for key in second[2])
         assert status(source_id, "alice") == 200, "the input session must survive"
+
+    try:
+        asyncio.run(run())
+    finally:
+        demo.close()
+
+
+def _generate_values(samples):
+    return (samples,)  # _SamplesProvider.controls() is a single "samples" number
+
+
+def test_result_sessions_opened_in_a_failed_generation_are_released(monkeypatch) -> None:
+    """If a later design fails to open, the result sessions already opened in that call are closed
+    instead of leaking into the bounded store."""
+
+    def generate(cif, options):
+        # The second "design" is not a valid CIF, so its hand-off open raises mid-loop.
+        return [cif, "not a cif at all"]
+
+    demo, callbacks = _demo_callbacks(generate)
+    client = SimpleNamespace(headers={}, session_hash="failing-tab")
+
+    async def run():
+        source = TestClient(app).post("/api/sessions", files={"file": ("input.cif", FIXTURE.read_bytes())})
+        source_id = source.json()["session_id"]
+        before = len(studio_main.store._documents)
+        result = await callbacks["generate"](source_id, *_generate_values(2), request=client)
+        assert "failed" in str(result[5].value).lower(), "a failed generation should report failure"
+        # No partially-opened design session is left behind.
+        assert len(studio_main.store._documents) == before, "a failed generation leaked sessions"
+
+    try:
+        asyncio.run(run())
+    finally:
+        demo.close()
+
+
+def test_a_tracked_source_is_released_when_a_later_generation_uses_a_different_source(monkeypatch) -> None:
+    demo, callbacks = _demo_callbacks()
+    client = SimpleNamespace(headers={}, session_hash="chain-tab")
+
+    async def run():
+        http = TestClient(app)
+        src = http.post("/api/sessions", files={"file": ("input.cif", FIXTURE.read_bytes())}).json()["session_id"]
+        first = await callbacks["generate"](src, *_generate_values(2), request=client)
+        designs = [key for key in first[2] if key != src]
+        assert len(designs) == 2 and all(http.get(f"/api/sessions/{d}").status_code == 200 for d in designs)
+        # Generate from the first design; it must stay open (it is the current source)...
+        await callbacks["generate"](designs[0], *_generate_values(1), request=client)
+        assert http.get(f"/api/sessions/{designs[0]}").status_code == 200
+        # ...then generating from the original input must release that earlier source.
+        await callbacks["generate"](src, *_generate_values(1), request=client)
+        assert http.get(f"/api/sessions/{designs[0]}").status_code == 404, "earlier source never released"
+
+    try:
+        asyncio.run(run())
+    finally:
+        demo.close()
+
+
+def test_client_registry_is_bounded(monkeypatch) -> None:
+    import annotation_studio.gradio as gradio_module
+
+    monkeypatch.setattr(gradio_module, "MAX_TRACKED_CLIENTS", 2)
+    demo, callbacks = _demo_callbacks()
+
+    async def run():
+        http = TestClient(app)
+        src = http.post("/api/sessions", files={"file": ("input.cif", FIXTURE.read_bytes())}).json()["session_id"]
+        designs = []
+        for tab in range(3):  # exceed the cap of 2 tracked clients
+            request = SimpleNamespace(headers={}, session_hash=f"tab-{tab}")
+            out = await callbacks["generate"](src, *_generate_values(1), request=request)
+            designs.append(next(key for key in out[2] if key != src))
+        # The evicted (oldest) client's design session is released; the registry stays bounded.
+        assert http.get(f"/api/sessions/{designs[0]}").status_code == 404
+        assert all(http.get(f"/api/sessions/{d}").status_code == 200 for d in designs[1:])
 
     try:
         asyncio.run(run())

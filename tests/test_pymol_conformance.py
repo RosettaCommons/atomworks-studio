@@ -336,7 +336,7 @@ def test_native_delete_group_requires_confirmation_and_preserves_undo(monkeypatc
 
 
 def test_group_color_overflow_highlights_one_group_without_reusing_colors(monkeypatch) -> None:
-    from atomworks_studio_rfd4.pymol.visualize import _PALETTE, _color_by_group
+    from atomworks_studio_rfd4.pymol.visualize import _HIGHLIGHTED_GROUPS, _PALETTE, _color_by_group
     from pymol.Qt import QtWidgets
 
     application = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
@@ -354,6 +354,7 @@ def test_group_color_overflow_highlights_one_group_without_reusing_colors(monkey
     cancelled = []
     cmd.iterate(name, "colors.append((ID, color))", space={"colors": cancelled})
     assert cancelled == original
+    _HIGHLIGHTED_GROUPS.clear()  # a cancelled choice is remembered until the user chooses again
     monkeypatch.setattr(QtWidgets.QInputDialog, "getItem", lambda *args: ("8", True))
     _color_by_group(document.array, name, groups, {-1: "gray60"})
     application.processEvents()

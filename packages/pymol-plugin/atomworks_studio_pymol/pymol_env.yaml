@@ -3,8 +3,8 @@ channels:
   - conda-forge
 dependencies:
   - python=3.12.10
-  - uv
-  - pip
+  - uv>=0.13.4
+  - pip>=26.2.2
   - pymol-open-source
   # Keep NumPy/SciPy compatible with Conda PyMOL and PyTorch's bundled OpenMP.
   - libopenblas=*=*pthreads*

@@ -93,7 +93,7 @@ All panel operations are also available as `aw_*` console commands for scripting
 
 | Command | Description |
 |---|---|
-| `aw_load <path> [obj_name]` | Load a CIF into AtomWorks |
+| `aw_load <path> [obj_name]` | Load a CIF into AtomWorks, inferring the import preset |
 | `aw_save <path> [obj_name]` | Save the active (or named) object as annotated CIF |
 | `aw_delete [selection] [obj_name]` | Delete selection from the active object |
 | `aw_insert_segment [selection] [min] [max] [before]` | Insert an expandable segment at the selection |
@@ -110,7 +110,8 @@ Report bugs in the [Studio issue tracker](https://github.com/RosettaCommons/atom
 The native Load CIF dialog defaults to **Infer**, using the same import inference as the
 web editor. It offers **Unannotated input**, **Annotated CIF**, and **Custom**.
 Files containing both saved StandardAnnotations and missing heavy atoms (other than a terminal
-OXT) require an explicit choice; invalid manual combinations are rejected before the dialog closes. See the
+OXT) require an explicit choice; invalid manual combinations are rejected before the dialog closes.
+`aw_load` applies the same inference and falls back to **Annotated CIF** when the file is ambiguous. See the
 [import preset behavior](WEB.md#import-presets) for preservation and atom-completion details.
 
 The Annotations editor lists conditions from the shared provider contract. Generic

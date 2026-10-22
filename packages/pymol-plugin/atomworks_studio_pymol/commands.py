@@ -14,9 +14,10 @@ Examples::
 """
 
 import logging
+from pathlib import Path
 
-from atomworks.io.config import ParseConfig
 from atomworks.io.utils.io_utils import to_cif_file
+from atomworks_studio_editing.loading import build_load_config, inspect_import
 from pymol import cmd
 
 from atomworks_studio_pymol.bridge import (
@@ -31,9 +32,19 @@ logger = logging.getLogger("atomworks_studio_pymol")
 
 
 def _aw_load(path: str, obj_name: str = "") -> None:
-    config = ParseConfig.from_preset("rcsb", build_assembly="first")
+    # Match the GUI: an annotated CIF keeps its saved annotations, and only an unannotated
+    # file gets the RCSB preset. Loading everything as RCSB silently discarded annotations.
+    try:
+        preset = inspect_import(Path(path))["preset"]
+    except Exception:
+        logger.debug("Could not inspect '%s' for an import preset", path, exc_info=True)
+        preset = None
+    if preset is None:
+        print(f"AtomWorks: '{path}' needs an explicit preset; loading annotated. Use the panel to choose.")
+        preset = "minimal"
+    config = build_load_config(preset, assembly="first")
     obj_name = load_structure(path, config=config, obj_name=obj_name or None)
-    print(f"AtomWorks: loaded '{path}' as '{obj_name}'")
+    print(f"AtomWorks: loaded '{path}' as '{obj_name}' ({preset})")
 
 
 def _aw_save(path: str, obj_name: str = "") -> None:
@@ -64,7 +75,8 @@ def _aw_insert_segment(
     before = insert_before.strip() in ("1", "true", "True", "yes")
     try:
         document = STATE.document(target, interactive=False)
-        document.insert_segment(int(seg_min), int(seg_max), int(indices[0]), before=before)
+        anchor = indices[0] if before else indices[-1]
+        document.insert_segment(int(seg_min), int(seg_max), int(anchor), before=before)
         STATE.set_array(target, document.array)
     except Exception as e:
         print(f"AtomWorks: segment insertion failed: {e}")

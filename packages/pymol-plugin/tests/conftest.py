@@ -1,28 +1,31 @@
 """Shared fixtures for PyMOL plugin tests.
 
-The whole module is skipped if PyMOL cannot be imported, so the regular
-atomworks test suite is unaffected on systems without PyMOL.
+This package is ignored when PyMOL cannot be imported, so the regular atomworks test
+suite is unaffected on systems without PyMOL. A module-level skip cannot do that: raised
+from a conftest it ends the entire session during collection instead of one package.
 """
 
+import importlib.util
 from pathlib import Path
 
 import pytest
 
-pytest.importorskip("pymol", reason="PyMOL is not installed in this env")
+if importlib.util.find_spec("pymol") is None:
+    collect_ignore_glob = ["*.py"]
+else:
+    # Launch PyMOL headless and skip ``~/.pymolrc`` before any ``cmd`` access.
+    # Without ``-k`` PyMOL sources the user's pymolrc, which for developers who
+    # ran the plugin's register step re-runs ``pymol_plugin/__init__.py`` as a
+    # script and calls ``addmenuitemqt`` — unavailable in library mode and raises
+    # ``QtNotAvailableError``.
+    import pymol
 
-# Launch PyMOL headless and skip ``~/.pymolrc`` before any ``cmd`` access.
-# Without ``-k`` PyMOL sources the user's pymolrc, which for developers who
-# ran the plugin's register step re-runs ``pymol_plugin/__init__.py`` as a
-# script and calls ``addmenuitemqt`` — unavailable in library mode and raises
-# ``QtNotAvailableError``.
-import pymol
+    pymol.finish_launching(["pymol", "-qck"])
 
-pymol.finish_launching(["pymol", "-qck"])
-
-from atomworks.io.config import ParseConfig
-from atomworks_studio_pymol.bridge import load_structure
-from atomworks_studio_pymol.state import STATE
-from pymol import cmd
+    from atomworks.io.config import ParseConfig
+    from atomworks_studio_pymol.bridge import load_structure
+    from atomworks_studio_pymol.state import STATE
+    from pymol import cmd
 
 # Anchor: <repo>/packages/pymol-plugin/tests/conftest.py → <repo>
 REPO_ROOT = Path(__file__).resolve().parents[3]

@@ -2,7 +2,7 @@
   "inverse_folding.cif": {
     "source_file": "PTE_p2H11__design.cif",
     "source_sha256": "b21808ee08b43d33ffedf9e59e7484030cb779da9bc62c257de25b7971aaedf4",
-    "sha256": "919e302a340d695317affbbdec4a8f1a58777de30f993b8febbc9171f01af32a",
+    "sha256": "2459039182727e76bc47ff13cb41fb6318743b2a6bb512d653549268bb4b21f4",
     "atoms": 1739,
     "sequence_atoms": 105,
     "absolute_coordinate_atoms": 951,
@@ -15,19 +15,21 @@
         "message": "Structure is missing 1 heavy atoms that would be added by prepare_atom_array. Check for incomplete residues."
       }
     ],
-    "roundtrip": "atom identities, coordinates, bonds, charges and saved annotations match"
+    "roundtrip": "atom identities, coordinates, bonds, charges and saved annotations match",
+    "ligand_bond_orders": "6 aromatic bonds of unstated order are stated as a Kekule structure (AROMATIC_SINGLE/AROMATIC_DOUBLE, aromatic flag kept) so protonation can run."
   },
   "enzyme_design.cif": {
     "source_file": "PTE_p2H11__design.cif",
     "source_sha256": "b21808ee08b43d33ffedf9e59e7484030cb779da9bc62c257de25b7971aaedf4",
-    "sha256": "6720f6a7b253d5ca6d919f37cb2ab44f294dab2611ad657a410b729bfc09e4bb",
+    "sha256": "8d8da5e1d1dd0202ed5a976c770576d363d0b1fadd55e081305c80adc88119c9",
     "atoms": 107,
     "sequence_atoms": 105,
     "absolute_coordinate_atoms": 71,
     "internal_coordinate_atoms": 0,
     "unindexed_residues": 7,
     "studio_validation": [],
-    "roundtrip": "atom identities, coordinates, bonds, charges and saved annotations match"
+    "roundtrip": "atom identities, coordinates, bonds, charges and saved annotations match",
+    "ligand_bond_orders": "6 aromatic bonds of unstated order are stated as a Kekule structure (AROMATIC_SINGLE/AROMATIC_DOUBLE, aromatic flag kept) so protonation can run."
   },
   "ptm_binder.cif": {
     "source_file": "H3S10_hit04__design.cif",

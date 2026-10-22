@@ -201,9 +201,22 @@ class PluginState:
         self.documents[obj_name].snapshot()
 
     def pop_snapshot(self, obj_name: str) -> AtomArrayPlus | None:
-        """Undo the document edit and rebuild the renderer's identity map."""
+        """Undo the document edit and rebuild the renderer's identity map.
+
+        An object the user deleted directly in PyMOL (``delete obj``, the object
+        menu) is not resurrected: its state is cleared and ``None`` is returned,
+        mirroring :py:meth:`get_synced_array`. Without this check, undo would
+        restore the document and the subsequent reload would recreate an object
+        the user had deleted.
+        """
         document = self.documents.get(obj_name)
-        if document is None or not document.undo():
+        if document is None:
+            return None
+        if obj_name in self.arrays and obj_name not in cmd.get_names("objects"):
+            logger.info("'%s' was deleted in PyMOL; refusing to undo (not resurrecting it)", obj_name)
+            self.clear_object(obj_name)
+            return None
+        if not document.undo():
             return None
         self.set_array(obj_name, document.array)
         return document.array

@@ -286,19 +286,35 @@ def _load_array_into_pymol(
 def _replace_pymol_object(array: AtomArrayPlus, obj_name: str) -> None:
     """Load *array* into PyMOL as *obj_name*, replacing any existing object of that name.
 
-    PyMOL cannot load an mmCIF into an existing object, so the old object is deleted
-    first. Callers update ``STATE`` only after this succeeds; if loading fails, the
-    structure still tracked under *obj_name* (if any) is restored in PyMOL, so the
-    plugin and the viewer never disagree about what *obj_name* holds.
+    PyMOL cannot load an mmCIF into an existing object, so a replacement must remove
+    the old object before loading the new one. Doing the delete up front, however,
+    destroys the existing object before we know the new load will succeed -- on
+    failure there would be nothing left to restore for an object the user loaded
+    directly with ``cmd.load`` (one not tracked in ``STATE.arrays``).
+
+    So the replacement is transactional: any pre-existing PyMOL object is first
+    renamed to a temporary name, the new array is loaded under *obj_name*, and only
+    on success is the old object deleted. If the load fails, the partially loaded
+    object is removed and the original is renamed back, so the viewer is left exactly
+    as it was -- whether or not *obj_name* is a tracked object. (A tracked object
+    with no live PyMOL counterpart is still reloaded from ``STATE`` as a fallback.)
     """
-    cmd.delete(obj_name)
+    had_object = obj_name in cmd.get_names("objects")
+    backup_name = cmd.get_unused_name(f"{obj_name}_aw_backup") if had_object else None
+    if backup_name is not None:
+        cmd.set_name(obj_name, backup_name)
     try:
         _load_array_into_pymol(array, obj_name, hide_nans=STATE.hide_nans, show_seq_gaps=STATE.show_seq_gaps)
     except Exception:
         cmd.delete(obj_name)
-        if obj_name in STATE.arrays:
+        if backup_name is not None:
+            cmd.set_name(backup_name, obj_name)
+        elif obj_name in STATE.arrays:
             reload_structure_in_pymol(obj_name)
         raise
+    else:
+        if backup_name is not None:
+            cmd.delete(backup_name)
 
 
 def load_structure(

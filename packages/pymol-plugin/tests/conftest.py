@@ -5,14 +5,16 @@ suite is unaffected on systems without PyMOL. A module-level skip cannot do that
 from a conftest it ends the entire session during collection instead of one package.
 """
 
-import importlib.util
 from pathlib import Path
 
 import pytest
 
-if importlib.util.find_spec("pymol") is None:
-    collect_ignore_glob = ["*.py"]
-else:
+# A present ``pymol`` spec does not guarantee ``import pymol`` succeeds: the import can
+# still fail on a missing shared library or an unavailable Qt backend. Guard the real
+# import (and the launch + plugin imports it enables) so any such failure ignores this
+# package instead of aborting the whole collection session. ``find_spec`` alone cannot
+# catch that — it only proves a spec exists.
+try:
     # Launch PyMOL headless and skip ``~/.pymolrc`` before any ``cmd`` access.
     # Without ``-k`` PyMOL sources the user's pymolrc, which for developers who
     # ran the plugin's register step re-runs ``pymol_plugin/__init__.py`` as a
@@ -26,6 +28,8 @@ else:
     from atomworks_studio_pymol.bridge import load_structure
     from atomworks_studio_pymol.state import STATE
     from pymol import cmd
+except Exception:
+    collect_ignore_glob = ["*.py"]
 
 # Anchor: <repo>/packages/pymol-plugin/tests/conftest.py → <repo>
 REPO_ROOT = Path(__file__).resolve().parents[3]

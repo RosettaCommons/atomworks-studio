@@ -319,3 +319,83 @@ def test_missing_sele_warns_instead_of_raising(panel, messages):
     assert ChargeWizard(STATE)._active_indices() is None
     assert messages == ["No selection", "No selection"]
     assert selection_to_indices("sele", STATE.index_maps["objA"]) == []
+
+
+# PR #22 review: a failed replacement load must restore an object the user loaded
+# directly (one not tracked in STATE.arrays), not just a plugin-tracked object.
+
+
+def test_replace_pymol_object_restores_untracked_object_on_failure(monkeypatch):
+    from atomworks_studio_pymol import bridge
+
+    # A directly loaded object is a real PyMOL object with no entry in STATE.arrays.
+    cmd.pseudoatom("rawobj")
+    assert "rawobj" in cmd.get_names("objects")
+    assert "rawobj" not in STATE.arrays
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("simulated load failure")
+
+    monkeypatch.setattr(bridge, "_load_array_into_pymol", boom)
+    with pytest.raises(RuntimeError):
+        bridge._replace_pymol_object(object(), "rawobj")
+
+    # The pre-existing untracked object must survive a failed replacement.
+    assert "rawobj" in cmd.get_names("objects")
+
+
+# PR #22 review: aw_load must use the same default assembly as the GUI Load dialog
+# (build_load_config's default "1"), not assembly="first".
+
+
+def test_aw_load_uses_gui_assembly_default(monkeypatch):
+    captured: dict = {}
+
+    def capture_load(path, config, obj_name=None):
+        captured["build_assembly"] = config.build_assembly
+        return "objX"
+
+    monkeypatch.setattr(commands, "inspect_import", lambda path: {"preset": "minimal"})
+    monkeypatch.setattr(commands, "load_structure", capture_load)
+    commands._aw_load(str(BINDER))
+
+    assert captured["build_assembly"] == build_load_config("minimal").build_assembly
+    assert captured["build_assembly"] == ["1"]
+
+
+# PR #22 review: undo must not resurrect an object the user deleted directly in PyMOL.
+
+
+def test_undo_does_not_resurrect_object_deleted_in_pymol():
+    _load(BINDER, "objA")
+    cmd.select("sele", "objA and chain B_1 and resi 1 and name CA")
+    commands._aw_delete_selection("sele", "objA")
+    assert STATE.documents["objA"]._undo  # there is undo history to pop
+
+    cmd.delete("objA")  # the user deletes the object directly in PyMOL
+    assert STATE.pop_snapshot("objA") is None
+    assert "objA" not in cmd.get_names("objects")
+    assert "objA" not in STATE.arrays
+
+
+# PR #22 review: a present pymol spec whose import fails must ignore the plugin-test
+# package, not abort the whole collection session.
+
+
+def test_conftest_import_guard_ignores_package_when_pymol_import_fails(monkeypatch):
+    import builtins
+
+    conftest_path = Path(__file__).resolve().parent / "conftest.py"
+    source = conftest_path.read_text()
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "pymol" or name.startswith("pymol."):
+            raise ImportError("simulated: PyMOL shared library unavailable")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    ns: dict = {"__file__": str(conftest_path), "__name__": "conftest_guard_probe"}
+    exec(compile(source, str(conftest_path), "exec"), ns)
+
+    assert ns.get("collect_ignore_glob") == ["*.py"]

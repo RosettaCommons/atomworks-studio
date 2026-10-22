@@ -42,7 +42,10 @@ def _aw_load(path: str, obj_name: str = "") -> None:
     if preset is None:
         print(f"AtomWorks: '{path}' needs an explicit preset; loading annotated. Use the panel to choose.")
         preset = "minimal"
-    config = build_load_config(preset, assembly="first")
+    # Use build_load_config's default assembly ("1"), matching the GUI Load dialog. Passing
+    # assembly="first" would import a different structure than the panel for a multi-assembly
+    # CIF whose first parsed entry is not assembly 1.
+    config = build_load_config(preset)
     obj_name = load_structure(path, config=config, obj_name=obj_name or None)
     print(f"AtomWorks: loaded '{path}' as '{obj_name}' ({preset})")
 

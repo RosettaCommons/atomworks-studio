@@ -552,3 +552,20 @@ def test_charge_labels_follow_edits_delete_and_undo() -> None:
     undone = client.post(f"{base}/undo")
     assert undone.status_code == 200, undone.text
     assert undone.json()["structure"]["charged_atoms"] == expected
+
+
+def test_packaged_examples_infer_an_unambiguous_import_preset() -> None:
+    """Every bundled example must open without asking the user to pick a preset.
+
+    Design outputs routinely omit a terminal OXT; that alone must not read as an
+    ambiguous import.
+    """
+    from annotation_studio.main import EXAMPLES, EXAMPLES_DIR
+
+    for item in EXAMPLES:
+        path = EXAMPLES_DIR / item["file"]
+        response = client.post("/api/import/inspect", files={"file": (item["file"], path.read_bytes())})
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload["preset"] is not None, f"{item['id']}: {payload['message']}"
+        assert "Choose" not in payload["message"], f"{item['id']} still needs a manual choice"

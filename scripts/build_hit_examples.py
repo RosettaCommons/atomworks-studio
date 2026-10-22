@@ -22,6 +22,7 @@ from atomworks_studio_rfd4.internal_coordinate import set_internal_coordinate_co
 from atomworks_studio_rfd4.model import C_CRDGRP, C_IDXGRP
 from atomworks_studio_rfd4.reporting import sync_index_groups
 from biotite.structure import get_residue_starts
+from biotite.structure.bonds import BondType
 
 PROVIDERS = load_providers()  # Registers model annotations before parsing.
 BACKBONE = ["N", "CA", "C", "O"]
@@ -64,6 +65,63 @@ def compare_arrays(expected, actual):
 def retain(doc, mask):
     doc.array = doc.array[mask]
     refresh_chain_derived_annotations(doc.array)
+
+
+def state_aromatic_bond_orders(array) -> int:
+    """State a Kekule structure for BondType.AROMATIC bonds, keeping the aromatic flag.
+
+    Design sources describe aromatic rings with unstated (AROMATIC) bond orders, which
+    protonation and other chemistry reject. Each aromatic atom is given exactly one
+    AROMATIC_DOUBLE bond (a perfect matching over the aromatic subgraph) and the rest become
+    AROMATIC_SINGLE. The matching is chosen deterministically by atom name, so the result does
+    not depend on atom order and a rebuild reproduces the same assignment. Raises if the
+    aromatic system admits no Kekule structure (an unexpected ligand).
+    """
+    bonds = array.bonds.as_array()
+    aromatic = [k for k, (_i, _j, order) in enumerate(bonds) if order == BondType.AROMATIC]
+    if not aromatic:
+        return 0
+    name = array.atom_name
+    key = lambda atom: (str(name[atom]), int(atom))  # noqa: E731 - index-independent ordering
+    edges = [(int(bonds[k][0]), int(bonds[k][1])) for k in aromatic]
+    atoms = sorted({atom for edge in edges for atom in edge}, key=key)
+    incident = {
+        atom: sorted((e for e in edges if atom in e), key=lambda e: key(e[1] if e[0] == atom else e[0]))
+        for atom in atoms
+    }
+    matched: dict[int, tuple[int, int]] = {}
+
+    def match_remaining() -> bool:
+        unmatched = [atom for atom in atoms if atom not in matched]
+        if not unmatched:
+            return True
+        atom = min(unmatched, key=lambda a: (len(incident[a]), key(a)))
+        for i, j in incident[atom]:
+            partner = j if atom == i else i
+            if partner in matched:
+                continue
+            matched[atom] = matched[partner] = (i, j)
+            if match_remaining():
+                return True
+            del matched[atom], matched[partner]
+        return False
+
+    if not match_remaining():
+        raise ValueError("aromatic system has no Kekule (perfect-matching) bond assignment")
+    doubles = {tuple(sorted(edge)) for edge in matched.values()}
+    for k in aromatic:
+        i, j = int(bonds[k][0]), int(bonds[k][1])
+        order = BondType.AROMATIC_DOUBLE if tuple(sorted((i, j))) in doubles else BondType.AROMATIC_SINGLE
+        array.bonds.add_bond(i, j, order)
+    return len(aromatic)
+
+
+def ligand_bond_order_note(stated: int) -> str:
+    """Provenance text recorded for an example whose aromatic bond orders the rebuild stated."""
+    return (
+        f"{stated} aromatic bonds of unstated order are stated as a Kekule structure "
+        "(AROMATIC_SINGLE/AROMATIC_DOUBLE, aromatic flag kept) so protonation can run."
+    )
 
 
 def pte_inverse_folding(source):
@@ -148,6 +206,9 @@ def build(pte, ptm, bhrf1, output):
     }
     report = {}
     for name, (doc, source) in prepared.items():
+        # Sources describe aromatic ligand rings with unstated (AROM) bond orders; state them so the
+        # shipped examples can be protonated, and record that in the report.
+        stated = state_aromatic_bond_orders(doc.array)
         restored = save(doc, output / name)
         a = restored.array
         report[name] = {
@@ -162,6 +223,8 @@ def build(pte, ptm, bhrf1, output):
             "studio_validation": restored.validate(full_pipeline=True),
             "roundtrip": "atom identities, coordinates, bonds, charges and saved annotations match",
         }
+        if stated:
+            report[name]["ligand_bond_orders"] = ligand_bond_order_note(stated)
     (output / "partial_diffusion.cif").write_bytes(bhrf1.read_bytes())
     report["partial_diffusion.cif"] = {
         "source_file": bhrf1.name,

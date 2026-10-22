@@ -14,7 +14,7 @@ from io import StringIO
 from pathlib import Path
 from threading import RLock
 from typing import Any, Literal
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from atomworks_studio_editing.contracts import DocumentRevisionConflictError, TargetDiscardConfirmationRequiredError
 from atomworks_studio_editing.layout import EDITOR_TABS
@@ -120,8 +120,11 @@ class DocumentStore:
         path = self._session_file(session_id)
         if path is None:
             return
+        # The revision is what clients send back as expected_revision; restarting it at 0 on reload
+        # would let a stale confirmation match a different document state. Undo history is not
+        # persisted (it would cost one CIF per entry on every edit) and starts empty after a reload.
         metadata = json.dumps(
-            {"name": document.name, "owner_id": current_owner()},
+            {"name": document.name, "owner_id": current_owner(), "revision": document.revision},
             separators=(",", ":"),
         )
         temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
@@ -139,16 +142,15 @@ class DocumentStore:
         try:
             metadata_text, cif = path.read_text(encoding="utf-8").split("\n", 1)
             metadata = json.loads(metadata_text)
-            return (
-                str(metadata.get("owner_id", "local")),
-                StudioDocument.from_cif(
-                    cif,
-                    str(metadata.get("name", "structure")),
-                    condition_provider=self._condition_provider,
-                    validation_provider=self._validation_provider,
-                ),
+            document = StudioDocument.from_cif(
+                cif,
+                str(metadata.get("name", "structure")),
+                condition_provider=self._condition_provider,
+                validation_provider=self._validation_provider,
             )
-        except (IndexError, KeyError, OSError, ValueError):
+            document.revision = int(metadata.get("revision", 0))
+            return str(metadata.get("owner_id", "local")), document
+        except (IndexError, KeyError, OSError, TypeError, ValueError):
             path.unlink(missing_ok=True)
             return None
 
@@ -738,11 +740,14 @@ def query_selection(session_id: str, selection: SelectionQuery) -> dict:
 @app.get("/api/sessions/{session_id}/cif", response_class=PlainTextResponse)
 def get_cif(session_id: str) -> PlainTextResponse:
     cif, name = _call(session_id, lambda document: (document.to_cif(), document.name))
-    return PlainTextResponse(
-        cif,
-        media_type="chemical/x-mmcif",
-        headers={"Content-Disposition": f'attachment; filename="{name}_annotated.cif"'},
-    )
+    # Header values are latin-1 on the wire, so a non-ASCII document name needs the RFC 6266
+    # pair: a sanitized ASCII filename plus the percent-encoded UTF-8 original.
+    filename = f"{name}_annotated.cif"
+    ascii_filename = re.sub(r"[^A-Za-z0-9._-]", "_", filename) or "structure_annotated.cif"
+    disposition = f'attachment; filename="{ascii_filename}"'
+    if ascii_filename != filename:
+        disposition += f"; filename*=UTF-8''{quote(filename, safe='')}"
+    return PlainTextResponse(cif, media_type="chemical/x-mmcif", headers={"Content-Disposition": disposition})
 
 
 @app.post("/api/sessions/{session_id}/export")

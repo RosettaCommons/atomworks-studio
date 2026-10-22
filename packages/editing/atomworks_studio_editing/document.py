@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+from collections import OrderedDict
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from io import StringIO
@@ -129,6 +130,9 @@ INTERACTION_FAMILIES = {
 INTERACTION_ANNOTATIONS = {name: f"interaction_{name}" for name in INTERACTION_TYPES}
 
 
+INTERACTION_CACHE_ENTRIES = 8
+
+
 def _first_array(result: dict[str, Any]) -> AtomArrayPlus:
     assemblies = result.get("assemblies", {})
     array = next(iter(assemblies.values())) if assemblies else result["asym_unit"]
@@ -180,7 +184,9 @@ class StudioDocument:
         self._undo: list[AtomArrayPlus] = []
         self.revision = 0
         self._editing = False
-        self._interaction_cache: dict[tuple[Any, ...], dict[str, Any]] = {}
+        # Bounded: each entry holds a full interaction response, and a client may analyze
+        # many different selections within one revision.
+        self._interaction_cache: OrderedDict[tuple[Any, ...], dict[str, Any]] = OrderedDict()
 
     @classmethod
     def from_cif(
@@ -1304,6 +1310,7 @@ class StudioDocument:
         )
         cache_key = (self.revision, interaction_types, hbond_model, inter_chain_only, source, target)
         if cache_key in self._interaction_cache:
+            self._interaction_cache.move_to_end(cache_key)
             response = copy.deepcopy(self._interaction_cache[cache_key])
             response["cached"] = True
             return response
@@ -1375,6 +1382,8 @@ class StudioDocument:
             "interactions": interactions,
         }
         self._interaction_cache[cache_key] = copy.deepcopy(response)
+        while len(self._interaction_cache) > INTERACTION_CACHE_ENTRIES:
+            self._interaction_cache.popitem(last=False)
         return response
 
     def validate(self, full_pipeline: bool = False) -> list[dict[str, str]]:

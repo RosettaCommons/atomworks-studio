@@ -569,3 +569,17 @@ def test_packaged_examples_infer_an_unambiguous_import_preset() -> None:
         payload = response.json()
         assert payload["preset"] is not None, f"{item['id']}: {payload['message']}"
         assert "Choose" not in payload["message"], f"{item['id']} still needs a manual choice"
+
+
+def test_cif_download_labels_non_ascii_document_names() -> None:
+    response = client.post(
+        "/api/sessions",
+        files={"file": ("протеин.cif", FIXTURE.read_bytes(), "chemical/x-mmcif")},
+    )
+    assert response.status_code == 200, response.text
+    download = client.get(f"/api/sessions/{response.json()['session_id']}/cif")
+    assert download.status_code == 200
+    disposition = download.headers["content-disposition"]
+    assert disposition.startswith('attachment; filename="')
+    assert "filename*=UTF-8''" in disposition
+    assert disposition.isascii()

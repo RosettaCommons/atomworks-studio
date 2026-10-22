@@ -94,7 +94,7 @@ jobs:
       - run: pnpm build
       - run: python scripts/check_web_budget.py
       - run: pnpm --dir packages/vscode package
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: documentation
           path: docs/_build/html
@@ -186,7 +186,7 @@ jobs:
           environment-name: parity
           create-args: python=3.12 pymol-open-source=3.1 pyqt pip
           cache-environment: true
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with: { name: packages, path: . }
       - name: Install native host and browser test dependencies
         shell: bash -el {0}

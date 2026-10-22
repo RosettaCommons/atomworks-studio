@@ -44,6 +44,8 @@ class BondWizard:
         self._picked: list[tuple[tuple, str, str, int] | None] = [None, None]
         self._table_bonds: list[tuple[tuple, tuple, int, str, int]] = []
         self._timers: list = [None, None]
+        # PyMOL's mouse_selection_mode while picking is active (picking forces atom mode).
+        self._saved_selection_mode: str | None = None
 
         self._widget = QtWidgets.QWidget(parent)
         self._widget.setWindowTitle("AtomWorks — Bond Wizard")
@@ -170,6 +172,10 @@ class BondWizard:
 
     def _start_picking(self, slot: int) -> None:
         cmd.select("sele", "none")
+        # A click selects a whole residue in PyMOL's default (residue) mode, so pick atoms.
+        if self._saved_selection_mode is None:
+            self._saved_selection_mode = cmd.get("mouse_selection_mode")
+            cmd.set("mouse_selection_mode", 0)
 
         self._btn_pick[slot].setText("Cancel")
         self._lbl_atom[slot].setText(f"Atom {slot + 1}: left-click an atom in PyMOL…")
@@ -182,8 +188,13 @@ class BondWizard:
                 model = cmd.get_model("sele")
             except Exception:
                 return
-            if model.atom:
-                self._finish_picking(slot, model.atom[0])
+            if not model.atom:
+                return
+            if len(model.atom) != 1 or model.atom[0].model != self._state.active:
+                cmd.select("sele", "none")
+                self._lbl_atom[slot].setText(f"Atom {slot + 1}: click a single atom of '{self._state.active}'…")
+                return
+            self._finish_picking(slot, model.atom[0])
 
         timer.timeout.connect(on_tick)
         self._timers[slot] = timer
@@ -194,6 +205,9 @@ class BondWizard:
         if timer is not None:
             timer.stop()
             self._timers[slot] = None
+        if self._saved_selection_mode is not None and all(t is None for t in self._timers):
+            cmd.set("mouse_selection_mode", self._saved_selection_mode)
+            self._saved_selection_mode = None
         self._btn_pick[slot].setText(f"Select Atom {slot + 1}")
         if self._picked[slot] is None:
             self._lbl_atom[slot].setText(f"Atom {slot + 1}: —")
@@ -286,6 +300,8 @@ class BondWizard:
 
         lbl1, lbl2 = self._picked[0][1], self._picked[1][1]
         arr = self._state.get_synced_array(obj_name)
+        if arr is None:
+            return
 
         if arr.bonds is None:
             self._status.setText("No bonds on this structure.")
@@ -366,7 +382,7 @@ class BondWizard:
             return
 
         arr = self._state.get_synced_array(obj_name)
-        if arr.bonds is None:
+        if arr is None or arr.bonds is None:
             return
 
         bond_array = arr.bonds.as_array()  # shape (N, 3): [idx1, idx2, bond_type]
@@ -375,7 +391,7 @@ class BondWizard:
 
         # Filter to bonds involving the current sele (if any)
         try:
-            sel_indices = set(selection_to_indices("sele", self._state.index_maps[obj_name]))
+            sel_indices = set(selection_to_indices("sele", self._state.index_maps[obj_name], obj_name))
         except Exception:
             sel_indices = set()
 

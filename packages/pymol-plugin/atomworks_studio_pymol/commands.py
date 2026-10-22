@@ -14,9 +14,9 @@ Examples::
 """
 
 import logging
+from pathlib import Path
 
-from atomworks.io.config import ParseConfig
-from atomworks.io.utils.io_utils import to_cif_file
+from atomworks_studio_editing.loading import build_load_config, inspect_import
 from pymol import cmd
 
 from atomworks_studio_pymol.bridge import (
@@ -25,15 +25,29 @@ from atomworks_studio_pymol.bridge import (
     reload_structure_in_pymol,
     selection_to_indices,
 )
+from atomworks_studio_pymol.saving import collect_save_issues, write_cif
 from atomworks_studio_pymol.state import STATE
 
 logger = logging.getLogger("atomworks_studio_pymol")
 
 
 def _aw_load(path: str, obj_name: str = "") -> None:
-    config = ParseConfig.from_preset("rcsb", build_assembly="first")
+    # Match the GUI: an annotated CIF keeps its saved annotations, and only an unannotated
+    # file gets the RCSB preset. Loading everything as RCSB silently discarded annotations.
+    try:
+        preset = inspect_import(Path(path))["preset"]
+    except Exception:
+        logger.debug("Could not inspect '%s' for an import preset", path, exc_info=True)
+        preset = None
+    if preset is None:
+        print(f"AtomWorks: '{path}' needs an explicit preset; loading annotated. Use the panel to choose.")
+        preset = "minimal"
+    # Use build_load_config's default assembly ("1"), matching the GUI Load dialog. Passing
+    # assembly="first" would import a different structure than the panel for a multi-assembly
+    # CIF whose first parsed entry is not assembly 1.
+    config = build_load_config(preset)
     obj_name = load_structure(path, config=config, obj_name=obj_name or None)
-    print(f"AtomWorks: loaded '{path}' as '{obj_name}'")
+    print(f"AtomWorks: loaded '{path}' as '{obj_name}' ({preset})")
 
 
 def _aw_save(path: str, obj_name: str = "") -> None:
@@ -41,7 +55,19 @@ def _aw_save(path: str, obj_name: str = "") -> None:
     if not target or target not in STATE.arrays:
         print("AtomWorks: no active object to save.")
         return
-    to_cif_file(STATE.get_synced_array(target, interactive=False), path, save_standard_annotations=True)
+    arr = STATE.get_synced_array(target, interactive=False)
+    if arr is None:
+        print(f"AtomWorks: '{target}' no longer exists in PyMOL.")
+        return
+    # Same validation and writer as the panel's Save button. There is no one to confirm
+    # a prompt here, so issues are reported and the file is saved anyway.
+    for issue in collect_save_issues(arr):
+        print(f"AtomWorks: save validation: {issue}")
+    try:
+        write_cif(arr, path)
+    except Exception as e:
+        print(f"AtomWorks: save failed: {e}")
+        return
     print(f"AtomWorks: saved '{target}' → '{path}'")
 
 
@@ -56,7 +82,7 @@ def _aw_insert_segment(
         print("AtomWorks: no active object.")
         return
 
-    indices = _selection_to_indices_for_active(selection, STATE.index_maps[target])
+    indices = selection_to_indices(selection, STATE.index_maps[target], target)
     if not indices:
         print(f"AtomWorks: selection '{selection}' matched no atoms in '{target}'.")
         return
@@ -64,7 +90,8 @@ def _aw_insert_segment(
     before = insert_before.strip() in ("1", "true", "True", "yes")
     try:
         document = STATE.document(target, interactive=False)
-        document.insert_segment(int(seg_min), int(seg_max), int(indices[0]), before=before)
+        anchor = indices[0] if before else indices[-1]
+        document.insert_segment(int(seg_min), int(seg_max), int(anchor), before=before)
         STATE.set_array(target, document.array)
     except Exception as e:
         print(f"AtomWorks: segment insertion failed: {e}")
@@ -80,7 +107,7 @@ def _aw_delete_selection(selection: str = "sele", obj_name: str = "") -> None:
         print("AtomWorks: no active object.")
         return
 
-    indices = _selection_to_indices_for_active(selection, STATE.index_maps[target])
+    indices = selection_to_indices(selection, STATE.index_maps[target], target)
     if not indices:
         print(f"AtomWorks: selection '{selection}' matched no atoms in '{target}'.")
         return
@@ -119,19 +146,6 @@ def _aw_set_active(obj_name: str) -> None:
         return
     STATE.active = obj_name
     print(f"AtomWorks: active object → '{obj_name}'")
-
-
-def _selection_to_indices_for_active(selection: str, index_map: dict) -> list[int]:
-    """Translate a PyMOL selection to indices, preferring atoms from the active object."""
-    target = STATE.active
-    try:
-        if target:
-            qualified = f"({selection}) and {target}"
-            if cmd.get_model(qualified).atom:
-                return selection_to_indices(qualified, index_map)
-    except Exception:
-        logger.debug("Could not restrict selection to active object", exc_info=True)
-    return selection_to_indices(selection, index_map)
 
 
 def register_commands() -> None:

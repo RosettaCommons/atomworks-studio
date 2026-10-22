@@ -17,12 +17,10 @@ import numpy as np
 from atomworks.enums import ChainType
 from atomworks.io.config import ParseConfig
 from atomworks.io.utils.atom_array_plus import AtomArrayPlus
-from atomworks.io.utils.io_utils import to_cif_file
 from atomworks.ml.conditions import C_CRD, C_DIS, C_IDX, C_SEQ
 from atomworks_studio_editing.annotations import has_stored_mask
 from atomworks_studio_editing.layout import EDITOR_TABS
 from atomworks_studio_editing.loading import LOAD_FIELDS, build_load_config, inspect_import
-from atomworks_studio_editing.validation import validate_atom_array_for_save
 from pymol import cmd
 from pymol.Qt import QtCore, QtWidgets
 
@@ -38,6 +36,8 @@ from atomworks_studio_pymol.charge_wizard import ChargeWizard
 from atomworks_studio_pymol.display import count_hidden_nan_atoms
 from atomworks_studio_pymol.editors import editor_for, is_excluded
 from atomworks_studio_pymol.extensions import add_extension, read_extensions, remove_extension
+from atomworks_studio_pymol.saving import collect_save_issues, write_cif
+from atomworks_studio_pymol.saving import register_pre_save_hook as register_pre_save_hook
 from atomworks_studio_pymol.state import STATE, PluginState
 from atomworks_studio_pymol.views import (
     DEFAULT_VIEW_NAME,
@@ -53,20 +53,8 @@ logger = logging.getLogger("atomworks_studio_pymol")
 # Hook registries (populated by extensions)
 # ---------------------------------------------------------------------------
 
-# Each hook receives the active AtomArrayPlus and returns a list of violation
-# strings.  Non-empty lists cause a warning popup before saving.
-_pre_save_hooks: list[Callable[[AtomArrayPlus], list[str]]] = []
-
-
-def register_pre_save_hook(fn: Callable[[AtomArrayPlus], list[str]]) -> None:
-    """Register *fn* to be called before each CIF save.
-
-    Hooks must treat the passed array as read-only (the live structure is passed
-    for efficiency); copy it before any mutation.
-    """
-    if fn not in _pre_save_hooks:
-        _pre_save_hooks.append(fn)
-
+# Pre-save hooks live in :py:mod:`atomworks_studio_pymol.saving` so ``aw_save`` runs
+# them too; ``register_pre_save_hook`` is re-exported here for extensions.
 
 # Each hook receives the active AtomArrayPlus and returns a formatted summary
 # string (empty string means nothing to show for that hook).
@@ -90,10 +78,6 @@ _panel_instance = None
 def get_main_panel() -> "MainPanel | None":
     """Return the currently instantiated :py:class:`MainPanel`, or ``None``."""
     return _panel_instance
-
-
-def _check_atom_array_invariants(arr: AtomArrayPlus) -> list[str]:
-    return [f"[{issue['check']}] {issue['message']}" for issue in validate_atom_array_for_save(arr)]
 
 
 def _builtin_annotation_summary(arr: AtomArrayPlus) -> str:
@@ -778,6 +762,7 @@ class MainPanel:
     # -- UI actions --------------------------------------------------------
 
     def _refresh_active_combo(self) -> None:
+        self._state.forget_deleted_objects()
         self._active_combo.blockSignals(True)
         self._active_combo.clear()
         for name in self._state.arrays:
@@ -844,12 +829,10 @@ class MainPanel:
             return
 
         arr = self._state.get_synced_array(obj_name)
-        violations: list[str] = _check_atom_array_invariants(arr)
-        for hook in _pre_save_hooks:
-            try:
-                violations.extend(hook(arr.copy()))
-            except Exception as e:
-                violations.append(f"[hook_error] {e}")
+        if arr is None:
+            self._refresh_active_combo()
+            return
+        violations = collect_save_issues(arr)
 
         if violations:
             msg = "Validation issues found:\n\n" + "\n".join(f"• {v}" for v in violations)
@@ -864,7 +847,7 @@ class MainPanel:
                 return
 
         try:
-            to_cif_file(arr, path, save_standard_annotations=True, chain_disambiguation="chain_iid")
+            write_cif(arr, path)
         except Exception as e:
             QtWidgets.QMessageBox.critical(self._widget, "Save Error", str(e))
 
@@ -906,6 +889,9 @@ class MainPanel:
             QtWidgets.QMessageBox.information(self._widget, "No active object", "Load a structure first.")
             return
         arr = self._state.get_synced_array(obj_name)
+        if arr is None:
+            self._refresh_active_combo()
+            return
         sections: list[str] = []
         for hook in _summary_hooks:
             try:
@@ -929,7 +915,7 @@ class MainPanel:
         dlg.exec_()
 
     def _combine_visible(self) -> None:
-        new_name = self._combine_name.text().strip() or "combined"
+        new_name = cmd.get_legal_name(self._combine_name.text().strip() or "combined")
         allow_overwrite = False
         if new_name in self._state.arrays:
             reply = QtWidgets.QMessageBox.question(
@@ -954,6 +940,9 @@ class MainPanel:
         if not obj_name or obj_name not in self._state.arrays:
             QtWidgets.QMessageBox.warning(self._widget, "No active object", "Load a structure first.")
             return
+        if self._state.get_synced_array(obj_name) is None:
+            self._refresh_active_combo()
+            return
 
         dlg = ExpandableSegmentInsertDialog(
             self._widget, default_chain_id=self._state.document(obj_name).next_chain_id()
@@ -972,7 +961,7 @@ class MainPanel:
                     chain_type=dlg.new_chain_type,
                 )
             else:
-                indices = selection_to_indices("sele", self._state.index_maps[obj_name])
+                indices = selection_to_indices("sele", self._state.index_maps[obj_name], obj_name)
                 if not indices:
                     QtWidgets.QMessageBox.warning(self._widget, "No selection", "Make a selection in PyMOL first.")
                     return
@@ -996,13 +985,20 @@ class MainPanel:
             return
 
         arr = self._state.get_synced_array(obj_name)
+        if arr is None:
+            self._refresh_active_combo()
+            return
         if "chain_iid" not in arr.get_annotation_categories():
             QtWidgets.QMessageBox.warning(
                 self._widget, "Missing chain_iid", "Active array has no chain_iid annotation."
             )
             return
 
-        self._state.document(obj_name).reset_residue_ids()
+        document = self._state.document(obj_name)
+        document.reset_residue_ids()
+        # Renumbering changes atom identities; set_array bumps the structure version so
+        # identity keys picked before the reset are rejected instead of resolving to other atoms.
+        self._state.set_array(obj_name, document.array)
         reload_structure_in_pymol(obj_name)
 
     def _delete_selection(self) -> None:
@@ -1011,12 +1007,15 @@ class MainPanel:
             QtWidgets.QMessageBox.warning(self._widget, "No active object", "Load a structure first.")
             return
 
-        indices = selection_to_indices("sele", self._state.index_maps[obj_name])
+        indices = selection_to_indices("sele", self._state.index_maps[obj_name], obj_name)
         if not indices:
             QtWidgets.QMessageBox.warning(self._widget, "No selection", "Make a selection in PyMOL first.")
             return
 
         arr = self._state.get_synced_array(obj_name)
+        if arr is None:
+            self._refresh_active_combo()
+            return
         keep = np.ones(len(arr), dtype=bool)
         keep[indices] = False
 

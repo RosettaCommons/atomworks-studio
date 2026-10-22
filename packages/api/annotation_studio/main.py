@@ -120,8 +120,16 @@ class DocumentStore:
         path = self._session_file(session_id)
         if path is None:
             return
+        # The revision is what clients send back as expected_revision; restarting it at 0 on reload
+        # would let a stale confirmation match a different document state. Undo history is not
+        # persisted (it would cost one CIF per entry on every edit) and starts empty after a reload.
         metadata = json.dumps(
-            {"name": document.name, "owner_id": current_owner(), "design": document.export_design_state()},
+            {
+                "name": document.name,
+                "owner_id": current_owner(),
+                "revision": document.revision,
+                "design": document.export_design_state(),
+            },
             separators=(",", ":"),
         )
         temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
@@ -147,8 +155,9 @@ class DocumentStore:
             )
             # What the document remembers beside its atoms: each chain as loaded and what new residues replaced.
             document.restore_design_state(metadata.get("design"))
+            document.revision = int(metadata.get("revision", 0))
             return str(metadata.get("owner_id", "local")), document
-        except (IndexError, KeyError, OSError, ValueError):
+        except (IndexError, KeyError, OSError, TypeError, ValueError):
             path.unlink(missing_ok=True)
             return None
 

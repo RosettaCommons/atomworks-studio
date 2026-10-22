@@ -141,6 +141,22 @@ CURRENT_SESSION = """(session, ...values) => {
 }"""
 
 
+def identity_headers(request: gr.Request | None) -> dict[str, str]:
+    """Forward the proxy-authenticated user to Studio for in-process hand-off calls.
+
+    In identity mode Studio rejects requests without the configured header, and sessions are
+    owned by that user. The Gradio request came through the same trusted proxy, so its header
+    is as trustworthy as the browser's own Studio requests and keeps results openable in the iframe.
+    """
+    from annotation_studio import main as studio_main
+
+    header = studio_main.IDENTITY_HEADER
+    if not header or request is None:
+        return {}
+    value = request.headers.get(header)
+    return {header: value} if value else {}
+
+
 class StudioHandoff:
     """Use Studio's versioned HTTP contract without sharing document internals."""
 
@@ -148,13 +164,21 @@ class StudioHandoff:
         self.editor_path = editor_path
         self.transport = httpx.ASGITransport(app=studio)
 
-    async def open(self, name: str, cif: str) -> tuple[str, str]:
-        async with httpx.AsyncClient(transport=self.transport, base_url="http://studio") as client:
+    async def open(self, name: str, cif: str, headers: dict[str, str] | None = None) -> tuple[str, str]:
+        async with httpx.AsyncClient(transport=self.transport, base_url="http://studio", headers=headers) as client:
             response = await client.post("/api/v1/sessions", files={"file": (name, cif.encode())})
             response.raise_for_status()
         session = response.json()
         session_id = session["session_id"]
         return session_id, self.frame(session_id)
+
+    async def close(self, session_ids: list[str], headers: dict[str, str] | None = None) -> None:
+        """Release hand-off sessions; Studio's bounded store would otherwise evict live user sessions."""
+        async with httpx.AsyncClient(transport=self.transport, base_url="http://studio", headers=headers) as client:
+            for session_id in session_ids:
+                response = await client.delete(f"/api/v1/sessions/{quote(session_id, safe='')}")
+                if response.status_code not in (204, 404):
+                    response.raise_for_status()
 
     def frame(self, session_id: str | None = None, *, example: str | None = None, card: bool = False) -> str:
         """The editor's frame. With `card` (design-card mode), Studio draws the card in its sidebar and the frame takes
@@ -173,11 +197,13 @@ class StudioHandoff:
             'allow="clipboard-write; fullscreen; webgpu"></iframe>'
         )
 
-    async def export(self, session_id: str, warning_checks: frozenset[str]) -> dict:
+    async def export(
+        self, session_id: str, warning_checks: frozenset[str], headers: dict[str, str] | None = None
+    ) -> dict:
         if not session_id:
             raise gr.Error("Open a structure in Studio first")
         session_id = quote(session_id, safe="")
-        async with httpx.AsyncClient(transport=self.transport, base_url="http://studio") as client:
+        async with httpx.AsyncClient(transport=self.transport, base_url="http://studio", headers=headers) as client:
             response = await client.post(f"/api/v1/sessions/{session_id}/export")
             response.raise_for_status()
         snapshot = response.json()
@@ -536,6 +562,8 @@ def create_demo(
             refold_models=refold_models,
             refold_limits=refold_limits,
         )
+    # Result sessions each browser tab created, released when that tab generates again.
+    results_by_client: dict[str, list[str]] = {}
     with gr.Blocks(delete_cache=(3600, 3600)) as demo:
         gr.Markdown(f"# {provider.title}")
         session = gr.Textbox(visible=False)
@@ -588,11 +616,15 @@ def create_demo(
         async def run_cifs(cif: str, options: dict) -> list[str]:
             return await _run_cifs(generate_fn, cif, options)
 
-        async def generate_cif(cif: str, options: dict) -> dict:
+        async def generate_cif(cif: str, options: dict, request: gr.Request = None) -> dict:
             """Generate from an annotated CIF through the same Studio validation and model path."""
             validated = provider.validate(options or {})
-            session_id, _ = await handoff.open("input.cif", cif)
-            snapshot = await handoff.export(session_id, provider.warning_checks)
+            headers = identity_headers(request)
+            session_id, _ = await handoff.open("input.cif", cif, headers)
+            try:
+                snapshot = await handoff.export(session_id, provider.warning_checks, headers)
+            finally:
+                await handoff.close([session_id], headers)
             check_input(snapshot, validated)
             return {
                 "designs": await run_cifs(snapshot["cif"], validated),
@@ -602,12 +634,15 @@ def create_demo(
         async def generate(
             session_id: str,
             *values,
+            request: gr.Request = None,
             progress: gr.Progress = gr.Progress(),  # noqa: B008
         ) -> tuple:
+            headers = identity_headers(request)
+            client = getattr(request, "session_hash", None)
             try:
                 progress(None, desc="Checking current edits…")
                 options = provider.validate(dict(zip(controls, values, strict=True)))
-                snapshot = await handoff.export(session_id, provider.warning_checks)
+                snapshot = await handoff.export(session_id, provider.warning_checks, headers)
                 check_input(snapshot, options)
                 with tempfile.TemporaryDirectory(prefix="studio-generation-") as directory:
                     progress(None, desc="Generating design (including any GPU wait)…")
@@ -623,10 +658,15 @@ def create_demo(
                     for index, cif in enumerate(results, start=1):
                         path = Path(directory) / f"design-{index}.cif"
                         path.write_text(cif)
-                        result_id, _ = await handoff.open(path.name, cif)
+                        result_id, _ = await handoff.open(path.name, cif, headers)
                         paths[result_id] = download.move_resource_to_block_cache(path)
                         choices.append((f"Design {index}", result_id))
                 result_id = choices[1][1]
+                if client:
+                    # Keep the session generated from (it may itself be an earlier design).
+                    previous = [key for key in results_by_client.get(client, []) if key != session_id]
+                    results_by_client[client] = [key for _, key in choices[1:]]
+                    await handoff.close(previous, headers)
                 warnings = "; ".join(issue["message"] for issue in snapshot["issues"])
                 message = f"Generated from input revision {snapshot['revision']}. {warnings}".strip()
                 designs = [

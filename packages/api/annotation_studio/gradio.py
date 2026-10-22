@@ -5,6 +5,7 @@ import html
 import json
 import logging
 import os
+import secrets
 import tempfile
 import zipfile
 from collections import OrderedDict
@@ -645,7 +646,10 @@ def create_demo(
             progress: gr.Progress = gr.Progress(),  # noqa: B008
         ) -> tuple:
             headers = identity_headers(request)
-            client = getattr(request, "session_hash", None)
+            # A browser tab is tracked by its Gradio session; a call without one (the exposed API used
+            # statelessly) gets its own key, so its results are still released when the bounded
+            # registry evicts it instead of waiting for Studio's global eviction.
+            client = getattr(request, "session_hash", None) or f"api-{secrets.token_hex(8)}"
             opened: list[str] = []  # result sessions created in this call, for cleanup on failure
             try:
                 progress(None, desc="Checking current edits…")
@@ -671,18 +675,17 @@ def create_demo(
                         paths[result_id] = download.move_resource_to_block_cache(path)
                         choices.append((f"Design {index}", result_id))
                 result_id = choices[1][1]
-                if client is not None:
-                    previous = results_by_client.get(client, [])
-                    # Keep the session generated from when it was one of this tab's tracked results,
-                    # so a later generation from a different source still releases it.
-                    retained = [session_id] if session_id in previous else []
-                    stale = [key for key in previous if key not in opened and key not in retained]
-                    results_by_client[client] = opened + retained
-                    results_by_client.move_to_end(client)
-                    while len(results_by_client) > MAX_TRACKED_CLIENTS:
-                        _evicted, evicted_ids = results_by_client.popitem(last=False)
-                        stale.extend(key for key in evicted_ids if key not in opened)
-                    await handoff.close(stale, headers)
+                previous = results_by_client.get(client, [])
+                # Keep the session generated from when it was one of this tab's tracked results,
+                # so a later generation from a different source still releases it.
+                retained = [session_id] if session_id in previous else []
+                stale = [key for key in previous if key not in opened and key not in retained]
+                results_by_client[client] = opened + retained
+                results_by_client.move_to_end(client)
+                while len(results_by_client) > MAX_TRACKED_CLIENTS:
+                    _evicted, evicted_ids = results_by_client.popitem(last=False)
+                    stale.extend(key for key in evicted_ids if key not in opened)
+                await handoff.close(stale, headers)
                 warnings = "; ".join(issue["message"] for issue in snapshot["issues"])
                 message = f"Generated from input revision {snapshot['revision']}. {warnings}".strip()
                 designs = [

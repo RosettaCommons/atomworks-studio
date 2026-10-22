@@ -174,3 +174,27 @@ def test_client_registry_is_bounded(monkeypatch) -> None:
         asyncio.run(run())
     finally:
         demo.close()
+
+
+def test_stateless_api_generations_are_released_by_the_bounded_registry(monkeypatch) -> None:
+    """Calls without a Gradio session (the exposed API used statelessly) are tracked too, so their
+    result sessions are released when the registry evicts them rather than leaking."""
+    import annotation_studio.gradio as gradio_module
+
+    monkeypatch.setattr(gradio_module, "MAX_TRACKED_CLIENTS", 2)
+    demo, callbacks = _demo_callbacks()
+
+    async def run():
+        http = TestClient(app)
+        src = http.post("/api/sessions", files={"file": ("input.cif", FIXTURE.read_bytes())}).json()["session_id"]
+        designs = []
+        for _ in range(3):  # three stateless calls exceed the cap of two tracked entries
+            out = await callbacks["generate"](src, *_generate_values(1), request=None)
+            designs.append(next(key for key in out[2] if key != src))
+        assert http.get(f"/api/sessions/{designs[0]}").status_code == 404, "stateless results leaked"
+        assert all(http.get(f"/api/sessions/{d}").status_code == 200 for d in designs[1:])
+
+    try:
+        asyncio.run(run())
+    finally:
+        demo.close()

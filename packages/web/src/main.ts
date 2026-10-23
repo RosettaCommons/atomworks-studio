@@ -1,7 +1,7 @@
 import { unpositionedAtomIndices } from "./viewers/unpositioned-atoms";
 import { TrajectoryController } from "./studio/trajectory-controller";
 import initCifCore, { inspect_cif } from "./wasm/annotation_studio_core.js";
-import { api, apiText } from "./api";
+import { api, ApiError, apiText } from "./api";
 import { applyCapabilities, element, escapeHtml } from "./dom";
 import { SelectionController } from "./selection-controller";
 import { AnalysisController } from "./studio/analysis-controller";
@@ -451,11 +451,17 @@ async function initialize(): Promise<void> {
         enableSessionControls(true);
         notifyHost("ready");
       } catch (error) {
-        await recoverRenderer(error);
+        // The server session is open even if it cannot be displayed; keep it savable and closable.
         persistSession(response);
-        await refreshFromServer(response.structure, false);
         enableSessionControls(true);
-        notifyHost("ready");
+        try {
+          // Notify the host even if recovery fails, so it still learns the session id; a terminal
+          // failure still rejects for the caller, and a successful recovery notifies only once.
+          await recoverRenderer(error);
+          await refreshFromServer(response.structure, false);
+        } finally {
+          notifyHost("ready");
+        }
       } finally {
         workspace.inert = false;
       }
@@ -523,9 +529,10 @@ async function initialize(): Promise<void> {
   const example = query.get("example");
   const savedSession = query.get("session") ?? (example ? null : sessionStorage.getItem("annotation-studio-session"));
   if (savedSession) {
+    let restored: SessionResponse | null = null;
     try {
       sessionId = savedSession;
-      const restored = await api<SessionResponse>(`/api/sessions/${sessionId}`);
+      restored = await api<SessionResponse>(`/api/sessions/${sessionId}`);
       currentName = restored.structure.name;
       await refreshFromServer(restored.structure);
       persistSession(restored);
@@ -535,9 +542,23 @@ async function initialize(): Promise<void> {
       sessionStorage.removeItem("annotation-studio-message");
       log(message ?? "Restored native AtomWorks session.");
       restoredSession = true;
-    } catch {
-      sessionStorage.removeItem("annotation-studio-session");
-      sessionStorage.removeItem("annotation-studio-name");
+    } catch (error) {
+      if (restored) {
+        // The session still exists; keep it so Download and Close can recover its edits.
+        persistSession(restored);
+        enableSessionControls(true);
+        log(`Restored session could not be displayed: ${String(error)}`, "error");
+        // Notify the host so an embedded parent still receives the session id instead of timing out.
+        notifyHost("ready");
+      } else {
+        sessionId = null;
+        if (error instanceof ApiError && (error.status === 404 || error.status === 403)) {
+          sessionStorage.removeItem("annotation-studio-session");
+          sessionStorage.removeItem("annotation-studio-name");
+        } else {
+          log(`Could not restore the saved session: ${String(error)}`, "error");
+        }
+      }
     }
   }
   if (restoredSession && query.get("trajectory")) {
@@ -547,7 +568,7 @@ async function initialize(): Promise<void> {
     }, log);
     trajectoryController.bind(query.get("trajectory")!);
   }
-  if (!restoredSession) log("Ready. Open a CIF to start.");
+  if (!restoredSession && sessionId === null) log("Ready. Open a CIF to start.");
   const pendingExample = query.has("session") ? null : example ?? sessionStorage.getItem(PENDING_EXAMPLE_KEY);
   if (pendingExample) {
     sessionStorage.removeItem(PENDING_EXAMPLE_KEY);

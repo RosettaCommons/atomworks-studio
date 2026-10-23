@@ -163,13 +163,20 @@ export class SessionFileController {
       temporarySession = response.session_id;
       if (!isCurrent()) return false;
       if (targetSession) {
-        const combined = await api<SessionResponse>(`/api/sessions/${targetSession}/combine`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session_ids: [response.session_id] }),
+        let combined = false;
+        // Serialize with document mutations so two refreshes never interleave on one viewer.
+        await this.options.runViewerUpdate(async () => {
+          if (!isCurrent()) return;
+          const result = await api<SessionResponse>(`/api/sessions/${targetSession}/combine`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_ids: [response.session_id] }),
+          });
+          if (!isCurrent()) return;
+          await this.options.onCombined(result, file.name);
+          combined = true;
         });
-        if (!isCurrent()) return false;
-        await this.options.onCombined(combined, file.name);
+        if (!combined) return false;
       } else {
         await this.options.onOpened(response);
         temporarySession = null;

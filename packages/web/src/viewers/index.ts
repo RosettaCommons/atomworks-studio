@@ -323,6 +323,7 @@ export class MolecularViewer {
 
   async clearAllVisuals(): Promise<void> {
     this.representations = [];
+    this.adapter?.clearColors?.();
     this.annotationGroups = [];
     this.interactionOverlays = [];
     this.measurementRequests = [];

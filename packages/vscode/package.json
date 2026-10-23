@@ -102,9 +102,10 @@
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": "limited",
-      "description": "Automatic backend startup requires a trusted workspace. Existing servers can still be opened.",
+      "description": "Automatic backend startup and the server URL require a trusted workspace.",
       "restrictedConfigurations": [
-        "annotationStudio.pythonPath"
+        "annotationStudio.pythonPath",
+        "annotationStudio.serverUrl"
       ]
     }
   }

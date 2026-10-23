@@ -160,6 +160,7 @@ export interface ViewerAdapter {
   clearSelection(): void;
   setRepresentation?(representation: ViewerRepresentation, target: ViewerTarget, action: ViewerRepresentationAction): void | Promise<void>;
   setColor?(color: ViewerColor, target: ViewerTarget): void;
+  clearColors?(): void;
   setBackground?(color: "black" | "white"): void;
   camera?(action: ViewerCameraAction): void;
   executeCommand?(command: string): unknown;

@@ -6,7 +6,7 @@ import {
   type MeasurementRequest,
 } from "@baker-laboratory/patinae-viewer";
 
-import { documentAtomIndices, nativeAtomIndices } from "./atom-identity";
+import { documentAtomIndexForHit, documentAtomIndices, nativeAtomIndices } from "./atom-identity";
 import { unpositionedAtomIndices } from "./unpositioned-atoms";
 import {
   ANNOTATION_CONTEXT_COLOR,
@@ -89,7 +89,9 @@ export class PatinaeAdapter implements ViewerAdapter {
     "show cartoon",
     "show sticks, not polymer",
   ];
-  private colorCommands: string[] = [];
+  private selectedAtomIndices: number[] = [];
+  // Capture document atoms when a color is applied, not the later contents of "sele".
+  private colorOperations: { color: ViewerColor; atomIndices: number[] | null }[] = [];
   private backgroundCommand = "bg_color black";
 
   constructor(private readonly context: ViewerAdapterContext) {}
@@ -130,10 +132,11 @@ export class PatinaeAdapter implements ViewerAdapter {
     if (picking) {
       this.viewer.on("atom-picked", (hit) => {
         if (hit.atom_index === null) return;
-        const identity = this.atomIdentities.find(
-          (atom) => atom.object_name === hit.object_name && atom.atom_index === hit.atom_index,
-        );
-        const documentIndex = identity?.document_index ?? hit.atom_index;
+        const documentIndex = documentAtomIndexForHit(this.atomIdentities, {
+          object_name: hit.object_name,
+          atom_index: hit.atom_index,
+        });
+        if (documentIndex === null) return;
         this.context.onPick({
           atomIndex: documentIndex,
           label: `${hit.chain ?? "?"}/${hit.residue ?? "?"}: atom ${documentIndex}`,
@@ -166,7 +169,9 @@ export class PatinaeAdapter implements ViewerAdapter {
     if (!this.viewer || this.cif === null) return;
     for (const command of this.displayCommands) await this.executeCommand(command);
     await this.executeCommand("color atomic");
-    for (const command of this.colorCommands) await this.executeCommand(command);
+    for (const { color, atomIndices } of this.colorOperations) {
+      await this.executeCommand(`color ${color}, ${atomIndices ? this.nativeSelection(atomIndices) : "all"}`);
+    }
     this.viewer.execute(this.backgroundCommand);
     const coordinateRows = parseAtomSiteBooleanColumn(
       this.cif,
@@ -196,6 +201,7 @@ export class PatinaeAdapter implements ViewerAdapter {
 
   async loadCifs(structures: ViewerStructure[]): Promise<void> {
     if (!this.viewer) throw new Error("Patinae is not initialized");
+    this.clearColors();
     for (const objectName of this.viewer.getObjectNames()) this.viewer.execute(`delete ${objectName}`);
     const loaded = structures.map((structure, index) => {
       const objectName = `compare_${index + 1}_${structure.name.replace(/[^A-Za-z0-9_]/g, "_")}`;
@@ -309,6 +315,7 @@ export class PatinaeAdapter implements ViewerAdapter {
   setSelection(atomIndices: number[]): void {
     if (!this.viewer) return;
     const indices = [...new Set(atomIndices)].sort((left, right) => left - right);
+    this.selectedAtomIndices = indices;
     this.viewer.execute(indices.length
       ? `select sele, ${this.nativeSelection(indices)}`
       : "select sele, none");
@@ -332,9 +339,20 @@ export class PatinaeAdapter implements ViewerAdapter {
 
   setColor(color: ViewerColor, target: ViewerTarget): void {
     if (!this.viewer) return;
-    const command = `color ${color}, ${target === "selection" ? "sele" : "all"}`;
-    this.colorCommands.push(command);
-    this.viewer.execute(command);
+    if (this.cif !== null) {
+      if (target === "all") this.colorOperations = [];
+      if (target === "all" || this.selectedAtomIndices.length) {
+        this.colorOperations.push({
+          color,
+          atomIndices: target === "selection" ? [...this.selectedAtomIndices] : null,
+        });
+      }
+    }
+    this.viewer.execute(`color ${color}, ${target === "selection" ? "sele" : "all"}`);
+  }
+
+  clearColors(): void {
+    this.colorOperations = [];
   }
 
   setBackground(color: "black" | "white"): void {
@@ -463,6 +481,8 @@ export class PatinaeAdapter implements ViewerAdapter {
     this.viewer = null;
     this.interactionNames.clear();
     this.atomIdentities = [];
+    this.selectedAtomIndices = [];
+    this.colorOperations = [];
     this.cif = null;
   }
 }

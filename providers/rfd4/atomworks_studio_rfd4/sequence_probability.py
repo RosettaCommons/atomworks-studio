@@ -195,7 +195,13 @@ def check_sequence_probability_conditioning_violations(aa: AtomArray) -> list[In
     return violations
 
 
-def canonicalize_sequence_probabilities(data: dict) -> dict:
+def canonicalize_sequence_probabilities(data: dict, *, resolve_conflicts: bool = False) -> dict:
+    """Write C_SEQ's exact identities into the sequence-probability conditions.
+
+    Conflicting probabilities on C_SEQ-conditioned residues raise ``ValueError`` by default, as the
+    model does. With ``resolve_conflicts=True`` they are overwritten by C_SEQ's identities like
+    every other C_SEQ residue, so the remaining invariants can still be checked.
+    """
     aap = as_atom_array_plus(data["atom_array"])
     starts = get_residue_starts(aap)
     seq_mask = C_SEQ.mask(aap, default="generate")
@@ -215,7 +221,7 @@ def canonicalize_sequence_probabilities(data: dict) -> dict:
             conflicts.append(f"{condition.token_name}: {n_conflicting_residues} residue(s)")
         resolved[condition] = probability, mask, expected
 
-    if conflicts:
+    if conflicts and not resolve_conflicts:
         raise ValueError(
             "Sequence-probability conditioning conflicts with C_SEQ exact identities: " + ", ".join(conflicts)
         )

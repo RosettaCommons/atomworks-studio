@@ -89,8 +89,17 @@ is one Undo step and the document on the server stays the source of truth.
 | `chainColor(chainId)` | The colour Studio draws a chain in, so your own UI can match. |
 | `version` | The Studio release the page was built from. |
 
-Same-page hosts also receive the `ready`, `changed` and `example` notifications an
-iframe host gets over `postMessage`, as an `atomworks-studio` window event.
+A host that serves the bundle itself usually does not want Studio's offline cache
+pinning its assets. Turn it off in the composed page:
+
+```html
+<meta name="atomworks-studio-service-worker" content="off" />
+```
+
+Same-page hosts receive the `ready`, `changed` and `example` notifications an iframe
+host gets over `postMessage`, as an `atomworks-studio` window event carrying the same
+payload (`source`, `type`, `session_id`), plus `selection` with a `count` whenever the
+selection changes.
 
 ```js
 window.addEventListener("atomworks-studio", (event) => {

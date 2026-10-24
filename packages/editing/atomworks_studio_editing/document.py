@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import copy
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from io import StringIO
 from typing import Any, Literal
@@ -743,6 +743,41 @@ class StudioDocument:
             "affected_count": len(selected),
             "message": f"{'Applied' if enabled else 'Removed'} {spec.label} on {len(selected)} atoms.",
         }
+
+    def set_conditions(
+        self,
+        edits: Sequence[Mapping[str, Any]],
+        *,
+        allow_target_discard: bool = False,
+        expected_revision: int | None = None,
+    ) -> dict[str, Any]:
+        """Apply several condition edits as one undoable step.
+
+        Setting up a chain usually means more than one condition at once (holding it in place is a coordinate
+        condition and a sequence condition together). Applied one at a time those become separate Undo steps and
+        separate revisions, so a half-applied role is reachable. `edit` nests, so the whole batch commits or none
+        of it does, and Undo takes the user back to before the batch.
+        """
+        if expected_revision is not None and self.revision != expected_revision:
+            raise DocumentRevisionConflictError(expected_revision, self.revision)
+        if not edits:
+            raise ValueError("no condition edits given")
+        with self.edit():
+            results = [
+                self.set_condition(
+                    str(edit["condition"]),
+                    list(edit.get("atom_indices") or []),
+                    enabled=bool(edit.get("enabled", True)),
+                    value=edit.get("value"),
+                    scope=edit.get("scope", "atom"),
+                    allow_target_discard=allow_target_discard,
+                )
+                for edit in edits
+            ]
+        if len(results) == 1:
+            return results[0]
+        affected = sum(int(result["affected_count"]) for result in results)
+        return {"affected_count": affected, "message": f"Applied {len(results)} conditions on {affected} atoms."}
 
     def _set_condition(
         self,

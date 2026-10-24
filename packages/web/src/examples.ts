@@ -1,1 +1,1 @@
-export type StudioExample = { id: string; label: string; file: string; task: string };
+export type StudioExample = { id: string; label: string; file: string; task: string; description?: string };

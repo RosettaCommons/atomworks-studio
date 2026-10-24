@@ -2,7 +2,16 @@
 
 Eight inputs from the private RFD4 NIM, revision
 `3a8a1f6f2ed6bab37757d2471b5007971175225d`, under `nim/examples/*/request.json`.
-Motif, partial-diffusion and inverse-folding CIF contents are unchanged.
+Motif and partial-diffusion CIF contents are unchanged. Inverse folding and
+partial diffusion shared one CIF with no conditions on it, so the inverse-folding
+example did not describe inverse folding: opened in Studio it reads as a full
+redesign, and only the sampler chosen by `examples.json` made it anything else.
+They are now separate files. `partial_diffusion.cif` keeps the original contents,
+and `inverse_folding.cif` carries coordinate conditioning on the 236 backbone atoms
+(N, CA, C, O), leaving the side chains and the sequence free. It is annotated in the
+form the unannotated file was always imported as — heavy atoms completed, 989 atoms —
+because a file carrying saved annotations is not completed again on import, and
+freezing it at the 481 atoms on disk would have changed what the model receives.
 Enzyme and VHH inputs include missing heavy atoms with free coordinates.
 Antibody and unconditional condition specs use the standard-annotation serializer;
 the antibody uses separate internal heavy/light framework groups and a fixed target.

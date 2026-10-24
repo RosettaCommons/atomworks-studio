@@ -29,6 +29,7 @@ import { addSphere } from "molstar/lib/mol-geo/geometry/mesh/builder/sphere";
 import { Vec3 } from "molstar/lib/mol-math/linear-algebra";
 import "molstar/lib/mol-plugin-ui/skin/dark.scss";
 import { unpositionedAtomIndices } from "./unpositioned-atoms";
+import { StudioChainColorThemeProvider } from "./studio-chain-theme";
 
 import {
   ANNOTATION_PALETTE,
@@ -48,7 +49,14 @@ import {
   type ViewerRepresentation,
   type ViewerRepresentationAction,
   type ViewerTarget,
+  type ViewerLoadOptions,
+  type ViewerOverlayOptions,
 } from "./contract";
+
+// Mol* types colour-theme names as a union of its built-ins, so a registered theme needs a cast. Keeping it in one
+// place avoids sprinkling `as never` over every representation call.
+const CHAIN_COLOR_THEME = StudioChainColorThemeProvider.name as never;
+const CHAIN_COLOR_THEME_PARAMS = { carbonOnly: true } as never;
 
 // The render root contains only positioned atoms. Focus, camera, representations,
 // and picking therefore share the same geometry, while source indices stay intact.
@@ -108,6 +116,11 @@ export class MolstarAdapter implements ViewerAdapter {
   private measurements: ViewerMeasurement[] = [];
   private interactionRepresentation: ShapeRepresentation<ViewerInteraction[], Lines, typeof Lines.Params> | null = null;
   private unpositionedAtoms = new Set<number>();
+  // Raw-data node of the last load, and of the structure that live updates replace in place.
+  private lastDataRef: string | undefined;
+  private liveDataRef: string | undefined;
+  // Display-only overlay structures by key: raw-data node plus the CIF it currently holds.
+  private overlayRefs = new Map<string, { ref: string; data: string }>();
   private markerRepresentation: ShapeRepresentation<ViewerMarker[], Mesh, typeof Mesh.Params> | null = null;
 
   constructor(private readonly context: ViewerAdapterContext) {}
@@ -132,6 +145,8 @@ export class MolstarAdapter implements ViewerAdapter {
       throw new Error("Mol* could not create a WebGL rendering context.");
     }
     // Camera changes belong to loading, explicit View actions, and user navigation.
+    // Chain colours shared with the sequence bar.
+    this.viewer.plugin.representation.structure.themes.colorThemeRegistry.add(StudioChainColorThemeProvider);
     this.viewer.plugin.canvas3d.setProps({ camera: { manualReset: true } });
     // Docking the inspector and toggling sequence change the canvas without
     // resizing the browser window. Keep Mol*'s drawing buffer in step.
@@ -182,8 +197,9 @@ export class MolstarAdapter implements ViewerAdapter {
     });
   }
 
-  async loadCif(cif: string, name: string): Promise<void> {
+  async loadCif(cif: string, name: string, options?: ViewerLoadOptions): Promise<void> {
     if (!this.viewer) throw new Error("Mol* is not initialized");
+    this.liveDataRef = undefined;
     this.displayComponents.clear();
     this.comparisonColors.clear();
     this.annotationGroups = [];
@@ -196,12 +212,89 @@ export class MolstarAdapter implements ViewerAdapter {
     this.context.container.dataset.renderedStructures = "0";
     this.unpositionedAtoms = new Set(unpositionedAtomIndices(cif));
     await this.loadPositionedStructure(cif, name);
-    this.viewer.plugin.managers.camera.reset();
+    // The structure just loaded is what a later live update replaces in place.
+    this.liveDataRef = this.lastDataRef;
+    if (!options?.keepCamera) this.viewer.plugin.managers.camera.reset();
+  }
+
+  /**
+   * Swap the live structure's raw CIF and let Mol* rebuild only what depends on it, so representations, selection and
+   * camera survive. Falls back to a full load if the node has gone.
+   */
+  async updateLiveCif(cif: string, name: string, options?: ViewerLoadOptions): Promise<void> {
+    if (!this.viewer) throw new Error("Mol* is not initialized");
+    const plugin = this.viewer.plugin;
+    const ref = this.liveDataRef;
+    if (!ref || !plugin.state.data.cells.has(ref)) {
+      await this.loadCif(cif, name, options);
+      return;
+    }
+    const excluded = unpositionedAtomIndices(cif);
+    const update = plugin.state.data.build().to(ref).update({ data: cif, label: name });
+    // PositionedStructure captured the previous exclusions as parameters, so they have to travel with the new data:
+    // an edit that adds or removes atoms would otherwise hide the wrong ones.
+    for (const node of plugin.state.data.selectQ(q => q.ofTransformer(PositionedStructure))) {
+      update.to(node).update({ excluded });
+    }
+    await update.commit();
+    this.unpositionedAtoms = new Set(excluded);
+    // Count of in-place updates, so tests can tell them from a scene rebuild.
+    const dataset = this.context.container.dataset;
+    dataset.liveUpdates = String(Number(dataset.liveUpdates ?? 0) + 1);
+    dataset.renderedAtoms = String(
+      plugin.managers.structure.hierarchy.current.structures.reduce((count, entry) => count + (entry.cell.obj?.data.elementCount ?? 0), 0),
+    );
+    if (!options?.keepCamera) plugin.managers.camera.reset();
+  }
+
+  /** See `ViewerAdapter.setOverlayCif`. Overlays are separate structures, so Mol* never bonds across them. */
+  async setOverlayCif(key: string, cif: string | null, options?: ViewerOverlayOptions): Promise<void> {
+    if (!this.viewer) throw new Error("Mol* is not initialized");
+    const plugin = this.viewer.plugin;
+    const dataset = this.context.container.dataset;
+    const current = this.overlayRefs.get(key);
+    // Loading a structure clears the scene, which takes overlays with it.
+    const live = current !== undefined && plugin.state.data.cells.has(current.ref);
+    if (!cif) {
+      if (live) await plugin.state.data.build().delete(current.ref).commit();
+      this.overlayRefs.delete(key);
+      delete dataset[`overlay_${key}`];
+      return;
+    }
+    const label = options?.label ?? key;
+    if (live) {
+      if (current.data !== cif) {
+        await plugin.state.data.build().to(current.ref).update({ data: cif, label }).commit();
+        current.data = cif;
+      }
+      return;
+    }
+    const data = await plugin.builders.data.rawData({ data: cif, label });
+    this.overlayRefs.set(key, { ref: data.ref, data: cif });
+    const trajectory = await plugin.builders.structure.parseTrajectory(data, "mmcif");
+    const model = await plugin.builders.structure.createModel(trajectory);
+    const structure = await plugin.state.data.build().to(model).apply(PositionedStructure, { excluded: [] }).commit();
+    const component = await plugin.builders.structure.tryCreateComponentStatic(structure, "all", { label });
+    if (component) {
+      await plugin.builders.structure.representation.addRepresentation(component, {
+        type: "ball-and-stick",
+        ...(options?.color != null
+          ? { color: "uniform" as const, colorParams: { value: Color(options.color) } }
+          : { color: CHAIN_COLOR_THEME, colorParams: CHAIN_COLOR_THEME_PARAMS }),
+        typeParams: {
+          sizeAspectRatio: options?.sizeAspectRatio ?? 1,
+          ...(options?.alpha != null ? { alpha: options.alpha } : {}),
+        },
+      });
+    }
+    // Atom count drawn per overlay, for tests.
+    dataset[`overlay_${key}`] = String(component ? structure.obj?.data.elementCount ?? 0 : 0);
   }
 
   private async loadPositionedStructure(cif: string, name: string): Promise<string> {
     const plugin = this.viewer!.plugin;
     const data = await plugin.builders.data.rawData({ data: cif, label: name });
+    this.lastDataRef = data.ref;
     const trajectory = await plugin.builders.structure.parseTrajectory(data, "mmcif");
     const model = await plugin.builders.structure.createModel(trajectory);
     const structure = await plugin.state.data.build().to(model).apply(PositionedStructure, {
@@ -209,6 +302,15 @@ export class MolstarAdapter implements ViewerAdapter {
     }).commit();
     if (structure.obj?.data.elementCount) {
       await plugin.builders.structure.representation.applyPreset(structure, "auto");
+      // The preset colours by Mol*'s order-based chain palette, which drifts from the sequence bar as chains are
+      // added or removed. Use the shared id-keyed one instead; the Style menu can still override it.
+      const components = plugin.managers.structure.hierarchy.current.structures
+        .find((entry) => entry.cell.transform.ref === structure.ref)?.components;
+      if (components?.length) {
+        await plugin.managers.structure.component.updateRepresentationsTheme(components, {
+          color: CHAIN_COLOR_THEME, colorParams: CHAIN_COLOR_THEME_PARAMS,
+        });
+      }
     }
     this.context.container.dataset.renderedAtoms = String(
       plugin.managers.structure.hierarchy.current.structures.reduce((count, ref) => count + (ref.cell.obj?.data.elementCount ?? 0), 0),
@@ -233,6 +335,8 @@ export class MolstarAdapter implements ViewerAdapter {
 
   async loadCifs(structures: ViewerStructure[]): Promise<void> {
     if (!this.viewer) throw new Error("Mol* is not initialized");
+    // Comparison mode has no single structure to update in place.
+    this.liveDataRef = undefined;
     this.unpositionedAtoms.clear();
     this.displayComponents.clear();
     this.comparisonColors.clear();

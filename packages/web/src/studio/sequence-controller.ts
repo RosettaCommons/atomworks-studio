@@ -1,6 +1,7 @@
 import { element } from "../dom";
 import type { SelectionController } from "../selection-controller";
 import type { SequenceChain } from "../types";
+import { chainColorCss } from "../chain-colors";
 
 export interface SequenceControllerOptions {
   selection: SelectionController;
@@ -58,6 +59,8 @@ export class SequenceController {
       const label = document.createElement("span");
       label.className = "sequence-chain-label";
       label.textContent = chain.chain_id;
+      // The chain's colour, as in the viewer.
+      row.style.setProperty("--chain-color", chainColorCss(chain.chain_id));
       const track = document.createElement("div");
       track.className = "sequence-track";
       for (const item of chain.items) {

@@ -7,7 +7,8 @@ import {
 } from "@baker-laboratory/patinae-viewer";
 
 import { documentAtomIndices, nativeAtomIndices } from "./atom-identity";
-import { unpositionedAtomIndices } from "./unpositioned-atoms";
+import { carbonIndicesByChain, unpositionedAtomIndices } from "./unpositioned-atoms";
+import { chainColor } from "../chain-colors";
 import {
   ANNOTATION_PALETTE,
   annotationRenderResult,
@@ -164,6 +165,7 @@ export class PatinaeAdapter implements ViewerAdapter {
     if (!this.viewer || this.cif === null) return;
     for (const command of this.displayCommands) await this.executeCommand(command);
     await this.executeCommand("color atomic");
+    await this.applyChainColors();
     for (const command of this.colorCommands) await this.executeCommand(command);
     this.viewer.execute(this.backgroundCommand);
     const coordinateRows = parseAtomSiteBooleanColumn(
@@ -175,6 +177,18 @@ export class PatinaeAdapter implements ViewerAdapter {
     }
     const unpositioned = unpositionedAtomIndices(this.cif);
     if (unpositioned.length) this.viewer.execute(`hide everything, ${this.nativeSelection(unpositioned)}`);
+  }
+
+  /**
+   * Colour carbons by chain from the shared palette, so chains read the same here, in the sequence bar and in Mol*.
+   * Mol* does this with a colour theme; Patinae takes commands, so the same palette is applied per chain.
+   */
+  private async applyChainColors(): Promise<void> {
+    if (!this.viewer || this.cif === null) return;
+    for (const [chain, indices] of carbonIndicesByChain(this.cif)) {
+      const hex = chainColor(chain).toString(16).padStart(6, "0");
+      await this.executeCommand(`color 0x${hex}, ${this.nativeSelection(indices)}`);
+    }
   }
 
   async loadCif(cif: string, name: string): Promise<void> {

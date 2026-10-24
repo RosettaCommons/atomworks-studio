@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import { defineConfig } from "vite";
 import type { Plugin } from "vite";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -47,7 +48,13 @@ function versionServiceWorker(): Plugin {
   };
 }
 
+const { version } = createRequire(import.meta.url)("./package.json") as { version: string };
+
 export default defineConfig({
+  // The release an embedder is talking to, read back through window.atomworksStudio.version.
+  define: {
+    __STUDIO_VERSION__: JSON.stringify(process.env.ANNOTATION_STUDIO_VERSION ?? version),
+  },
   plugins: [patinaeWasmAsset(), versionServiceWorker()],
   server: {
     host: "127.0.0.1",

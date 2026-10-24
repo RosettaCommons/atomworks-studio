@@ -315,6 +315,14 @@ class ConfirmableSelectionRequest(ScopedSelectionRequest):
         return self
 
 
+class ConditionBatchMutation(BaseModel):
+    """Several condition edits applied as one undoable step (see StudioDocument.set_conditions)."""
+
+    edits: list[ConditionMutation] = Field(min_length=1, max_length=32)
+    allow_target_discard: bool = False
+    expected_revision: int | None = Field(default=None, ge=0)
+
+
 class ResetConditionsRequest(BaseModel):
     expected_revision: int = Field(ge=0)
 
@@ -763,6 +771,21 @@ def set_condition(session_id: str, mutation: ConditionMutation) -> dict:
             enabled=mutation.enabled,
             value=mutation.value,
             scope=mutation.scope,
+            allow_target_discard=mutation.allow_target_discard,
+            expected_revision=mutation.expected_revision,
+        ),
+    )
+
+
+@app.post("/api/sessions/{session_id}/conditions/batch")
+def set_conditions(session_id: str, mutation: ConditionBatchMutation) -> dict:
+    return _apply(
+        session_id,
+        lambda document: document.set_conditions(
+            [
+                edit.model_dump(include={"condition", "atom_indices", "enabled", "value", "scope"})
+                for edit in mutation.edits
+            ],
             allow_target_discard=mutation.allow_target_discard,
             expected_revision=mutation.expected_revision,
         ),

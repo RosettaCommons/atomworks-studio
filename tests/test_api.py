@@ -516,3 +516,56 @@ def test_packaged_design_examples_share_a_safe_catalog() -> None:
         assert response.status_code == 200
         assert response.text == (EXAMPLES_DIR / item["file"]).read_text()
     assert client.get("/api/v1/examples/not-an-example/cif").status_code == 404
+
+
+def test_condition_batch_is_one_undoable_step() -> None:
+    """Holding a chain is two conditions at once; applied separately they would be two Undo steps."""
+    session_id = _session()
+    held = {"atom_indices": [0], "scope": "residue"}
+    response = client.post(
+        f"/api/sessions/{session_id}/conditions/batch",
+        json={"edits": [{"condition": "coordinate", **held}, {"condition": "sequence", **held}]},
+    )
+    assert response.status_code == 200, response.text
+    structure = response.json()["structure"]
+    assert structure["undo_depth"] == 1
+    assert structure["revision"] == 1
+    assert structure["condition_counts"]["coordinate"] > 0
+    assert structure["condition_counts"]["sequence"] > 0
+
+    undone = client.post(f"/api/sessions/{session_id}/undo", json={})
+    assert undone.status_code == 200, undone.text
+    counts = undone.json()["structure"]["condition_counts"]
+    assert not counts.get("coordinate") and not counts.get("sequence")
+
+
+def test_condition_batch_rejects_empty_and_stale_revisions() -> None:
+    session_id = _session()
+    empty = client.post(f"/api/sessions/{session_id}/conditions/batch", json={"edits": []})
+    assert empty.status_code == 422, empty.text
+
+    stale = client.post(
+        f"/api/sessions/{session_id}/conditions/batch",
+        json={"expected_revision": 99, "edits": [{"condition": "sequence", "atom_indices": [0]}]},
+    )
+    assert stale.status_code == 409, stale.text
+    assert stale.json()["detail"]["code"] == "revision_conflict"
+
+
+def test_condition_batch_leaves_the_document_untouched_when_one_edit_fails() -> None:
+    """The batch is one transaction: a bad edit must not leave the earlier ones applied."""
+    session_id = _session()
+    response = client.post(
+        f"/api/sessions/{session_id}/conditions/batch",
+        json={
+            "edits": [
+                {"condition": "coordinate", "atom_indices": [0], "scope": "residue"},
+                {"condition": "hbond", "atom_indices": [0], "value": "not-a-number"},
+            ]
+        },
+    )
+    assert response.status_code == 422, response.text
+    structure = client.get(f"/api/sessions/{session_id}").json()["structure"]
+    assert structure["revision"] == 0
+    assert structure["undo_depth"] == 0
+    assert not structure["condition_counts"].get("coordinate")

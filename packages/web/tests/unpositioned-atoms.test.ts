@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { unpositionedAtomIndices } from "../src/viewers/unpositioned-atoms.ts";
+import { carbonIndicesByChain, unpositionedAtomIndices } from "../src/viewers/unpositioned-atoms.ts";
 
 test("dummy origin coordinates are hidden but generated coordinates stay visible", () => {
   const cif = `data_test
@@ -60,4 +60,43 @@ test("single-atom CIF categories hide unresolved placeholders and retain finite 
 test("the unconditioned SAM conformer is visible while its protein segment stays unpositioned", () => {
   const cif = readFileSync(new URL("../../../packages/api/annotation_studio/examples/small_molecule_binder.cif", import.meta.url), "utf8");
   assert.deepEqual(unpositionedAtomIndices(cif), [0]);
+});
+
+test("chain carbons are grouped by label_asym_id in document indices, heteroatoms left out", () => {
+  const cif = `data_test
+loop_
+_atom_site.atom_array_index
+_atom_site.label_asym_id
+_atom_site.type_symbol
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+0 A_1 N 1 0 0
+1 A_1 C 2 0 0
+2 A_1 C 3 0 0
+3 B_1 C 4 0 0
+4 B_1 O 5 0 0
+5 . C 6 0 0
+#
+`;
+  const byChain = carbonIndicesByChain(cif);
+  // Only carbons, so the palette matches the Mol* theme's carbonOnly colouring.
+  assert.deepEqual(byChain.get("A_1"), [1, 2]);
+  assert.deepEqual(byChain.get("B_1"), [3]);
+  // A chain id of "." is absent, not a chain of its own.
+  assert.equal(byChain.has("."), false);
+  assert.deepEqual([...byChain.keys()], ["A_1", "B_1"]);
+});
+
+test("without a chain or element column there is nothing to colour by", () => {
+  const cif = `data_test
+loop_
+_atom_site.atom_array_index
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+0 1 0 0
+#
+`;
+  assert.equal(carbonIndicesByChain(cif).size, 0);
 });

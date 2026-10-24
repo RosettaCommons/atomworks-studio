@@ -1,7 +1,11 @@
 import { unpositionedAtomIndices } from "./viewers/unpositioned-atoms";
 import { TrajectoryController } from "./studio/trajectory-controller";
+import { chainColorCss } from "./chain-colors";
+import { designSummary, ROLE_LABELS } from "./studio/design-summary";
+import { installEmbedApi, notifyEmbedder } from "./studio/embed-api";
+import type { ChainRole, ChainSummary } from "./studio/design-summary";
 import initCifCore, { inspect_cif } from "./wasm/annotation_studio_core.js";
-import { api, apiText } from "./api";
+import { ApiError, api, apiText } from "./api";
 import { applyCapabilities, element, escapeHtml } from "./dom";
 import { SelectionController } from "./selection-controller";
 import { AnalysisController } from "./studio/analysis-controller";
@@ -77,6 +81,7 @@ element<HTMLAnchorElement>("guide-link").addEventListener("click", (event) => {
 });
 
 function notifyHost(type: "ready" | "changed" | "example", task?: string): void {
+  notifyEmbedder(type, { sessionId, ...(task ? { task } : {}) });
   const parentOrigin = query.get("parent_origin");
   if (!parentOrigin || window.parent === window || !sessionId) return;
   try {
@@ -116,6 +121,16 @@ function persistSession(response: SessionResponse, message?: string): void {
   persistSessionStorage(response, message);
 }
 
+/** Show an error the user can do something about. Without `retry` the banner just reports it. */
+function showError(message: string, retry?: () => void): void {
+  log(message, "error");
+  const button = element<HTMLButtonElement>("retry-error");
+  button.hidden = retry === undefined;
+  button.onclick = retry
+    ? () => { element("error-banner").hidden = true; button.hidden = true; retry(); }
+    : null;
+}
+
 function log(message: string, level: "info" | "error" = "info"): void {
   const stamp = new Date().toLocaleTimeString();
   element("status-message").textContent = message.split("\n")[0];
@@ -138,6 +153,7 @@ function updateSelectionUi(): void {
   element("active-selection-count").textContent =
     `${count} atom${count === 1 ? "" : "s"} in active selection`;
   const hasSession = sessionId !== null;
+  updateSelectionActions(count, hasSession);
   conditionController?.updateSelectionUi(hasSession);
   structureEditController?.updateSelectionUi(hasSession);
   element<HTMLButtonElement>("run-analysis").disabled = !hasSession;
@@ -148,6 +164,122 @@ function updateSelectionUi(): void {
   viewerToolbarController?.renderDrawers();
 }
 
+/** Act on the current selection without hunting through the condition list. */
+const SELECTION_ACTIONS: Array<{ id: string; title: string; edits: Array<Record<string, unknown>> }> = [
+  {
+    id: "selection-hold",
+    title: "Keep these residues exactly as they are",
+    edits: [{ condition: "coordinate", enabled: true }, { condition: "sequence", enabled: true }],
+  },
+  {
+    id: "selection-hotspot",
+    title: "Mark these residues as the interface a binder should reach",
+    edits: [{ condition: "hotspot", enabled: true }],
+  },
+  {
+    id: "selection-redesign",
+    title: "Let the model rebuild these residues",
+    edits: [{ condition: "coordinate", enabled: false }, { condition: "sequence", enabled: false }],
+  },
+];
+
+function bindSelectionActions(): void {
+  for (const action of SELECTION_ACTIONS) {
+    element(action.id).addEventListener("click", () => {
+      const atomIndices = [...selectionController.values].sort((first, second) => first - second);
+      if (!atomIndices.length) return;
+      void mutate("/conditions/batch", {
+        expected_revision: lastSummary?.revision,
+        edits: action.edits.map((edit) => ({ ...edit, atom_indices: atomIndices, scope: "residue" })),
+      });
+    });
+  }
+}
+
+function updateSelectionActions(count: number, hasSession: boolean): void {
+  for (const action of SELECTION_ACTIONS) {
+    const button = element<HTMLButtonElement>(action.id);
+    button.disabled = !hasSession || count === 0;
+    // A disabled control that does not say why reads as a broken app.
+    button.title = !hasSession ? "Open a structure first"
+      : count === 0 ? "Select residues in the sequence bar or the viewer first"
+      : action.title;
+  }
+}
+
+/**
+ * The four settable chain roles, as the two conditions that define them: `coordinate` holds the backbone in place
+ * and `sequence` keeps the residue identities. "Partly fixed" is what a mixture reads as, so it can be shown but
+ * not chosen.
+ */
+const SETTABLE_ROLES: Array<{ role: ChainRole; coordinate: boolean; sequence: boolean }> = [
+  { role: "fixed", coordinate: true, sequence: true },
+  { role: "backbone", coordinate: true, sequence: false },
+  { role: "folded", coordinate: false, sequence: true },
+  { role: "designed", coordinate: false, sequence: false },
+];
+
+/** Apply a whole chain's role in one undoable step, so a half-applied role is never reachable. */
+async function setChainRole(chain: ChainSummary, role: ChainRole): Promise<void> {
+  const target = SETTABLE_ROLES.find((entry) => entry.role === role);
+  if (!target || !chain.atomIndices.length) return;
+  await mutate("/conditions/batch", {
+    expected_revision: lastSummary?.revision,
+    edits: [
+      { condition: "coordinate", atom_indices: chain.atomIndices, scope: "residue", enabled: target.coordinate },
+      { condition: "sequence", atom_indices: chain.atomIndices, scope: "residue", enabled: target.sequence },
+    ],
+  });
+}
+
+const range = (min: number, max: number): string => (min === max ? `${min}` : `${min}\u2013${max}`);
+
+/** The Structure card: what this document will design, then the plain facts about the file. */
+function renderDesignSummary(summary: StructureSummary): string {
+  const design = designSummary(summary.sequence);
+  const chains = design.chains.map((chain) => {
+    const detail = chain.role === "new" || chain.role === "ligand"
+      ? (chain.ligands.join(", ") || `${range(chain.lengthMin, chain.lengthMax)} residues`)
+      : `${chain.residues} residues`;
+    const hotspots = chain.hotspots ? `, ${chain.hotspots} hotspot${chain.hotspots === 1 ? "" : "s"}` : "";
+    // Chains with residues to condition get a role control; new chains and ligands have nothing to set.
+    const settable = chain.residues > 0;
+    const options = SETTABLE_ROLES.map(({ role }) =>
+      `<option value="${role}"${role === chain.role ? " selected" : ""}>${escapeHtml(ROLE_LABELS[role])}</option>`);
+    if (!SETTABLE_ROLES.some((entry) => entry.role === chain.role)) {
+      options.unshift(`<option value="" selected>${escapeHtml(ROLE_LABELS[chain.role])}</option>`);
+    }
+    const control = settable
+      ? `<select class="chain-role" data-chain="${escapeHtml(chain.id)}"
+           aria-label="Role for chain ${escapeHtml(chain.id)}">${options.join("")}</select>`
+      : `<span>${escapeHtml(ROLE_LABELS[chain.role])}</span>`;
+    return `<li style="--chain-color:${chainColorCss(chain.id)}">
+      <span class="chain-tag">${escapeHtml(chain.id)}</span>
+      ${control}
+      <span class="muted">${escapeHtml(detail + hotspots)}</span>
+    </li>`;
+  }).join("");
+  const warnings = design.warnings
+    .map((warning) => `<p class="design-warning">${escapeHtml(warning)}</p>`).join("");
+  const designing = design.designedMax
+    ? `<dt>Designing</dt><dd>${range(design.designedMin, design.designedMax)} of
+       ${range(design.totalMin, design.totalMax)} residues</dd>`
+    : "";
+  const contig = design.contig ? `<dt>Contig</dt><dd><code>${escapeHtml(design.contig)}</code></dd>` : "";
+  return `
+    <p class="design-task"><strong>${escapeHtml(design.task.label)}</strong>
+      <span class="muted">${escapeHtml(design.task.detail)}</span></p>
+    ${chains ? `<ul class="design-chains">${chains}</ul>` : ""}
+    ${warnings}
+    <dl class="summary-grid">
+      <dt>Name</dt><dd>${escapeHtml(summary.name)}</dd>
+      <dt>Atoms</dt><dd>${summary.atom_count.toLocaleString()}</dd>
+      ${designing}
+      ${contig}
+      <dt>Undo</dt><dd>${summary.undo_depth}/10</dd>
+    </dl>`;
+}
+
 function renderSummary(summary: StructureSummary): void {
   lastSummary = summary;
   analysisController?.clearBondInspection();
@@ -155,13 +287,7 @@ function renderSummary(summary: StructureSummary): void {
   element("empty-state").hidden = true;
   element<HTMLDetailsElement>("examples-panel").open = false;
   summaryElement.classList.remove("muted");
-  summaryElement.innerHTML = `
-    <dl class="summary-grid">
-      <dt>Name</dt><dd>${escapeHtml(summary.name)}</dd>
-      <dt>Atoms</dt><dd>${summary.atom_count.toLocaleString()}</dd>
-      <dt>Chains</dt><dd>${escapeHtml(summary.chain_ids.join(", ") || "—")}</dd>
-      <dt>Undo</dt><dd>${summary.undo_depth}/10</dd>
-    </dl>`;
+  summaryElement.innerHTML = renderDesignSummary(summary);
   sequenceController?.render(summary.sequence);
   annotationController?.render(summary.annotations);
   structureEditController?.updateNextChainId(summary.next_chain_id);
@@ -183,7 +309,11 @@ function enableSessionControls(enabled: boolean): void {
   updateSelectionUi();
 }
 
-async function loadViewerCif(cif: string, name: string): Promise<void> {
+/**
+ * `live` is for a refresh of the document already on screen (after an edit): the viewer updates in place and keeps
+ * the camera, so an edit no longer throws away the view the user had set up. A different document loads normally.
+ */
+async function loadViewerCif(cif: string, name: string, live = false): Promise<void> {
   const wasmSummary = inspect_cif(cif) as {
     atom_count: number;
     finite_atom_count: number;
@@ -203,7 +333,8 @@ async function loadViewerCif(cif: string, name: string): Promise<void> {
     log("No coordinates to display. The design's sequence and conditions remain editable.");
     return;
   }
-  await molecularViewer.loadCif(cif, name);
+  if (live) await molecularViewer.renderLiveCif(cif, name, { keepCamera: true });
+  else await molecularViewer.loadCif(cif, name);
   if (!molecularViewer.initialized) {
     log(
       `Imported ${wasmSummary.atom_count} atoms while the renderer is unavailable; ` +
@@ -270,7 +401,8 @@ async function refreshFromServer(summary?: StructureSummary, preserveSelection =
   if (!sessionId) return;
   const cif = await apiText(`/api/sessions/${sessionId}/cif`);
   const refresh = async () => {
-    await loadViewerCif(cif, currentName);
+    // preserveSelection marks a refresh of the same document; a new document arrives with it false.
+    await loadViewerCif(cif, currentName, preserveSelection);
     if (summary) renderSummary(summary);
     if (preserveSelection) {
       if (summary) selectionController.retainValid(summary.atom_count);
@@ -363,8 +495,60 @@ function mutate(path: string, body?: unknown, propagateError = false): Promise<v
   });
 }
 
+/**
+ * Reopen the session this tab was last editing.
+ *
+ * A failure here used to be swallowed, with the stored session dropped and the editor left looking as though nothing
+ * had ever been open — so a server restart or a dropped connection read as "your document is gone". Only a session
+ * the server says is missing is forgotten; anything else keeps it, says so, and offers another go.
+ */
+async function restoreSession(savedSession: string): Promise<boolean> {
+  try {
+    const restored = await api<SessionResponse>(`/api/sessions/${savedSession}`);
+    // Only adopt the id once the server has confirmed the session, or the editor points at a document that is gone.
+    sessionId = savedSession;
+    currentName = restored.structure.name;
+    await refreshFromServer(restored.structure);
+    persistSession(restored);
+    enableSessionControls(true);
+    notifyHost("ready");
+    const message = sessionStorage.getItem("annotation-studio-message");
+    sessionStorage.removeItem("annotation-studio-message");
+    log(message ?? "Restored native AtomWorks session.");
+    return true;
+  } catch (error) {
+    sessionId = null;
+    const gone = error instanceof ApiError && (error.status === 404 || error.status === 403);
+    if (gone) {
+      const name = sessionStorage.getItem("annotation-studio-name");
+      sessionStorage.removeItem("annotation-studio-session");
+      sessionStorage.removeItem("annotation-studio-name");
+      showError(
+        `The session this tab was editing${name ? ` (${name})` : ""} is no longer on the server. `
+        + "Open the CIF again to carry on; your original file is unchanged.",
+      );
+    } else {
+      // Keep the stored session: the document is probably still there and the next attempt may reach it.
+      showError(
+        `Could not reach the server to reopen your session: ${String(error)}. `
+        + "Your work is still on the server.",
+        () => void restoreSession(savedSession),
+      );
+    }
+    return false;
+  }
+}
+
 async function initialize(): Promise<void> {
   element("dismiss-error").addEventListener("click", () => { element("error-banner").hidden = true; });
+  bindSelectionActions();
+  // The card is rebuilt on every refresh, so the role controls are handled by delegation.
+  summaryElement.addEventListener("change", (event) => {
+    const select = (event.target as HTMLElement).closest<HTMLSelectElement>("select.chain-role");
+    if (!select?.value || !lastSummary) return;
+    const chain = designSummary(lastSummary.sequence).chains.find((entry) => entry.id === select.dataset.chain);
+    if (chain) void setChainRole(chain, select.value as ChainRole);
+  });
   document.body.classList.toggle("embedded", query.get("embed") === "1");
   const host = query.get("host");
   document.body.classList.toggle("host-vscode", host === "vscode");
@@ -485,6 +669,48 @@ async function initialize(): Promise<void> {
   structureEditController.bind();
   sessionFileController.bind();
   await sessionFileController.initializeExamples();
+
+  // Everything a same-page host drives Studio through. Each entry goes through the same path as the UI.
+  installEmbedApi({
+    version: __STUDIO_VERSION__,
+    renderFrame: (cif, name, options) => runVisualUpdate(async () => {
+      if (!molecularViewer.initialized) return;
+      element("empty-state").hidden = true;
+      element("unpositioned-state").hidden = true;
+      element("coordinate-summary").hidden = true;
+      await molecularViewer.renderLiveCif(cif, name, options);
+    }),
+    setOverlay: (key, cif, options) => runVisualUpdate(async () => {
+      if (molecularViewer.initialized) await molecularViewer.setOverlayCif(key, cif, options);
+    }),
+    showDocument: async () => { if (sessionId) await refreshFromServer(lastSummary ?? undefined); },
+    openSession: (id, options) => runViewerUpdate(async () => {
+      trajectoryController?.dispose();
+      trajectoryController = null;
+      const response = await api<SessionResponse>(`/api/sessions/${id}`);
+      sessionId = id;
+      currentName = response.structure.name;
+      selectionController.clear();
+      await molecularViewer.clearAllVisuals();
+      persistSession(response);
+      await refreshFromServer(response.structure, false);
+      enableSessionControls(true);
+      const trajectoryUrl = options?.trajectoryUrl;
+      if (trajectoryUrl) {
+        trajectoryController = new TrajectoryController(molecularViewer, async () => {
+          await molecularViewer.clearAllVisuals();
+          await refreshFromServer();
+        }, log);
+        trajectoryController.bind(trajectoryUrl);
+      }
+      notifyHost("ready");
+    }),
+    openFile: async (file) => (await sessionFileController?.open(file)) ?? false,
+    openExample: async (id) => { await sessionFileController?.loadPendingExample(id); },
+    applyEdit: (path, body) => mutate(path, body, true),
+    getSelection: () => [...selectionController.values].sort((first, second) => first - second),
+    chainColor: chainColorCss,
+  });
   pickScope.addEventListener("change", () => {
     selectionController.setScope(pickScope.value as SelectionScope);
   });
@@ -525,22 +751,7 @@ async function initialize(): Promise<void> {
   const example = query.get("example");
   const savedSession = query.get("session") ?? (example ? null : sessionStorage.getItem("annotation-studio-session"));
   if (savedSession) {
-    try {
-      sessionId = savedSession;
-      const restored = await api<SessionResponse>(`/api/sessions/${sessionId}`);
-      currentName = restored.structure.name;
-      await refreshFromServer(restored.structure);
-      persistSession(restored);
-      enableSessionControls(true);
-      notifyHost("ready");
-      const message = sessionStorage.getItem("annotation-studio-message");
-      sessionStorage.removeItem("annotation-studio-message");
-      log(message ?? "Restored native AtomWorks session.");
-      restoredSession = true;
-    } catch {
-      sessionStorage.removeItem("annotation-studio-session");
-      sessionStorage.removeItem("annotation-studio-name");
-    }
+    restoredSession = await restoreSession(savedSession);
   }
   if (restoredSession && query.get("trajectory")) {
     trajectoryController = new TrajectoryController(molecularViewer, async () => {
@@ -561,4 +772,9 @@ if (import.meta.env.PROD && window.parent === window && "serviceWorker" in navig
   void navigator.serviceWorker.register("/sw.js").catch(error => console.warn("Offline installation unavailable", error));
 }
 
-void initialize().catch((error) => log(`Initialization failed: ${String(error)}`, "error"));
+// Starting up talks to the server several times, so a restart or a dropped connection lands here. Anything stored
+// for this tab is left alone — reloading once the server is back reopens the document.
+void initialize().catch((error) => showError(
+  `Could not start: ${String(error)}. Nothing has been lost; try again once the server is reachable.`,
+  () => location.reload(),
+));

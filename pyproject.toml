@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "atomworks-studio"
-version = "0.0.2"
+version = "0.0.3"
 description = "Inspect and edit annotated molecular structures"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"

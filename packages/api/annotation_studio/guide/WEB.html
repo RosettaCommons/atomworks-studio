@@ -60,6 +60,25 @@ runtime failure still switches to Mol* to preserve the open document.</p>
 Viewer menus and Escape do not hide it. <strong>Backend</strong> contains the renderer selector;
 the command catalog appears there only when the renderer supports it.</p>
 </section>
+<section id="see-what-a-document-will-design">
+<h2>See what a document will design<a class="headerlink" href="#see-what-a-document-will-design" title="Link to this heading">¶</a></h2>
+<p>The <strong>Structure</strong> card leads with the task the open document amounts to — binder
+design, motif scaffolding, inverse folding and so on — then a role per chain, the
+designed and total lengths, and the contig the conditions add up to. All of it is
+read back from the conditions already on the document, so it follows every edit.</p>
+<p>Each chain with residues carries a role: <strong>Fixed</strong> keeps it exactly as it is,
+<strong>Sequence redesigned</strong> keeps the backbone, <strong>Fold predicted</strong> keeps the sequence,
+and <strong>Redesigned</strong> holds nothing. Choosing one applies both underlying conditions
+in a single step, so <strong>Undo</strong> goes back to before the change rather than into the
+middle of it. <strong>Hold fixed</strong>, <strong>Mark hotspot</strong> and <strong>Redesign</strong> do the same for the
+current selection.</p>
+<p>Two set-ups produce a valid file and a wasted run, so the card warns about them:
+a document where nothing is held (everything will be redesigned), and a binder
+whose target has no hotspots, where the model often returns a copy of the target
+instead of a binder.</p>
+<p>An empty editor offers the bundled examples as task cards, each saying what it
+designs.</p>
+</section>
 <section id="load-a-structure">
 <h2>Load a structure<a class="headerlink" href="#load-a-structure" title="Link to this heading">¶</a></h2>
 <p><strong>Main → Structure → Reset conditions to defaults</strong> resets all conditions on the

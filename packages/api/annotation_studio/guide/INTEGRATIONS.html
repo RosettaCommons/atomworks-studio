@@ -116,6 +116,66 @@ For an iframe, allow the parent’s exact origin with
 <code class="docutils literal notranslate"><span class="pre">ANNOTATION_STUDIO_FRAME_ANCESTORS</span></code>. Sessions are bounded, expire, and use one
 server process. Export files before submitting a long-running inference job.</p>
 </section>
+<section id="embedding-studio-in-a-page">
+<h2>Embedding Studio in a page<a class="headerlink" href="#embedding-studio-in-a-page" title="Link to this heading">¶</a></h2>
+<p>An iframe host drives Studio over <code class="docutils literal notranslate"><span class="pre">postMessage</span></code> and the HTTP API, as above. A host
+that runs in the <em>same</em> page — a model running in the browser, a notebook, a Space
+that streams results — uses <code class="docutils literal notranslate"><span class="pre">window.atomworksStudio</span></code> instead. It appears once the
+editor has started, and every call goes through the same path as the UI, so an edit
+is one Undo step and the document on the server stays the source of truth.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Call</p></th>
+<th class="head"><p>What it does</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">renderFrame(cif,</span> <span class="pre">name,</span> <span class="pre">{</span> <span class="pre">keepCamera</span> <span class="pre">})</span></code></p></td>
+<td><p>Show one frame of a structure you are producing. Successive calls replace it in place, so the scene does not flash.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">setOverlay(key,</span> <span class="pre">cif,</span> <span class="pre">options)</span></code></p></td>
+<td><p>Show a display-only structure beside the document; <code class="docutils literal notranslate"><span class="pre">null</span></code> removes it. Overlays take no part in selection, annotation or analysis.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">showDocument()</span></code></p></td>
+<td><p>Go back to the open document after frames or a failed run.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">openSession(id,</span> <span class="pre">{</span> <span class="pre">trajectoryUrl</span> <span class="pre">})</span></code></p></td>
+<td><p>Open a session you created, optionally with a trajectory to scrub.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">openFile(file)</span></code> / <code class="docutils literal notranslate"><span class="pre">openExample(id)</span></code></p></td>
+<td><p>Open a file you already have, or a bundled example.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">applyEdit(path,</span> <span class="pre">body)</span></code></p></td>
+<td><p>Apply a document mutation by API path, e.g. <code class="docutils literal notranslate"><span class="pre">/conditions/batch</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">getSelection()</span></code></p></td>
+<td><p>The selection, as document atom indices.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">chainColor(chainId)</span></code></p></td>
+<td><p>The colour Studio draws a chain in, so your own UI can match.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">version</span></code></p></td>
+<td><p>The Studio release the page was built from.</p></td>
+</tr>
+</tbody>
+</table>
+<p>A host that serves the bundle itself usually does not want Studio’s offline cache
+pinning its assets. Turn it off in the composed page:</p>
+<div class="highlight-html notranslate"><div class="highlight"><pre><span></span><span class="p">&lt;</span><span class="nt">meta</span> <span class="na">name</span><span class="o">=</span><span class="s">&quot;atomworks-studio-service-worker&quot;</span> <span class="na">content</span><span class="o">=</span><span class="s">&quot;off&quot;</span> <span class="p">/&gt;</span>
+</pre></div>
+</div>
+<p>Same-page hosts receive the <code class="docutils literal notranslate"><span class="pre">ready</span></code>, <code class="docutils literal notranslate"><span class="pre">changed</span></code> and <code class="docutils literal notranslate"><span class="pre">example</span></code> notifications an iframe
+host gets over <code class="docutils literal notranslate"><span class="pre">postMessage</span></code>, as an <code class="docutils literal notranslate"><span class="pre">atomworks-studio</span></code> window event carrying the same
+payload (<code class="docutils literal notranslate"><span class="pre">source</span></code>, <code class="docutils literal notranslate"><span class="pre">type</span></code>, <code class="docutils literal notranslate"><span class="pre">session_id</span></code>), plus <code class="docutils literal notranslate"><span class="pre">selection</span></code> with a <code class="docutils literal notranslate"><span class="pre">count</span></code> whenever the
+selection changes.</p>
+<div class="highlight-js notranslate"><div class="highlight"><pre><span></span><span class="nb">window</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="s2">&quot;atomworks-studio&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">detail</span><span class="p">.</span><span class="nx">type</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s2">&quot;changed&quot;</span><span class="p">)</span><span class="w"> </span><span class="nx">refreshMyPanel</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">detail</span><span class="p">.</span><span class="nx">sessionId</span><span class="p">);</span>
+<span class="p">});</span>
+<span class="k">await</span><span class="w"> </span><span class="nb">window</span><span class="p">.</span><span class="nx">atomworksStudio</span><span class="p">.</span><span class="nx">openExample</span><span class="p">(</span><span class="s2">&quot;motif_scaffolding&quot;</span><span class="p">);</span>
+<span class="k">await</span><span class="w"> </span><span class="nb">window</span><span class="p">.</span><span class="nx">atomworksStudio</span><span class="p">.</span><span class="nx">renderFrame</span><span class="p">(</span><span class="nx">cif</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;step 12&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">keepCamera</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">});</span>
+</pre></div>
+</div>
+</section>
 <section id="hugging-face-spaces">
 <h2>Hugging Face Spaces<a class="headerlink" href="#hugging-face-spaces" title="Link to this heading">¶</a></h2>
 <p>The <a class="reference external" href="https://github.com/RosettaCommons/atomworks-studio/tree/main/examples/space">Docker Space example</a>

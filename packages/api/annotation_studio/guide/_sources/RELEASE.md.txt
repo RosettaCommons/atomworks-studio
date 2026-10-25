@@ -33,6 +33,17 @@ Optional destinations:
   Earlier versions are retained. The documentation archive is always attached
   to the GitHub release, even when Pages is disabled.
 
+## Release downloads
+
+Each release attaches the wheel and source archive, the VSIX, the documentation
+archive, `atomworks-studio-web.tar.gz`, and `SHA256SUMS`.
+
+`atomworks-studio-web.tar.gz` is the built browser application on its own, for hosts
+that embed Studio through `window.atomworksStudio` (see
+[Embedding Studio in a page](INTEGRATIONS.md#embedding-studio-in-a-page)) and serve
+the files themselves rather than installing the wheel. It is extracted from the
+wheel that was just verified, so the two are identical by construction.
+
 ## Cut a release
 
 1. Update `VERSION` and the Python, JavaScript, and Rust package versions.

@@ -66,6 +66,16 @@ Earlier versions are retained. The documentation archive is always attached
 to the GitHub release, even when Pages is disabled.</p></li>
 </ul>
 </section>
+<section id="release-downloads">
+<h2>Release downloads<a class="headerlink" href="#release-downloads" title="Link to this heading">¶</a></h2>
+<p>Each release attaches the wheel and source archive, the VSIX, the documentation
+archive, <code class="docutils literal notranslate"><span class="pre">atomworks-studio-web.tar.gz</span></code>, and <code class="docutils literal notranslate"><span class="pre">SHA256SUMS</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">atomworks-studio-web.tar.gz</span></code> is the built browser application on its own, for hosts
+that embed Studio through <code class="docutils literal notranslate"><span class="pre">window.atomworksStudio</span></code> (see
+<a class="reference internal" href="INTEGRATIONS.html#embedding-studio-in-a-page"><span class="std std-ref">Embedding Studio in a page</span></a>) and serve
+the files themselves rather than installing the wheel. It is extracted from the
+wheel that was just verified, so the two are identical by construction.</p>
+</section>
 <section id="cut-a-release">
 <h2>Cut a release<a class="headerlink" href="#cut-a-release" title="Link to this heading">¶</a></h2>
 <ol class="arabic simple">

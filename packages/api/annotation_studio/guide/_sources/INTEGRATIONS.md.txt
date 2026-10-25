@@ -69,6 +69,46 @@ For an iframe, allow the parent's exact origin with
 `ANNOTATION_STUDIO_FRAME_ANCESTORS`. Sessions are bounded, expire, and use one
 server process. Export files before submitting a long-running inference job.
 
+## Embedding Studio in a page
+
+An iframe host drives Studio over `postMessage` and the HTTP API, as above. A host
+that runs in the *same* page — a model running in the browser, a notebook, a Space
+that streams results — uses `window.atomworksStudio` instead. It appears once the
+editor has started, and every call goes through the same path as the UI, so an edit
+is one Undo step and the document on the server stays the source of truth.
+
+| Call | What it does |
+| --- | --- |
+| `renderFrame(cif, name, { keepCamera })` | Show one frame of a structure you are producing. Successive calls replace it in place, so the scene does not flash. |
+| `setOverlay(key, cif, options)` | Show a display-only structure beside the document; `null` removes it. Overlays take no part in selection, annotation or analysis. |
+| `showDocument()` | Go back to the open document after frames or a failed run. |
+| `openSession(id, { trajectoryUrl })` | Open a session you created, optionally with a trajectory to scrub. |
+| `openFile(file)` / `openExample(id)` | Open a file you already have, or a bundled example. |
+| `applyEdit(path, body)` | Apply a document mutation by API path, e.g. `/conditions/batch`. |
+| `getSelection()` | The selection, as document atom indices. |
+| `chainColor(chainId)` | The colour Studio draws a chain in, so your own UI can match. |
+| `version` | The Studio release the page was built from. |
+
+A host that serves the bundle itself usually does not want Studio's offline cache
+pinning its assets. Turn it off in the composed page:
+
+```html
+<meta name="atomworks-studio-service-worker" content="off" />
+```
+
+Same-page hosts receive the `ready`, `changed` and `example` notifications an iframe
+host gets over `postMessage`, as an `atomworks-studio` window event carrying the same
+payload (`source`, `type`, `session_id`), plus `selection` with a `count` whenever the
+selection changes.
+
+```js
+window.addEventListener("atomworks-studio", (event) => {
+  if (event.detail.type === "changed") refreshMyPanel(event.detail.sessionId);
+});
+await window.atomworksStudio.openExample("motif_scaffolding");
+await window.atomworksStudio.renderFrame(cif, "step 12", { keepCamera: true });
+```
+
 ## Hugging Face Spaces
 
 The [Docker Space example](https://github.com/RosettaCommons/atomworks-studio/tree/main/examples/space)

@@ -352,6 +352,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/conditions/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** V1 Set Conditions */
+        post: operations["v1_set_conditions_api_v1_sessions__session_id__conditions_batch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions/{session_id}/conditions/reset": {
         parameters: {
             query?: never;
@@ -760,6 +777,21 @@ export interface components {
         CombineMutation: {
             /** Session Ids */
             session_ids: string[];
+        };
+        /**
+         * ConditionBatchMutation
+         * @description Several condition edits applied as one undoable step (see StudioDocument.set_conditions).
+         */
+        ConditionBatchMutation: {
+            /**
+             * Allow Target Discard
+             * @default false
+             */
+            allow_target_discard: boolean;
+            /** Edits */
+            edits: components["schemas"]["ConditionMutation"][];
+            /** Expected Revision */
+            expected_revision?: number | null;
         };
         /** ConditionMutation */
         ConditionMutation: {
@@ -1689,6 +1721,43 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ConditionMutation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    v1_set_conditions_api_v1_sessions__session_id__conditions_batch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConditionBatchMutation"];
             };
         };
         responses: {

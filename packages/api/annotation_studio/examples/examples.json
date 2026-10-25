@@ -1,54 +1,63 @@
 [
   {
-    "label": "Protein binder \u00b7 PD-L1",
+    "label": "Protein binder · PD-L1",
+    "description": "Design a new protein that binds a fixed target.",
     "file": "protein_binder.cif",
     "task": "unconditional",
     "id": "protein_binder"
   },
   {
-    "label": "Antibody \u00b7 HER2 CDR H3",
+    "label": "Antibody · HER2 CDR H3",
+    "description": "Redesign the CDR H3 loop of an antibody against its target.",
     "file": "antibody_design.cif",
     "task": "antibody_design",
     "id": "antibody_design"
   },
   {
-    "label": "Enzyme \u00b7 catalytic motif",
+    "label": "Enzyme · catalytic motif",
+    "description": "Place catalytic residues and build a pocket around the ligand.",
     "file": "enzyme_design.cif",
     "task": "enzyme_design",
     "id": "enzyme_design"
   },
   {
-    "label": "Inverse folding \u00b7 2KL8",
+    "label": "Inverse folding · 2KL8",
+    "description": "Keep a backbone and design a new sequence for it.",
     "file": "inverse_folding.cif",
     "task": "inverse_folding",
     "id": "inverse_folding"
   },
   {
-    "label": "Motif scaffolding \u00b7 1QJG",
+    "label": "Motif scaffolding · 1QJG",
+    "description": "Keep a few key residues and build the rest of the fold around them.",
     "file": "motif_scaffolding.cif",
     "task": "motif_scaffolding",
     "id": "motif_scaffolding"
   },
   {
-    "label": "VHH \u00b7 PD-L1 CDRs",
+    "label": "VHH · PD-L1 CDRs",
+    "description": "Design the CDR loops of a VHH against its target.",
     "file": "nanobody.cif",
     "task": "antibody_design",
     "id": "nanobody"
   },
   {
-    "label": "Partial diffusion \u00b7 2KL8",
-    "file": "inverse_folding.cif",
+    "label": "Partial diffusion · 2KL8",
+    "description": "Make variants that stay close to a starting fold.",
+    "file": "partial_diffusion.cif",
     "task": "partial_diffusion",
     "id": "partial_diffusion"
   },
   {
-    "label": "Small-molecule binder \u00b7 SAM",
+    "label": "Small-molecule binder · SAM",
+    "description": "Design a protein pocket around a small molecule.",
     "file": "small_molecule_binder.cif",
     "task": "small_molecule_binder",
     "id": "small_molecule_binder"
   },
   {
     "label": "Unconditional protein",
+    "description": "Generate a new protein fold of the length you choose.",
     "file": "unconditional.cif",
     "task": "unconditional",
     "id": "unconditional"

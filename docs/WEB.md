@@ -28,6 +28,28 @@ The editor stays visible beside the molecule, or below it in narrow windows.
 Viewer menus and Escape do not hide it. **Backend** contains the renderer selector;
 the command catalog appears there only when the renderer supports it.
 
+## See what a document will design
+
+The **Structure** card leads with the task the open document amounts to — binder
+design, motif scaffolding, inverse folding and so on — then a role per chain, the
+designed and total lengths, and the contig the conditions add up to. All of it is
+read back from the conditions already on the document, so it follows every edit.
+
+Each chain with residues carries a role: **Fixed** keeps it exactly as it is,
+**Sequence redesigned** keeps the backbone, **Fold predicted** keeps the sequence,
+and **Redesigned** holds nothing. Choosing one applies both underlying conditions
+in a single step, so **Undo** goes back to before the change rather than into the
+middle of it. **Hold fixed**, **Mark hotspot** and **Redesign** do the same for the
+current selection.
+
+Two set-ups produce a valid file and a wasted run, so the card warns about them:
+a document where nothing is held (everything will be redesigned), and a binder
+whose target has no hotspots, where the model often returns a copy of the target
+instead of a binder.
+
+An empty editor offers the bundled examples as task cards, each saying what it
+designs.
+
 ## Load a structure
 
 **Main → Structure → Reset conditions to defaults** resets all conditions on the

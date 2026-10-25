@@ -51,6 +51,7 @@
 
       <div id="error-banner" role="alert" hidden>
         <strong>Error</strong><span id="error-message"></span>
+        <button id="retry-error" class="secondary" hidden>Retry</button>
         <button id="dismiss-error" class="secondary" aria-label="Dismiss error">Dismiss</button>
       </div>
       <section id="workspace" class="workspace">
@@ -208,9 +209,10 @@
             </div>
           </div>
           <div id="empty-state" class="empty-state">
-            <div class="empty-state-inner">
-              <h2>Open a structure</h2>
-              <p>Choose a CIF file to inspect and annotate.<br />Or start with an example in the Edit panel.</p>
+            <div class="empty-state-inner empty-state-start">
+              <h2>What do you want to design?</h2>
+              <p>Start from a worked example, or open your own structure.</p>
+              <div id="example-cards" class="example-cards"></div>
               <button id="empty-open" class="secondary" type="button">Open CIF…</button>
             </div>
           </div>
@@ -249,6 +251,11 @@
           <section class="card editor-document">
             <h2>Structure</h2>
             <div id="structure-summary" class="muted">Open an annotated CIF to begin.</div>
+            <div class="button-row selection-actions">
+              <button id="selection-hold" class="secondary compact" disabled>Hold fixed</button>
+              <button id="selection-hotspot" class="secondary compact" disabled>Mark hotspot</button>
+              <button id="selection-redesign" class="secondary compact" disabled>Redesign</button>
+            </div>
             <p id="coordinate-summary" class="muted" hidden></p>
             <p id="structure-edit-feedback" class="inline-feedback muted" aria-live="polite">
               Open a structure to begin.

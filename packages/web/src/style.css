@@ -24,6 +24,8 @@
   --danger-soft: #4b252d;
   --success: #45b99a;
   --success-soft: #173a33;
+  --warning: #e0a53f;
+  --warning-soft: #3b2f17;
   --condition-sequence: #56b4e9;
   --condition-coordinate: #e69f00;
   --condition-hotspot: #d55e00;
@@ -246,8 +248,20 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .summary-grid dt { color: var(--text-subtle); }
 .summary-grid dd { margin: 0; overflow-wrap: anywhere; }
 .sequence-view { display: grid; gap: 7px; margin-top: 8px; max-height: 190px; overflow: auto; }
-.sequence-chain { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 6px; align-items: start; }
-.sequence-chain-label { padding-top: 4px; color: var(--text-muted); font: 10px var(--font-mono); }
+/* --chain-color comes from src/chain-colors.ts, shared with the viewer's "studio-chain" theme. */
+.sequence-chain {
+  display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 6px; align-items: start;
+  --chain-color: var(--text-muted);
+}
+.sequence-chain-label {
+  align-self: start;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--chain-color);
+  color: #101114;
+  font: 700 10px var(--font-mono);
+  text-align: center;
+}
 .sequence-track {
   display: flex; flex-wrap: wrap; align-content: start; gap: 1px;
   font-family: var(--font-mono);
@@ -429,3 +443,37 @@ body.host-vscode[data-host-theme="high-contrast-light"] {
 .error-text { color: #f87171 !important; font-weight: 600; }
 .import-dialog { width: min(560px, 90vw); max-height: 85vh; overflow-y: auto; }
 #import-settings p { line-height: 1.5; }
+
+/* Structure card: what the open document will design (src/studio/design-summary.ts). */
+.design-task { margin: 0 0 8px; font-size: 13px; }
+.design-task .muted { display: block; margin-top: 2px; }
+.design-chains { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 4px; font-size: 12px; }
+.design-chains li {
+  display: grid; grid-template-columns: 22px auto minmax(0, 1fr); gap: 6px; align-items: center;
+  border-left: 2px solid var(--chain-color); padding-left: 6px;
+}
+.design-chains .chain-role { padding: 1px 4px; font-size: 12px; }
+.design-chains .chain-tag {
+  padding: 1px 4px; border-radius: 3px; background: var(--chain-color);
+  color: #101114; font: 700 10px var(--font-mono); text-align: center;
+}
+.design-warning {
+  margin: 0 0 8px; padding: 6px 8px; font-size: 12px;
+  border-left: 3px solid var(--warning); background: var(--warning-soft);
+}
+
+/* Empty editor: the bundled examples as task cards. */
+/* The start screen needs room for a grid of cards; the other empty states stay narrow. */
+.empty-state-start { max-width: min(620px, 100%); max-height: 100%; overflow: auto; }
+.example-cards {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px; margin: 14px 0; text-align: left;
+}
+.example-card {
+  display: grid; gap: 3px; padding: 8px 10px; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--surface-card); color: var(--text);
+  cursor: pointer; text-align: left;
+}
+.example-card:hover { border-color: var(--border-strong); background: var(--surface-raised); }
+.example-card strong { font-size: 13px; }
+.example-card span { color: var(--text-muted); font-size: 12px; line-height: 1.35; }

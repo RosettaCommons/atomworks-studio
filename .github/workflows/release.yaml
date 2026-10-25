@@ -77,6 +77,10 @@ jobs:
           mkdir release
           cp artifacts/dist/* artifacts/packages/vscode/*.vsix release/
           tar -czf release/atomworks-studio-docs.tar.gz -C documentation .
+          # The browser bundle on its own, for hosts that embed Studio through
+          # window.atomworksStudio without installing the wheel.
+          python3 scripts/extract_web_bundle.py artifacts/dist/*.whl web-bundle
+          tar -czf release/atomworks-studio-web.tar.gz -C web-bundle .
           cd release
           sha256sum *.whl *.tar.gz *.vsix > SHA256SUMS
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2

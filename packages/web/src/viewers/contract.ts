@@ -122,6 +122,17 @@ export type AnnotationGroup = {
 
 export type ViewerMarker = { label: string; position: [number, number, number]; color: number };
 
+/** `keepCamera` leaves the view where it is, for successive frames of the same structure. */
+export type ViewerLoadOptions = { keepCamera?: boolean };
+
+/** How a display-only overlay structure is drawn (ball-and-stick; element colours unless `color` is set). */
+export type ViewerOverlayOptions = {
+  label?: string;
+  alpha?: number;
+  color?: number;
+  sizeAspectRatio?: number;
+};
+
 export type AnnotationColor = {
   name: string;
   value: number;
@@ -147,7 +158,19 @@ export interface ViewerAdapter {
   readonly backend: ViewerBackend;
   readonly capabilities: ViewerCapabilities;
   initialize(): Promise<void>;
-  loadCif(cif: string, name: string): Promise<void>;
+  loadCif(cif: string, name: string, options?: ViewerLoadOptions): Promise<void>;
+  /**
+   * Replace the shown structure's data in place, without rebuilding the scene. Loading a structure clears the whole
+   * scene, which flashes between frames and throws away the camera; this keeps representations, selection and camera.
+   * Optional: backends that cannot do it are driven through `loadCif` instead.
+   */
+  updateLiveCif?(cif: string, name: string, options?: ViewerLoadOptions): Promise<void>;
+  /**
+   * Show a display-only structure under `key`, kept separate from the main one so the viewer never infers bonds
+   * across the two, and updated in place on later calls; `null` removes it. Overlays take no part in selection,
+   * annotation or analysis. Optional: a no-op on backends without overlays.
+   */
+  setOverlayCif?(key: string, cif: string | null, options?: ViewerOverlayOptions): Promise<void>;
   loadCifs(structures: ViewerStructure[]): Promise<void>;
   trajectoryFrameCount?(): number;
   setTrajectoryFrame?(index: number): Promise<void>;

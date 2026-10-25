@@ -121,7 +121,9 @@ export class SessionFileController {
   async initializeExamples(): Promise<void> {
     this.examples = await api<StudioExample[]>("/api/examples");
     const container = element("example-list");
+    const cards = element("example-cards");
     container.replaceChildren();
+    cards.replaceChildren();
     for (const example of this.examples) {
       const button = document.createElement("button");
       button.className = "secondary example-load";
@@ -129,6 +131,21 @@ export class SessionFileController {
       button.textContent = example.label;
       button.addEventListener("click", () => void this.loadExample(example, button));
       container.append(button);
+
+      // The same examples as task cards, so an empty editor offers a starting point rather than only a file picker.
+      const card = document.createElement("button");
+      card.className = "example-card";
+      card.type = "button";
+      const title = document.createElement("strong");
+      title.textContent = example.label;
+      card.append(title);
+      if (example.description) {
+        const detail = document.createElement("span");
+        detail.textContent = example.description;
+        card.append(detail);
+      }
+      card.addEventListener("click", () => void this.loadExample(example, button));
+      cards.append(card);
     }
   }
 
@@ -139,6 +156,11 @@ export class SessionFileController {
       `.example-load[data-example="${example.id}"]`,
     );
     if (example && button) await this.loadExample(example, button);
+  }
+
+  /** Open a file an embedder already has, exactly as the Open button would. */
+  open(file: File): Promise<boolean> {
+    return this.openFile(file);
   }
 
   private openFile(file: File, targetSession: string | null = null): Promise<boolean> {

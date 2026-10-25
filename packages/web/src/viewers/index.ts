@@ -19,6 +19,8 @@ import type {
   ViewerStructure,
   ViewerTarget,
   ViewerMarker,
+  ViewerLoadOptions,
+  ViewerOverlayOptions,
 } from "./contract";
 import {
   normalizeViewerMeasurementRequest,
@@ -42,6 +44,8 @@ export type {
   ViewerSelection,
   ViewerStructure,
   ViewerTarget,
+  ViewerLoadOptions,
+  ViewerOverlayOptions,
 } from "./contract";
 
 const BACKEND_LABELS: Record<ViewerBackend, string> = {
@@ -177,13 +181,31 @@ export class MolecularViewer {
     }
   }
 
-  async loadCif(cif: string, name: string): Promise<void> {
+  async loadCif(cif: string, name: string, options?: ViewerLoadOptions): Promise<void> {
     this.structures = [{ cif, name }];
     this.container.dataset.comparisonStructures = "0";
     this.updateAnnotationDiagnostics();
-    await this.adapter?.loadCif(cif, name);
+    await this.adapter?.loadCif(cif, name, options);
     await this.replayRepresentations();
     await this.replayTransientVisuals();
+  }
+
+  /**
+   * Show one frame of a structure that is being updated repeatedly (a refreshed document, a running trajectory),
+   * replacing the data in place where the backend supports it so the scene does not flash and the camera survives.
+   */
+  async renderLiveCif(cif: string, name: string, options?: ViewerLoadOptions): Promise<void> {
+    if (!this.adapter?.updateLiveCif) {
+      await this.loadCif(cif, name, options);
+      return;
+    }
+    this.structures = [{ cif, name }];
+    await this.adapter.updateLiveCif(cif, name, options);
+  }
+
+  /** See `ViewerAdapter.setOverlayCif`; a no-op on backends without overlays. */
+  async setOverlayCif(key: string, cif: string | null, options?: ViewerOverlayOptions): Promise<void> {
+    await this.adapter?.setOverlayCif?.(key, cif, options);
   }
 
   get trajectoryFrameCount(): number {

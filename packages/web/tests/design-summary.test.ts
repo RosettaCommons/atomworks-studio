@@ -104,3 +104,47 @@ test("a single-letter chain keeps the classic contig form, longer ids take a sep
   const suffixed = designSummary([chain("A_1", run(1, 12, HELD))]);
   assert.equal(suffixed.chains[0].contig, "A_1:1-12");
 });
+
+const nucleotide = (id: number, name: string, conditions: string[]): SequenceResidue => ({
+  kind: "residue", atom_indices: [id], residue_id: id, residue_name: name, code: name, conditions,
+});
+const strand = (from: number, to: number, name: string, conditions: string[]): SequenceResidue[] =>
+  Array.from({ length: to - from + 1 }, (_, offset) => nucleotide(from + offset, name, conditions));
+
+test("a held DNA duplex with a new protein chain is a DNA binder, not a small-molecule one", () => {
+  const summary = designSummary([
+    chain("A_1", strand(1, 9, "DG", HELD)),
+    chain("B_1", strand(1, 10, "DA", HELD)),
+    chain("C_1", [segment(120, 150)]),
+  ]);
+  assert.equal(summary.task.key, "na_binder");
+  assert.equal(summary.task.label, "DNA binder");
+  assert.deepEqual(summary.chains.map(entry => entry.kind), ["dna", "dna", "protein"]);
+  // Nucleotides are polymer residues, so they are held chains rather than a list of ligand names.
+  assert.deepEqual(summary.chains.map(entry => entry.role), ["fixed", "fixed", "new"]);
+  assert.equal(summary.contig, "A_1:1-9/0 B_1:1-10/0 120-150");
+  assert.ok(!summary.contig.includes("+"), "no ligand list");
+});
+
+test("RNA is told apart from protein by residue name, not by its one-letter code", () => {
+  const rna = designSummary([chain("A_1", strand(1, 6, "A", HELD)), chain("B_1", [segment(40, 60)])]);
+  assert.equal(rna.task.label, "RNA binder");
+  assert.equal(rna.chains[0].kind, "rna");
+  // Alanine shares the code "A" but is named ALA, so it must stay protein.
+  const protein = designSummary([chain("A_1", run(1, 6, HELD)), chain("B_1", [segment(40, 60)])]);
+  assert.equal(protein.chains[0].kind, "protein");
+  assert.equal(protein.task.key, "binder");
+});
+
+test("a ligand is still a ligand, and a designed nucleic chain is not a binder", () => {
+  const ligand = designSummary([
+    chain("A_1", [segment(60, 120)]),
+    chain("B_1", [residue(1, ["index", "sequence"], "SAM", "SAM")]),
+  ]);
+  assert.equal(ligand.chains[1].kind, "ligand");
+  assert.equal(ligand.task.key, "sm_binder");
+
+  const designed = designSummary([chain("A_1", strand(1, 12, "DG", ["index"]))]);
+  assert.equal(designed.chains[0].kind, "dna");
+  assert.equal(designed.task.key, "na_design");
+});

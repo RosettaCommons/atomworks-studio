@@ -1,8 +1,8 @@
 import { unpositionedAtomIndices } from "./viewers/unpositioned-atoms";
 import { TrajectoryController } from "./studio/trajectory-controller";
 import { chainColorCss } from "./chain-colors";
-import { designSummary, ROLE_LABELS } from "./studio/design-summary";
-import { installEmbedApi, notifyEmbedder } from "./studio/embed-api";
+import { chainKindLabel, designSummary, ROLE_LABELS } from "./studio/design-summary";
+import { HOST_MESSAGE_SOURCE, installEmbedApi, notifyEmbedder } from "./studio/embed-api";
 import type { ChainRole, ChainSummary } from "./studio/design-summary";
 import initCifCore, { inspect_cif } from "./wasm/annotation_studio_core.js";
 import { ApiError, api, apiText } from "./api";
@@ -81,15 +81,14 @@ element<HTMLAnchorElement>("guide-link").addEventListener("click", (event) => {
 });
 
 function notifyHost(type: "ready" | "changed" | "example", task?: string): void {
-  notifyEmbedder(type, { sessionId, ...(task ? { task } : {}) });
+  // One payload, two transports: a same-page host and an iframe host see the same fields.
+  const payload = { source: HOST_MESSAGE_SOURCE, type, session_id: sessionId, ...(task ? { task } : {}) };
+  notifyEmbedder(type, payload);
   const parentOrigin = query.get("parent_origin");
   if (!parentOrigin || window.parent === window || !sessionId) return;
   try {
     const targetOrigin = new URL(parentOrigin).origin;
-    window.parent.postMessage(
-      { source: "atomworks-annotation-studio", type, session_id: sessionId, ...(task ? { task } : {}) },
-      targetOrigin,
-    );
+    window.parent.postMessage(payload, targetOrigin);
   } catch {
     log(`Ignored invalid parent_origin: ${parentOrigin}`);
   }
@@ -154,6 +153,7 @@ function updateSelectionUi(): void {
     `${count} atom${count === 1 ? "" : "s"} in active selection`;
   const hasSession = sessionId !== null;
   updateSelectionActions(count, hasSession);
+  notifyEmbedder("selection", { source: HOST_MESSAGE_SOURCE, count });
   conditionController?.updateSelectionUi(hasSession);
   structureEditController?.updateSelectionUi(hasSession);
   element<HTMLButtonElement>("run-analysis").disabled = !hasSession;
@@ -238,9 +238,11 @@ const range = (min: number, max: number): string => (min === max ? `${min}` : `$
 function renderDesignSummary(summary: StructureSummary): string {
   const design = designSummary(summary.sequence);
   const chains = design.chains.map((chain) => {
+    // Name what the chain is made of when it is not an ordinary protein, so DNA does not read as a bare count.
+    const material = chain.kind === "protein" ? "" : ` ${chainKindLabel(chain.kind)}`;
     const detail = chain.role === "new" || chain.role === "ligand"
-      ? (chain.ligands.join(", ") || `${range(chain.lengthMin, chain.lengthMax)} residues`)
-      : `${chain.residues} residues`;
+      ? (chain.ligands.join(", ") || `${range(chain.lengthMin, chain.lengthMax)}${material} residues`)
+      : `${chain.residues}${material} residues`;
     const hotspots = chain.hotspots ? `, ${chain.hotspots} hotspot${chain.hotspots === 1 ? "" : "s"}` : "";
     // Chains with residues to condition get a role control; new chains and ligands have nothing to set.
     const settable = chain.residues > 0;
@@ -768,7 +770,12 @@ async function initialize(): Promise<void> {
   }
 }
 
-if (import.meta.env.PROD && window.parent === window && "serviceWorker" in navigator) {
+// A host that composes Studio into its own page serves the bundle itself and generally does not want Studio's
+// offline cache pinning its assets, so it can turn the service worker off with
+// <meta name="atomworks-studio-service-worker" content="off">.
+const serviceWorkerWanted =
+  document.querySelector('meta[name="atomworks-studio-service-worker"]')?.getAttribute("content") !== "off";
+if (import.meta.env.PROD && serviceWorkerWanted && window.parent === window && "serviceWorker" in navigator) {
   void navigator.serviceWorker.register("/sw.js").catch(error => console.warn("Offline installation unavailable", error));
 }
 

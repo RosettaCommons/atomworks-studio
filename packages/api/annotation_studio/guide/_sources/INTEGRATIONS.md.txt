@@ -81,6 +81,7 @@ is one Undo step and the document on the server stays the source of truth.
 | --- | --- |
 | `renderFrame(cif, name, { keepCamera })` | Show one frame of a structure you are producing. Successive calls replace it in place, so the scene does not flash. |
 | `setOverlay(key, cif, options)` | Show a display-only structure beside the document; `null` removes it. Overlays take no part in selection, annotation or analysis. |
+| `setLiveMode(on)` | Trade picture quality for frame rate while streaming frames; restores the previous look exactly. |
 | `showDocument()` | Go back to the open document after frames or a failed run. |
 | `openSession(id, { trajectoryUrl })` | Open a session you created, optionally with a trajectory to scrub. |
 | `openFile(file)` / `openExample(id)` | Open a file you already have, or a bundled example. |

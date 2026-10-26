@@ -30,6 +30,7 @@ import { MeshBuilder } from "molstar/lib/mol-geo/geometry/mesh/mesh-builder";
 import { addSphere } from "molstar/lib/mol-geo/geometry/mesh/builder/sphere";
 import { Vec3 } from "molstar/lib/mol-math/linear-algebra";
 import "molstar/lib/mol-plugin-ui/skin/dark.scss";
+import { FxaaParams } from "molstar/lib/mol-canvas3d/passes/fxaa";
 import { unpositionedAtomIndices } from "./unpositioned-atoms";
 import { StudioChainColorThemeProvider } from "./studio-chain-theme";
 
@@ -125,6 +126,8 @@ export class MolstarAdapter implements ViewerAdapter {
   private liveDataRef: string | undefined;
   // Display-only overlay structures by key: raw-data node plus the CIF it currently holds.
   private overlayRefs = new Map<string, { ref: string; data: string }>();
+  // What the canvas looked like before live mode, so it can be put back exactly.
+  private savedLook: { postprocessing: unknown; multiSample: unknown } | null = null;
 
   private chargeRepresentation: ShapeRepresentation<AtomCharge[], Text, typeof Text.Params> | null = null;
   private markerRepresentation: ShapeRepresentation<ViewerMarker[], Mesh, typeof Mesh.Params> | null = null;
@@ -251,6 +254,29 @@ export class MolstarAdapter implements ViewerAdapter {
       plugin.managers.structure.hierarchy.current.structures.reduce((count, entry) => count + (entry.cell.obj?.data.elementCount ?? 0), 0),
     );
     if (!options?.keepCamera) plugin.managers.camera.reset();
+  }
+
+  /** See `ViewerAdapter.setLiveMode`. Ambient occlusion, bloom and multisampling cost more than they are worth
+   * while frames are replacing each other several times a second. */
+  setLiveMode(on: boolean): void {
+    const canvas = this.viewer?.plugin.canvas3d;
+    if (!canvas) return;
+    if (on) {
+      if (this.savedLook) return;
+      this.savedLook = { postprocessing: canvas.props.postprocessing, multiSample: canvas.props.multiSample };
+      canvas.setProps({
+        postprocessing: {
+          occlusion: { name: "off", params: {} },
+          bloom: { name: "off", params: {} },
+          // FXAA needs its full parameters: with `{}` its thresholds are undefined and every frame draws blank.
+          antialiasing: { name: "fxaa", params: ParamDefinition.getDefaultValues(FxaaParams) },
+        } as never,
+        multiSample: { mode: "off" },
+      });
+    } else if (this.savedLook) {
+      canvas.setProps(this.savedLook as never);
+      this.savedLook = null;
+    }
   }
 
   /** See `ViewerAdapter.setOverlayCif`. Overlays are separate structures, so Mol* never bonds across them. */

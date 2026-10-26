@@ -29,6 +29,12 @@ export type StudioEmbedApi = {
    */
   setOverlay(key: string, cif: string | null, options?: ViewerOverlayOptions): Promise<void>;
 
+  /**
+   * Trade picture quality for frame rate while you are streaming frames, and put the view back exactly as it was
+   * when you stop. Worth doing around a run of `renderFrame` calls.
+   */
+  setLiveMode(on: boolean): void;
+
   /** Go back to showing the open document, after frames or a failed run. */
   showDocument(): Promise<void>;
 

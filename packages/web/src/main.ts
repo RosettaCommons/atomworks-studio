@@ -683,6 +683,7 @@ async function initialize(): Promise<void> {
     setOverlay: (key, cif, options) => runVisualUpdate(async () => {
       if (molecularViewer.initialized) await molecularViewer.setOverlayCif(key, cif, options);
     }),
+    setLiveMode: (on) => molecularViewer.setLiveMode(on),
     showDocument: async () => { if (sessionId) await refreshFromServer(lastSummary ?? undefined); },
     openSession: (id, options) => runViewerUpdate(async () => {
       trajectoryController?.dispose();

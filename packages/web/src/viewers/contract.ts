@@ -174,6 +174,11 @@ export interface ViewerAdapter {
    * annotation or analysis. Optional: a no-op on backends without overlays.
    */
   setOverlayCif?(key: string, cif: string | null, options?: ViewerOverlayOptions): Promise<void>;
+  /**
+   * Trade picture quality for frame rate while a stream of frames is arriving, restoring exactly what was in force
+   * when it ends. Optional: a no-op on backends that do not distinguish the two.
+   */
+  setLiveMode?(on: boolean): void;
   loadCifs(structures: ViewerStructure[]): Promise<void>;
   trajectoryFrameCount?(): number;
   setTrajectoryFrame?(index: number): Promise<void>;

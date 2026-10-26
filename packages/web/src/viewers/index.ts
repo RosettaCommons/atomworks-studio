@@ -206,6 +206,11 @@ export class MolecularViewer {
     await this.adapter.updateLiveCif(cif, name, options);
   }
 
+  /** See `ViewerAdapter.setLiveMode`; a no-op on backends that do not distinguish a live stream. */
+  setLiveMode(on: boolean): void {
+    this.adapter?.setLiveMode?.(on);
+  }
+
   /** See `ViewerAdapter.setOverlayCif`; a no-op on backends without overlays. */
   async setOverlayCif(key: string, cif: string | null, options?: ViewerOverlayOptions): Promise<void> {
     await this.adapter?.setOverlayCif?.(key, cif, options);

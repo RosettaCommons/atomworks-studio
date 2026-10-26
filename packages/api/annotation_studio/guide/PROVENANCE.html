@@ -122,20 +122,48 @@ VHH entity metadata distinguishes its target and antibody chains.</p>
 <p><code class="docutils literal notranslate"><span class="pre">scripts/complete_example_atoms.py</span></code> uses AtomWorks templates and <code class="docutils literal notranslate"><span class="pre">to_cif_file</span></code>,
 then verifies the original coordinates, charges, bonds, and StandardAnnotations
 after reloading. Expandable segments remain collapsed and connected.</p>
-<p>The HER2 CDR-H3 antibody example follows the separate-Ig-groups, absolute-target
-variant of RFD4’s <code class="docutils literal notranslate"><span class="pre">IgFrameworkConditioningTask</span></code> at <code class="docutils literal notranslate"><span class="pre">e519afe329a0963172747e9f71e843a21b6995e8</span></code>
-(<code class="docutils literal notranslate"><span class="pre">src/rfproteina/transforms/design_task.py</span></code>, steps 3–7). Resolved sequence-fixed
-heavy/light atoms belong to internal groups 1/2; HER2 retains absolute group 0.
-H99–H109 remains free for sequence and coordinate design. Framework Lys30 is
-included in the heavy-chain group. <code class="docutils literal notranslate"><span class="pre">scripts/prepare_antibody_example.py</span></code> reproduces
-this policy while preserving topology, charges, sequence/index conditions and
-other annotations. Internal targets are materialized during RFD4 featurization.</p>
+<p>The antibody example is the cropped MZB1 (7AAH) target paired with the
+adalimumab Fv framework (3WD5), recovered from RFD4-Proteina-dev commit
+<code class="docutils literal notranslate"><span class="pre">64e59d8566cbc6ebd27bb6c76a62a4caec2fe6e2</span></code> on the historical
+<code class="docutils literal notranslate"><span class="pre">feat/antibody-campaign-examples</span></code> branch:
+<code class="docutils literal notranslate"><span class="pre">examples/antibody_design/structures/fv/mzb1_7AAH__Fv_3wd5_adalimumab.cif.zst</span></code>.
+It was decompressed with Zstandard, then passed through
+<code class="docutils literal notranslate"><span class="pre">scripts/complete_example_atoms.py</span></code>, adding only three unresolved terminal OXT
+atoms. Existing coordinates, bonds, charges and StandardAnnotations were checked
+for preservation after reloading with the minimal annotated-CIF preset.</p>
+<p>The shared internal group contains the H/L framework backbones and their saved
+internal-coordinate targets, preserving the VH–VL arrangement. The MZB1 backbone
+retains absolute conditioning; framework sequences and CATH <code class="docutils literal notranslate"><span class="pre">2.60.40.x</span></code> remain
+fixed. Six expandable CDRs retain the source ranges: H1 13–15, H2 9–10, H3 11–22,
+L1 11–14, L2 8 and L3 8–12. This is an illustrative design input, not a validated
+adalimumab–MZB1 binder. The obsolete HER2 preparation script has been removed.</p>
+<p>For the VHH example, resolved chain H display coordinates were translated by
+<code class="docutils literal notranslate"><span class="pre">(-97.658,</span> <span class="pre">-35.314,</span> <span class="pre">-13.544)</span></code> Å toward the PD-L1 target, reducing the closest
+interchain atom distance from about 112 Å to 8 Å. No rotation, target-coordinate,
+chemistry, or condition edits were made. In particular, saved internal-coordinate
+targets are unchanged; this is a display placement, not a predicted binding pose.</p>
+<p>The PD-L1 protein-binder example now uses one internal-coordinate group for all
+460 resolved target backbone atoms (<code class="docutils literal notranslate"><span class="pre">N</span></code>, <code class="docutils literal notranslate"><span class="pre">CA</span></code>, <code class="docutils literal notranslate"><span class="pre">C</span></code>, <code class="docutils literal notranslate"><span class="pre">O</span></code>). Absolute-coordinate
+targets were cleared, including sidechains. Internal targets remain unset for
+RFD4 featurization to derive. Coordinates, target sequence/index conditions,
+the six hotspot atoms and the 50–120 residue binder segment are unchanged.</p>
 <p>The SAM binder retains a 150-residue protein segment and unconditioned ligand
 geometry. Its 27 heavy-atom coordinates match RFD4
 <code class="docutils literal notranslate"><span class="pre">data/benchmarks/adherence/interchain_interaction_conditioning/sam_pistack_aromatic_ring.cif</span></code>
 at <code class="docutils literal notranslate"><span class="pre">42d82947c2590c7e2dc73e93a073a3fdd03590f7</span></code>, mapped from custom atom names
 to SAM CCD names with matching elements and bond connectivity. Only coordinates
 are transferred; Studio’s ligand chemistry and conditions remain unchanged.</p>
+</section>
+<section id="pte-ptm-and-bhrf1-examples">
+<h2>PTE, PTM, and BHRF1 examples<a class="headerlink" href="#pte-ptm-and-bhrf1-examples" title="Link to this heading">¶</a></h2>
+<p>The hit-based catalog supersedes the earlier PD-L1 protein-binder and 2KL8
+inverse-folding entries described above. The PTE p2H11 and H3pS10 hit04 sources are the paper’s curated hit files. BHRF1
+is the supplied generated design: the binder example keeps its target, while
+the partial-diffusion example is a byte-for-byte copy of the full complex. See <code class="docutils literal notranslate"><span class="pre">examples/README.md</span></code> for exact task definitions and retained source
+limitations. <code class="docutils literal notranslate"><span class="pre">hit-example-provenance.json</span></code> records input/output hashes, and
+<code class="docutils literal notranslate"><span class="pre">hit-example-validation.json</span></code> records model validation findings. The old 2KL8
+and minimal catalytic-motif structures remain regression fixtures under
+<code class="docutils literal notranslate"><span class="pre">tests/fixtures/</span></code>.</p>
 </section>
 </section>
 

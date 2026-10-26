@@ -37,24 +37,24 @@
             
   <section id="edit-save-and-reopen-a-structure">
 <h1>Edit, save, and reopen a structure<a class="headerlink" href="#edit-save-and-reopen-a-structure" title="Link to this heading">¶</a></h1>
-<p>This walkthrough uses the bundled NIM inverse-folding example (2KL8). Run Studio using the
+<p>This walkthrough uses the bundled PTE p2H11 inverse-folding example. Run Studio using the
 <a class="reference internal" href="INSTALLATION.html"><span class="std std-doc">installation guide</span></a>, then open its URL in your browser.
 No GPU is needed to edit or save a structure.</p>
 <section id="try-it-here">
 <h2>Try it here<a class="headerlink" href="#try-it-here" title="Link to this heading">¶</a></h2>
 <p>The installed guide can open the same editor used by the browser and VS Code.
-Choose <strong>Open 2KL8 example</strong>, then follow the steps below. On a narrow screen,
+Choose <strong>Open PTE p2H11 example</strong>, then follow the steps below. On a narrow screen,
 use the editor’s <strong>Guide</strong> link to keep the instructions in a separate tab.</p>
 <div class="studio-example">
-  <button type="button" data-studio-example="inverse_folding">Open 2KL8 example</button>
+  <button type="button" data-studio-example="inverse_folding">Open PTE p2H11 example</button>
   <p role="status">Interactive editing is available when this guide is served by Studio at /guide/.</p>
 </div></section>
 <section id="open-and-select">
 <h2>Open and select<a class="headerlink" href="#open-and-select" title="Link to this heading">¶</a></h2>
 <ol class="arabic simple">
-<li><p>In <strong>Edit → Main → Examples</strong>, choose <strong>Inverse folding · 2KL8</strong>. Wait for the molecule and sequence to appear.</p></li>
+<li><p>In <strong>Edit → Main → Examples</strong>, choose <strong>Inverse folding · PTE p2H11</strong>. Wait for the molecule and sequence to appear.</p></li>
 <li><p>Set the command bar to <strong>AtomWorks query</strong>, enter <code class="docutils literal notranslate"><span class="pre">atom_name</span> <span class="pre">==</span> <span class="pre">'CA'</span></code>, and
-choose <strong>Select</strong>. The selection count should read <strong>59 atoms</strong> for the bundled example.</p></li>
+choose <strong>Select</strong>. The selection count should read <strong>220 atoms</strong> for the bundled example.</p></li>
 <li><p>In the same <strong>AtomWorks query</strong> mode, enter <code class="docutils literal notranslate"><span class="pre">sel('*/*/*/CA')</span></code>. It selects the same atoms.</p></li>
 <li><p>Click a residue in the sequence to replace the selection. Ctrl/Cmd-click
 toggles a residue; Shift-click extends a range.</p></li>
@@ -76,7 +76,7 @@ again and repeat the edit if you want to keep it.</p></li>
 the default installation. All three interfaces also include hotspots, coordinate
 groups, and CATH labels from the same RFD4 definitions registered with AtomWorks.</p>
 <p>To remove a condition, select its atoms again, uncheck <strong>Enable condition</strong>, and
-choose <strong>Remove from selection</strong>. <strong>Clear colors</strong> only clears the visualization;
+choose <strong>Remove from selection</strong>. Clicking the active condition row again clears its visualization;
 it does not remove saved annotations. If an edit fails, the message beside the
 controls explains why and the selection remains available for correction.</p>
 </section>
@@ -94,7 +94,7 @@ preserve AtomWorks annotations.</p>
 </section>
 <section id="edit-a-ligand">
 <h2>Edit a ligand<a class="headerlink" href="#edit-a-ligand" title="Link to this heading">¶</a></h2>
-<p>Choose <strong>Small-molecule binder · SAM</strong> from the NIM examples to work with a ligand.</p>
+<p>Choose <strong>Small-molecule binder · SAM</strong> from the examples to work with a ligand.</p>
 <ul class="simple">
 <li><p><strong>Protonation:</strong> in <strong>Charges</strong>, set pH and choose <strong>Protonate structure</strong>.
 It updates the whole structure, including hydrogens, and can be undone.</p></li>

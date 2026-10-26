@@ -30,7 +30,7 @@ def test_edit_generate_reopen(samples, stable_cif_metadata):
 
     async def run():
         handoff = StudioHandoff(app)
-        source = Path(__file__).parents[1] / "packages/api/annotation_studio/examples/inverse_folding.cif"
+        source = Path(__file__).parents[1] / "tests/fixtures/inverse_folding_2kl8.cif"
         session, _ = await handoff.open("input.cif", source.read_text())
         async with httpx.AsyncClient(transport=handoff.transport, base_url="http://studio") as client:
             response = await client.post(

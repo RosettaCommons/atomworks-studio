@@ -509,9 +509,10 @@ def test_packaged_design_examples_share_a_safe_catalog() -> None:
     from annotation_studio.main import EXAMPLES_DIR
 
     catalog = client.get("/api/v1/examples").json()
-    assert len(catalog) == 9
-    assert len({item["id"] for item in catalog}) == 9
+    assert len(catalog) == 10
+    assert len({item["id"] for item in catalog}) == len(catalog)
     for item in catalog:
+        assert item["description"].strip(), "Every example needs guided-design help text"
         response = client.get(f"/api/v1/examples/{item['id']}/cif")
         assert response.status_code == 200
         assert response.text == (EXAMPLES_DIR / item["file"]).read_text()
@@ -569,3 +570,56 @@ def test_condition_batch_leaves_the_document_untouched_when_one_edit_fails() -> 
     assert structure["revision"] == 0
     assert structure["undo_depth"] == 0
     assert not structure["condition_counts"].get("coordinate")
+
+
+def test_selection_bonds_are_scoped_and_read_only() -> None:
+    session_id = _session()
+    base = f"/api/sessions/{session_id}"
+    original = client.get(base).json()["structure"]
+    all_bonds = client.get(f"{base}/bonds").json()["bonds"]
+    selected = {all_bonds[0]["atom1"], all_bonds[1]["atom2"]}
+    expected = [bond for bond in all_bonds if selected.intersection((bond["atom1"], bond["atom2"]))]
+    response = client.post(f"{base}/bonds/inspect", json={"atom_indices": [*selected, *selected]})
+    assert response.status_code == 200, response.text
+    assert response.json()["bonds"] == expected
+    assert 0 < response.json()["count"] < len(all_bonds)
+    for indices in ([], [-1], [original["atom_count"]]):
+        assert client.post(f"{base}/bonds/inspect", json={"atom_indices": indices}).status_code == 422
+    assert client.get(base).json()["structure"]["revision"] == original["revision"]
+
+
+def test_charge_labels_follow_edits_delete_and_undo() -> None:
+    session_id = _session()
+    base = f"/api/sessions/{session_id}"
+    original = client.get(base).json()["structure"]
+    all_indices = list(range(original["atom_count"]))
+    cleared = client.post(f"{base}/charges", json={"atom_indices": all_indices, "value": 0}).json()["structure"]
+    assert cleared["charged_atoms"] == []
+    for atom, charge in ((0, -2), (1, 1)):
+        result = client.post(f"{base}/charges", json={"atom_indices": [atom], "value": charge})
+        assert result.status_code == 200, result.text
+    expected = [{"atom_index": 0, "charge": -2}, {"atom_index": 1, "charge": 1}]
+    assert result.json()["structure"]["charged_atoms"] == expected
+    deleted = client.post(f"{base}/delete", json={"atom_indices": [0]})
+    assert deleted.status_code == 200, deleted.text
+    assert deleted.json()["structure"]["charged_atoms"] == [{"atom_index": 0, "charge": 1}]
+    undone = client.post(f"{base}/undo")
+    assert undone.status_code == 200, undone.text
+    assert undone.json()["structure"]["charged_atoms"] == expected
+
+
+def test_packaged_examples_infer_an_unambiguous_import_preset() -> None:
+    """Every bundled example must open without asking the user to pick a preset.
+
+    Design outputs routinely omit a terminal OXT; that alone must not read as an
+    ambiguous import.
+    """
+    from annotation_studio.main import EXAMPLES, EXAMPLES_DIR
+
+    for item in EXAMPLES:
+        path = EXAMPLES_DIR / item["file"]
+        response = client.post("/api/import/inspect", files={"file": (item["file"], path.read_bytes())})
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload["preset"] is not None, f"{item['id']}: {payload['message']}"
+        assert "Choose" not in payload["message"], f"{item['id']} still needs a manual choice"

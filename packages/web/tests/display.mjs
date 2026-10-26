@@ -148,7 +148,7 @@ try {
   assert.ok(await pixels('antibody-cartoon', count => count > 100) > 100, 'new example resets prior display state');
   await style('show', 'ribbon');
   await style('hide', 'ribbon');
-  await select("chain_id == 'T'");
+  await select("chain_id == 'A'");
   await style('show', 'surface', 'selection');
   assert.ok(await pixels('antibody-target', count => count > 100) > 100);
   await style('hide', 'surface', 'selection');

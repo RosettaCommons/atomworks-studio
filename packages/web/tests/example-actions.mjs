@@ -118,9 +118,9 @@ try {
         await page.locator("#editor-tab-annotations").click();
         for (const row of await page.locator("#annotation-list [data-view-key]").all()) {
           await row.click();
-          await page.waitForFunction(() => !document.querySelector("#clear-annotation-view").disabled);
+          await page.waitForFunction(() => Number(document.querySelector("#viewer").dataset.annotationAtoms) > 0);
           await row.click();
-          await page.waitForFunction(() => document.querySelector("#clear-annotation-view").disabled);
+          await page.waitForFunction(() => document.querySelector("#viewer").dataset.annotationAtoms === "0");
         }
       });
       await check("condition-edit-undo", async () => {
@@ -162,7 +162,9 @@ try {
       });
       await check("bonds-inspect-edit-undo", async () => {
         await page.locator("#editor-tab-structure").click();
-        const inspected = page.waitForResponse(r => new URL(r.url()).pathname.endsWith("/bonds"));
+        if (!await page.locator(".sequence-token[data-atoms]").count()) return "No atoms to inspect";
+        await page.locator(".sequence-token[data-atoms]").first().click();
+        const inspected = page.waitForResponse(r => new URL(r.url()).pathname.endsWith("/bonds/inspect"));
         await page.locator("#inspect-bonds").click();
         const inspection = await (await inspected).json();
         if (inspection.bonds.length) {
@@ -170,12 +172,10 @@ try {
           await post("#remove-bond", "/bonds");
           await post("#undo", "/undo");
         } else {
-          await page.locator("#bond-list").getByText("No bonds found.").waitFor();
+          await page.locator("#bond-list").getByText("No bonds touch the selected atoms.").waitFor();
           await page.locator("#inspect-bonds").click();
         }
         await page.locator("#clear-selection").click();
-        await post("#infer-bonds", "/bonds/infer-ccd");
-        await post("#undo", "/undo");
       });
       await check("segment-undo", async () => {
         await mainCard("#insert-segment");

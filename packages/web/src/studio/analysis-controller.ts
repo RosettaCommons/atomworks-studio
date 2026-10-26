@@ -1,4 +1,4 @@
-import { api, postJson } from "../api";
+import { postJson } from "../api";
 import { closeToolbarMenus, element } from "../dom";
 import type { SelectionController } from "../selection-controller";
 import type { InteractionAnalysisResponse, SequenceChain } from "../types";
@@ -18,7 +18,6 @@ export interface AnalysisControllerOptions {
   getSessionId: () => string | null;
   getAtomCount: () => number;
   getSequence: () => SequenceChain[];
-  mutate: (path: string, body?: unknown) => Promise<void>;
   renderViewerDrawers: () => void;
   log: (message: string, level?: "info" | "error") => void;
   onSelectionUiChange: () => void;
@@ -30,6 +29,7 @@ export class AnalysisController {
   private readonly bondList = element("bond-list");
   private readonly inspectBondsButton = element("inspect-bonds");
   private bondInspectionGeneration = 0;
+  private bondInspectionSelection: Set<number> | null = null;
 
   constructor(private readonly options: AnalysisControllerOptions) {}
 
@@ -48,11 +48,16 @@ export class AnalysisController {
       });
     });
     this.inspectBondsButton.addEventListener("click", () => void this.inspectBonds());
-    element("infer-bonds").addEventListener("click", () => void this.options.mutate("/bonds/infer-ccd"));
-
   }
 
   updateSelectionUi(hasSession: boolean): void {
+    const selected = this.options.selection.values;
+    element<HTMLButtonElement>("inspect-bonds").disabled = !hasSession || selected.size === 0;
+    if (this.bondInspectionSelection && (!hasSession
+      || selected.size !== this.bondInspectionSelection.size
+      || [...selected].some(index => !this.bondInspectionSelection!.has(index)))) {
+      this.clearBondInspection();
+    }
     const kind = element<HTMLSelectElement>("measurement-kind").value as MeasurementKind;
     const required = this.requiredAtoms(kind);
     const button = element<HTMLButtonElement>("add-measurement");
@@ -193,6 +198,7 @@ export class AnalysisController {
 
   clearBondInspection(): void {
     ++this.bondInspectionGeneration;
+    this.bondInspectionSelection = null;
     this.bondList.hidden = true;
     this.bondList.replaceChildren();
     this.inspectBondsButton.setAttribute("aria-expanded", "false");
@@ -205,21 +211,22 @@ export class AnalysisController {
     }
     const sessionId = this.options.getSessionId();
     if (!sessionId) return;
+    const selected = [...this.options.selection.values];
+    if (!selected.length) return;
+    this.bondInspectionSelection = new Set(selected);
     const generation = ++this.bondInspectionGeneration;
     this.bondList.hidden = false;
     this.bondList.textContent = "Loading bonds…";
     this.inspectBondsButton.setAttribute("aria-expanded", "true");
-    const selected = [...this.options.selection.values];
-    const query = selected.length === 1 ? `?atom_index=${selected[0]}` : "";
     try {
-      const response = await api<{
+      const response = await postJson<{
         count: number;
         bonds: Array<{ atom1: number; atom2: number; bond_type: string }>;
-      }>(`/api/sessions/${sessionId}/bonds${query}`);
+      }>(`/api/sessions/${sessionId}/bonds/inspect`, { atom_indices: selected });
       if (generation !== this.bondInspectionGeneration || sessionId !== this.options.getSessionId()) return;
       const list = this.bondList;
       list.replaceChildren();
-      if (!response.bonds.length) list.textContent = "No bonds found.";
+      if (!response.bonds.length) list.textContent = "No bonds touch the selected atoms.";
       for (const bond of response.bonds) {
         const button = document.createElement("button");
         button.type = "button";

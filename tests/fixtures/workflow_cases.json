@@ -1,9 +1,9 @@
 [
   {
-    "name": "ppi", "example_id": "protein_binder", "atoms": 926,
+    "name": "ppi", "example_id": "protein_binder", "atoms": 1267,
     "actions": [
       {"kind":"condition","key":"hotspot","query":"atom_name != ''","enabled":false},
-      {"kind":"condition","key":"hotspot","query":"(chain_id == 'A') & ((res_id == 56) | (res_id == 115) | (res_id == 123))","enabled":true},
+      {"kind":"condition","key":"hotspot","query":"(chain_id == 'B') & ((res_id == 56) | (res_id == 115) | (res_id == 123))","enabled":true},
       {"kind":"condition","key":"index","query":"chain_id == 'A'","enabled":true}
     ]
   },

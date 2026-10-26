@@ -23,6 +23,8 @@ import { Shape } from "molstar/lib/mol-model/shape";
 import { ShapeRepresentation } from "molstar/lib/mol-repr/shape/representation";
 import { Lines } from "molstar/lib/mol-geo/geometry/lines/lines";
 import { LinesBuilder } from "molstar/lib/mol-geo/geometry/lines/lines-builder";
+import { Text } from "molstar/lib/mol-geo/geometry/text/text";
+import { TextBuilder } from "molstar/lib/mol-geo/geometry/text/text-builder";
 import { Mesh } from "molstar/lib/mol-geo/geometry/mesh/mesh";
 import { MeshBuilder } from "molstar/lib/mol-geo/geometry/mesh/mesh-builder";
 import { addSphere } from "molstar/lib/mol-geo/geometry/mesh/builder/sphere";
@@ -32,6 +34,7 @@ import { unpositionedAtomIndices } from "./unpositioned-atoms";
 import { StudioChainColorThemeProvider } from "./studio-chain-theme";
 
 import {
+  ANNOTATION_CONTEXT_COLOR,
   ANNOTATION_PALETTE,
   annotationRenderResult,
   normalizedAnnotationGroups,
@@ -46,6 +49,7 @@ import {
   type ViewerMeasurementRequest,
   type ViewerStructure,
   type ViewerMarker,
+  type AtomCharge,
   type ViewerRepresentation,
   type ViewerRepresentationAction,
   type ViewerTarget,
@@ -121,6 +125,8 @@ export class MolstarAdapter implements ViewerAdapter {
   private liveDataRef: string | undefined;
   // Display-only overlay structures by key: raw-data node plus the CIF it currently holds.
   private overlayRefs = new Map<string, { ref: string; data: string }>();
+
+  private chargeRepresentation: ShapeRepresentation<AtomCharge[], Text, typeof Text.Params> | null = null;
   private markerRepresentation: ShapeRepresentation<ViewerMarker[], Mesh, typeof Mesh.Params> | null = null;
 
   constructor(private readonly context: ViewerAdapterContext) {}
@@ -411,26 +417,7 @@ export class MolstarAdapter implements ViewerAdapter {
     }
 
     try {
-      for (const [index, group] of normalized.entries()) {
-        const loci = this.lociFor(group.atomIndices);
-        const selectedCount = StructureElement.Loci.size(loci);
-        if (selectedCount !== group.atomIndices.length) {
-          throw new Error(
-            `Mol* selected ${selectedCount} atoms for ${group.label}; ` +
-              `AtomWorks reported ${group.atomIndices.length}.`,
-          );
-        }
-        const color = group.color ?? ANNOTATION_PALETTE[index % ANNOTATION_PALETTE.length];
-        await setStructureOverpaint(
-          this.viewer.plugin,
-          this.currentStructure().reference.components,
-          Color(color.value),
-          async (structure) =>
-            StructureElement.Schema.toLoci(structure, {
-              items: { atom_index: group.atomIndices },
-            }),
-        );
-      }
+      await this.applyAnnotationColors();
     } catch (error) {
       await clearStructureOverpaint(this.viewer.plugin, reference.components);
       throw error;
@@ -556,11 +543,35 @@ export class MolstarAdapter implements ViewerAdapter {
         async structure => StructureElement.Loci.all(structure));
     }
     // New components receive annotation colours without changing selection or camera.
+    await this.applyAnnotationColors();
+  }
+
+  private async applyAnnotationColors(): Promise<void> {
+    if (!this.viewer || !this.annotationGroups.length) return;
     const { reference } = this.currentStructure();
+    if (this.annotationGroups.some(group => group.dimUnhighlighted)) {
+      await setStructureOverpaint(this.viewer.plugin, reference.components,
+        Color(ANNOTATION_CONTEXT_COLOR), async structure => StructureElement.Loci.all(structure));
+    }
     for (const [index, group] of this.annotationGroups.entries()) {
-      await setStructureOverpaint(plugin, reference.components,
-        Color((group.color ?? ANNOTATION_PALETTE[index % ANNOTATION_PALETTE.length]).value),
-        async () => this.lociFor(group.atomIndices));
+      const loci = this.lociFor(group.atomIndices);
+      const selectedCount = StructureElement.Loci.size(loci);
+      if (selectedCount !== group.atomIndices.length) {
+        throw new Error(
+          `Mol* selected ${selectedCount} atoms for ${group.label}; ` +
+            `AtomWorks reported ${group.atomIndices.length}.`,
+        );
+      }
+      const color = group.color ?? ANNOTATION_PALETTE[index % ANNOTATION_PALETTE.length];
+      await setStructureOverpaint(
+        this.viewer.plugin,
+        reference.components,
+        Color(color.value),
+        async (structure) =>
+          StructureElement.Schema.toLoci(structure, {
+            items: { atom_index: group.atomIndices },
+          }),
+      );
     }
   }
 
@@ -656,6 +667,35 @@ export class MolstarAdapter implements ViewerAdapter {
     this.context.container.dataset.interactionRenderObjects = String(representation.renderObjects.length);
   }
 
+  async showCharges(charges: AtomCharge[]): Promise<void> {
+    if (!this.viewer) return;
+    if (this.chargeRepresentation) {
+      this.viewer.plugin.canvas3d?.remove(this.chargeRepresentation);
+      this.chargeRepresentation.destroy();
+      this.chargeRepresentation = null;
+    }
+    const visible = charges.filter(atom => atom.charge !== 0
+      && !this.unpositionedAtoms.has(atom.atomIndex)
+      && !StructureElement.Loci.isEmpty(this.lociFor([atom.atomIndex])));
+    this.context.container.dataset.chargeLabels = String(visible.length);
+    if (!visible.length) return;
+    const representation = ShapeRepresentation<AtomCharge[], Text, typeof Text.Params>((_ctx, data, props) => {
+      const builder = TextBuilder.create(props);
+      data.forEach((atom, group) => {
+        const center = StructureElement.Loci.getBoundingSphere(this.lociFor([atom.atomIndex])).center;
+        builder.add(atom.charge > 0 ? `+${atom.charge}` : String(atom.charge),
+          center[0], center[1], center[2], 0.5, 1, group);
+      });
+      return Shape.create("Formal charges", data, builder.getText(),
+        () => Color(0xffffff), () => 0.35, group => `Formal charge: ${data[group].charge}`);
+    }, Text.Utils);
+    await this.viewer.plugin.runTask(representation.createOrUpdate({
+      attachment: "bottom-left", borderWidth: 0.25, borderColor: Color(0x222222),
+    }, visible));
+    this.viewer.plugin.canvas3d?.add(representation);
+    this.chargeRepresentation = representation;
+  }
+
   async showMarkers(markers: ViewerMarker[]): Promise<void> {
     if (!this.viewer) return;
     if (this.markerRepresentation) {
@@ -683,6 +723,8 @@ export class MolstarAdapter implements ViewerAdapter {
     this.resizeObserver = null;
     this.interactionRepresentation?.destroy();
     this.interactionRepresentation = null;
+    this.chargeRepresentation?.destroy();
+    this.chargeRepresentation = null;
     this.markerRepresentation?.destroy();
     this.markerRepresentation = null;
     this.viewer?.dispose();

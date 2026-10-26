@@ -1,54 +1,86 @@
-data_enzyme_design.cif
+data_unknown_id
 #
-_entry.id       enzyme_design.cif
+_entry.id       unknown_id
 _entry.author   root
-_entry.date     2026-10-18
-_entry.time     19:38:39
+_entry.date     2026-10-21
+_entry.time     01:45:35
 #
 loop_
-_entity.id 
-_entity.type 
-_entity.pdbx_description 
+_entity.id
+_entity.type
+_entity.pdbx_description
 1 polymer     .
 2 non-polymer .
 3 non-polymer .
+4 non-polymer .
 #
 _entity_poly.entity_id                      1
 _entity_poly.type                           polypeptide(L)
 _entity_poly.nstd_linkage                   no
 _entity_poly.nstd_monomer                   yes
-_entity_poly.pdbx_seq_one_letter_code       XD
-_entity_poly.pdbx_seq_one_letter_code_can   XD
+_entity_poly.pdbx_seq_one_letter_code       DHWHHHHXXX
+_entity_poly.pdbx_seq_one_letter_code_can   DHWHHHHXKX
 _entity_poly.pdbx_strand_id                 A
 _entity_poly.pdbx_target_identifier         ?
 #
 loop_
-_entity_poly_seq.entity_id 
-_entity_poly_seq.hetero 
-_entity_poly_seq.mon_id 
-_entity_poly_seq.num 
-1 n 180-180 0
-1 n ASP     1
+_entity_poly_seq.entity_id
+_entity_poly_seq.hetero
+_entity_poly_seq.mon_id
+_entity_poly_seq.num
+1 n ASP    16
+1 n HIS    45
+1 n TRP    75
+1 n HIS    79
+1 n HIS    94
+1 n HIS    98
+1 n HIS    102
+1 n 75-100 104
+1 n KCX    105
+1 n 75-100 106
 #
 loop_
-_chem_comp.id 
-_chem_comp.name 
-_chem_comp.type 
-_chem_comp.formula 
-_chem_comp.mon_nstd_parent_comp_id 
-_chem_comp.pdbx_synonyms 
-_chem_comp.formula_weight 
-180-180 180-180 NON-POLYMER         ? ? ? ?
-ASP     ASP     'L-PEPTIDE LINKING' ? ? ? ?
-ORO     ORO     NON-POLYMER         ? ? ? ?
-ZN      ZN      NON-POLYMER         ? ? ? ?
+_chem_comp.id
+_chem_comp.name
+_chem_comp.type
+_chem_comp.formula
+_chem_comp.mon_nstd_parent_comp_id
+_chem_comp.pdbx_synonyms
+_chem_comp.formula_weight
+75-100 75-100 NON-POLYMER         ? ? ? ?
+ASP    ASP    'L-PEPTIDE LINKING' ? ? ? ?
+HIS    HIS    'L-PEPTIDE LINKING' ? ? ? ?
+KCX    KCX    'L-PEPTIDE LINKING' ? ? ? ?
+L:0    L:0    NON-POLYMER         ? ? ? ?
+TRP    TRP    'L-PEPTIDE LINKING' ? ? ? ?
+W:1    W:1    NON-POLYMER         ? ? ? ?
+ZN     ZN     NON-POLYMER         ? ? ? ?
 #
 loop_
-_chem_comp_bond.comp_id 
-_chem_comp_bond.atom_id_1 
-_chem_comp_bond.atom_id_2 
-_chem_comp_bond.value_order 
-_chem_comp_bond.pdbx_aromatic_flag 
+_struct_conn.id
+_struct_conn.conn_type_id
+_struct_conn.pdbx_value_order
+_struct_conn.ptnr1_label_asym_id
+_struct_conn.ptnr2_label_asym_id
+_struct_conn.ptnr1_label_comp_id
+_struct_conn.ptnr2_label_comp_id
+_struct_conn.ptnr1_label_seq_id
+_struct_conn.ptnr2_label_seq_id
+_struct_conn.ptnr1_label_atom_id
+_struct_conn.ptnr2_label_atom_id
+_struct_conn.pdbx_ptnr1_PDB_ins_code
+_struct_conn.pdbx_ptnr2_PDB_ins_code
+_struct_conn.ptnr1_transformation_id
+_struct_conn.ptnr2_transformation_id
+1 covale sing A A 75-100 KCX    104 105 UNK N   . . 1 1
+2 covale sing A A KCX    75-100 105 106 C   UNK . . 1 1
+#
+loop_
+_chem_comp_bond.comp_id
+_chem_comp_bond.atom_id_1
+_chem_comp_bond.atom_id_2
+_chem_comp_bond.value_order
+_chem_comp_bond.pdbx_aromatic_flag
 ASP N   CA  SING N
 ASP N   H   SING N
 ASP N   H2  SING N
@@ -64,144 +96,588 @@ ASP CG  OD1 DOUB N
 ASP CG  OD2 SING N
 ASP OD2 HD2 SING N
 ASP OXT HXT SING N
-ORO N1  C2  SING Y
-ORO N1  C6  SING Y
-ORO N1  HN1 SING N
-ORO C2  O2  DOUB N
-ORO C2  N3  SING Y
-ORO N3  C4  SING Y
-ORO N3  HN3 SING N
-ORO C4  O4  DOUB N
-ORO C4  C5  SING Y
-ORO C5  C6  DOUB Y
-ORO C5  H5  SING N
-ORO C6  C7  SING N
-ORO C7  O71 DOUB N
-ORO C7  O72 SING N
-ORO O72 HO7 SING N
+HIS N   CA  SING N
+HIS N   H   SING N
+HIS N   H2  SING N
+HIS CA  C   SING N
+HIS CA  CB  SING N
+HIS CA  HA  SING N
+HIS C   O   DOUB N
+HIS C   OXT SING N
+HIS CB  CG  SING N
+HIS CB  HB2 SING N
+HIS CB  HB3 SING N
+HIS CG  ND1 SING Y
+HIS CG  CD2 DOUB Y
+HIS ND1 CE1 DOUB Y
+HIS ND1 HD1 SING N
+HIS CD2 NE2 SING Y
+HIS CD2 HD2 SING N
+HIS CE1 NE2 SING Y
+HIS CE1 HE1 SING N
+HIS NE2 HE2 SING N
+HIS OXT HXT SING N
+KCX N   CA  SING N
+KCX N   H   SING N
+KCX N   H2  SING N
+KCX CA  CB  SING N
+KCX CA  C   SING N
+KCX CA  HA  SING N
+KCX CB  CG  SING N
+KCX CB  HB2 SING N
+KCX CB  HB3 SING N
+KCX CG  CD  SING N
+KCX CG  HG2 SING N
+KCX CG  HG3 SING N
+KCX CD  CE  SING N
+KCX CD  HD2 SING N
+KCX CD  HD3 SING N
+KCX CE  NZ  SING N
+KCX CE  HE2 SING N
+KCX CE  HE3 SING N
+KCX NZ  CX  SING N
+KCX NZ  HZ  SING N
+KCX C   O   DOUB N
+KCX C   OXT SING N
+KCX CX  OQ1 DOUB N
+KCX CX  OQ2 SING N
+KCX OXT HXT SING N
+KCX OQ2 HQ2 SING N
+L:0 C2  N1  SING N
+L:0 C2  C3  DOUB Y
+L:0 P1  O4  SING N
+L:0 C2  C4  SING Y
+L:0 P1  O5  DOUB N
+L:0 C3  C5  SING Y
+L:0 P1  O6  SING N
+L:0 C4  C6  DOUB Y
+L:0 C5  C7  DOUB Y
+L:0 C6  C7  SING Y
+L:0 O7  C7  SING N
+L:0 N1  O8  DOUB N
+L:0 O4  C8  SING N
+L:0 N1  O9  SING N
+L:0 O6  C9  SING N
+L:0 C8  C10 SING N
+L:0 C9  C11 SING N
+L:0 P1  O7  SING N
+TRP N   CA  SING N
+TRP N   H   SING N
+TRP N   H2  SING N
+TRP CA  C   SING N
+TRP CA  CB  SING N
+TRP CA  HA  SING N
+TRP C   O   DOUB N
+TRP C   OXT SING N
+TRP CB  CG  SING N
+TRP CB  HB2 SING N
+TRP CB  HB3 SING N
+TRP CG  CD1 DOUB Y
+TRP CG  CD2 SING Y
+TRP CD1 NE1 SING Y
+TRP CD1 HD1 SING N
+TRP CD2 CE2 DOUB Y
+TRP CD2 CE3 SING Y
+TRP NE1 CE2 SING Y
+TRP NE1 HE1 SING N
+TRP CE2 CZ2 SING Y
+TRP CE3 CZ3 DOUB Y
+TRP CE3 HE3 SING N
+TRP CZ2 CH2 DOUB Y
+TRP CZ2 HZ2 SING N
+TRP CZ3 CH2 SING Y
+TRP CZ3 HZ3 SING N
+TRP CH2 HH2 SING N
+TRP OXT HXT SING N
 #
 loop_
-_atom_site.group_PDB 
-_atom_site.type_symbol 
-_atom_site.label_atom_id 
-_atom_site.label_alt_id 
-_atom_site.label_comp_id 
-_atom_site.label_asym_id 
-_atom_site.label_entity_id 
-_atom_site.label_seq_id 
-_atom_site.pdbx_PDB_ins_code 
-_atom_site.auth_seq_id 
-_atom_site.auth_comp_id 
-_atom_site.auth_asym_id 
-_atom_site.auth_atom_id 
-_atom_site.id 
-_atom_site.B_iso_or_equiv 
-_atom_site.occupancy 
-_atom_site.pdbx_formal_charge 
-_atom_site.annotation_expsegmin_1_residue 
-_atom_site.annotation_expsegmax_1_residue 
-_atom_site.condition_sequence_1_residue 
-_atom_site.condition_index_1_residue 
-_atom_site.condition_hbond_1_atom 
-_atom_site.condition_index-group_1_token 
-_atom_site.annotation_src-component_1_atom 
-_atom_site.atom_array_index 
-_atom_site.Cartn_x 
-_atom_site.Cartn_y 
-_atom_site.Cartn_z 
-_atom_site.pdbx_PDB_model_num 
-HETATM X  UNK . 180-180 A 1 0   . 0   180-180 A UNK 1  nan   0.0 ?  180 180 <M> True  0 0 .    0  nan    nan    nan    1
-ATOM   C  CG  . ASP     A 1 1   . 1   ASP     A CG  2  17.39 1.0 ?  -1  -1  ASP False 0 4 A250 1  0.477  -0.542 2.937  1
-ATOM   O  OD1 . ASP     A 1 1   . 1   ASP     A OD1 3  18.72 1.0 ?  -1  -1  ASP False 0 4 A250 2  0.547  0.656  2.665  1
-ATOM   N  N   . ASP     A 1 1   . 1   ASP     A N   16 nan   0.0 ?  -1  -1  ASP False 0 4 .    3  nan    nan    nan    1
-ATOM   C  CA  . ASP     A 1 1   . 1   ASP     A CA  17 nan   0.0 ?  -1  -1  ASP False 0 4 .    4  nan    nan    nan    1
-ATOM   C  C   . ASP     A 1 1   . 1   ASP     A C   18 nan   0.0 ?  -1  -1  ASP False 0 4 .    5  nan    nan    nan    1
-ATOM   O  O   . ASP     A 1 1   . 1   ASP     A O   19 nan   0.0 ?  -1  -1  ASP False 0 4 .    6  nan    nan    nan    1
-ATOM   C  CB  . ASP     A 1 1   . 1   ASP     A CB  20 nan   0.0 ?  -1  -1  ASP False 0 4 .    7  nan    nan    nan    1
-ATOM   O  OD2 . ASP     A 1 1   . 1   ASP     A OD2 21 nan   0.0 ?  -1  -1  ASP False 0 4 .    8  nan    nan    nan    1
-ATOM   O  OXT . ASP     A 1 1   . 1   ASP     A OXT 22 nan   0.0 ?  -1  -1  ASP False 0 4 .    9  nan    nan    nan    1
-HETATM N  N1  . ORO     C 3 410 . 410 ORO     C N1  4  18.66 1.0 ?  -1  -1  ORO True  0 1 ORO  10 -2.127 0.345  -1.747 1
-HETATM C  C2  . ORO     C 3 410 . 410 ORO     C C2  5  23.79 1.0 ?  -1  -1  ORO True  0 1 ORO  11 -1.547 -0.999 -1.559 1
-HETATM O  O2  . ORO     C 3 410 . 410 ORO     C O2  6  19.98 1.0 ?  -1  -1  ORO True  0 1 ORO  12 0.0    0.0    0.0    1
-HETATM N  N3  . ORO     C 3 410 . 410 ORO     C N3  7  26.76 1.0 ?  -1  -1  ORO True  0 1 ORO  13 -0.172 -1.019 -1.547 1
-HETATM C  C4  . ORO     C 3 410 . 410 ORO     C C4  8  100.0 1.0 ?  -1  -1  ORO True  0 1 ORO  14 0.602  -0.003 -2.126 1
-HETATM O  O4  . ORO     C 3 410 . 410 ORO     C O4  9  39.79 1.0 ?  -1  -1  ORO True  0 1 ORO  15 0.0    0.0    0.0    1
-HETATM C  C5  . ORO     C 3 410 . 410 ORO     C C5  10 30.44 1.0 ?  -1  -1  ORO True  0 1 ORO  16 0.0    0.0    0.0    1
-HETATM C  C6  . ORO     C 3 410 . 410 ORO     C C6  11 29.02 1.0 ?  -1  -1  ORO True  0 1 ORO  17 0.0    0.0    0.0    1
-HETATM C  C7  . ORO     C 3 410 . 410 ORO     C C7  12 21.02 1.0 ?  -1  -1  ORO True  0 1 ORO  18 0.0    0.0    0.0    1
-HETATM O  O71 . ORO     C 3 410 . 410 ORO     C O71 13 17.46 1.0 ?  -1  -1  ORO True  0 1 ORO  19 0.0    0.0    0.0    1
-HETATM O  O72 . ORO     C 3 410 . 410 ORO     C O72 14 18.24 1.0 ?  -1  -1  ORO True  0 1 ORO  20 0.0    0.0    0.0    1
-HETATM ZN ZN  . ZN      B 2 400 . 400 ZN      B ZN  15 22.02 1.0 +2 -1  -1  ZN  True  0 2 ZN   21 2.223  1.561  1.378  1
+_atom_site.group_PDB
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_entity_id
+_atom_site.label_seq_id
+_atom_site.pdbx_PDB_ins_code
+_atom_site.auth_seq_id
+_atom_site.auth_comp_id
+_atom_site.auth_asym_id
+_atom_site.auth_atom_id
+_atom_site.id
+_atom_site.occupancy
+_atom_site.pdbx_formal_charge
+_atom_site.annotation_expsegmin_1_residue
+_atom_site.annotation_expsegmax_1_residue
+_atom_site.atomize
+_atom_site.condition_sequence_1_residue
+_atom_site.condition_index_1_residue
+_atom_site.condition_rasa-binned_1_atom
+_atom_site.condition_hbond_1_atom
+_atom_site.condition_secondary-structure_1_residue
+_atom_site.condition_index-group_1_token
+_atom_site.annotation_src-coordinate-conditioned-region_1_atom
+_atom_site.annotation_src-component_1_atom
+_atom_site.is_unindexed_insertion
+_atom_site.atom_array_index
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.pdbx_PDB_model_num
+ATOM   N  N   . ASP    A 1 16  . 16  ASP    A N   0   1.0 ?  -1 -1  False ASP False 0 0 0 6  .      A0-105 False 0   5.01   -4.838 -2.016 1
+ATOM   C  CA  . ASP    A 1 16  . 16  ASP    A CA  1   1.0 ?  -1 -1  False ASP False 0 0 0 6  .      A0-105 False 1   5.532  -3.652 -1.328 1
+ATOM   C  C   . ASP    A 1 16  . 16  ASP    A C   2   1.0 ?  -1 -1  False ASP False 0 0 0 6  .      A0-105 False 2   7.066  -3.614 -1.325 1
+ATOM   O  O   . ASP    A 1 16  . 16  ASP    A O   3   1.0 ?  -1 -1  False ASP False 0 0 0 6  .      A0-105 False 3   7.657  -2.561 -1.5   1
+ATOM   C  CB  . ASP    A 1 16  . 16  ASP    A CB  4   1.0 ?  -1 -1  False ASP False 0 0 0 6  A0-105 A0-105 False 4   4.991  -3.581 0.11   1
+ATOM   C  CG  . ASP    A 1 16  . 16  ASP    A CG  5   1.0 ?  -1 -1  False ASP False 0 0 0 6  A0-105 A0-105 False 5   3.563  -3.094 0.16   1
+ATOM   O  OD1 . ASP    A 1 16  . 16  ASP    A OD1 6   1.0 ?  -1 -1  False ASP False 0 0 0 6  A0-105 A0-105 False 6   3.382  -1.973 0.237  1
+ATOM   O  OD2 . ASP    A 1 16  . 16  ASP    A OD2 7   1.0 ?  -1 -1  False ASP False 0 0 0 6  A0-105 A0-105 False 7   2.596  -3.816 0.166  1
+ATOM   N  N   . HIS    A 1 45  . 45  HIS    A N   8   1.0 ?  -1 -1  False HIS False 0 0 0 7  .      A0-105 False 8   -0.237 -7.646 -5.915 1
+ATOM   C  CA  . HIS    A 1 45  . 45  HIS    A CA  9   1.0 ?  -1 -1  False HIS False 0 0 0 7  .      A0-105 False 9   -1.392 -7.109 -5.19  1
+ATOM   C  C   . HIS    A 1 45  . 45  HIS    A C   10  1.0 ?  -1 -1  False HIS False 0 0 0 7  .      A0-105 False 10  -2.712 -7.531 -5.825 1
+ATOM   O  O   . HIS    A 1 45  . 45  HIS    A O   11  1.0 ?  -1 -1  False HIS False 0 0 0 7  .      A0-105 False 11  -3.641 -7.929 -5.099 1
+ATOM   C  CB  . HIS    A 1 45  . 45  HIS    A CB  12  1.0 ?  -1 -1  False HIS False 0 0 0 7  A0-105 A0-105 False 12  -1.292 -5.594 -5.076 1
+ATOM   C  CG  . HIS    A 1 45  . 45  HIS    A CG  13  1.0 ?  -1 -1  False HIS False 0 0 0 7  A0-105 A0-105 False 13  -0.326 -5.147 -4.008 1
+ATOM   N  ND1 . HIS    A 1 45  . 45  HIS    A ND1 14  1.0 +1 -1 -1  False HIS False 0 0 0 7  A0-105 A0-105 False 14  0.941  -5.529 -3.889 1
+ATOM   C  CD2 . HIS    A 1 45  . 45  HIS    A CD2 15  1.0 ?  -1 -1  False HIS False 0 0 0 7  A0-105 A0-105 False 15  -0.467 -4.35  -2.978 1
+ATOM   C  CE1 . HIS    A 1 45  . 45  HIS    A CE1 16  1.0 ?  -1 -1  False HIS False 0 0 0 7  A0-105 A0-105 False 16  1.534  -5.008 -2.839 1
+ATOM   N  NE2 . HIS    A 1 45  . 45  HIS    A NE2 17  1.0 ?  -1 -1  False HIS False 0 0 0 7  A0-105 A0-105 False 17  0.703  -4.296 -2.274 1
+ATOM   N  N   . TRP    A 1 75  . 75  TRP    A N   18  1.0 ?  -1 -1  False TRP False 0 0 0 8  .      A0-105 False 18  -8.781 -0.327 -0.88  1
+ATOM   C  CA  . TRP    A 1 75  . 75  TRP    A CA  19  1.0 ?  -1 -1  False TRP False 0 0 0 8  .      A0-105 False 19  -7.412 0.193  -0.776 1
+ATOM   C  C   . TRP    A 1 75  . 75  TRP    A C   20  1.0 ?  -1 -1  False TRP False 0 0 0 8  .      A0-105 False 20  -7.334 1.534  -0.06  1
+ATOM   O  O   . TRP    A 1 75  . 75  TRP    A O   21  1.0 ?  -1 -1  False TRP False 0 0 0 8  .      A0-105 False 21  -6.558 1.656  0.884  1
+ATOM   C  CB  . TRP    A 1 75  . 75  TRP    A CB  22  1.0 ?  -1 -1  False TRP False 0 0 0 8  A0-105 A0-105 False 22  -6.715 0.285  -2.153 1
+ATOM   C  CG  . TRP    A 1 75  . 75  TRP    A CG  23  1.0 ?  -1 -1  False TRP False 0 0 0 8  A0-105 A0-105 False 23  -5.313 0.852  -2.003 1
+ATOM   C  CD1 . TRP    A 1 75  . 75  TRP    A CD1 24  1.0 ?  -1 -1  False TRP False 0 0 0 8  A0-105 A0-105 False 24  -4.183 0.254  -1.493 1
+ATOM   C  CD2 . TRP    A 1 75  . 75  TRP    A CD2 25  1.0 ?  -1 -1  False TRP False 0 0 0 8  A0-105 A0-105 False 25  -4.917 2.196  -2.242 1
+ATOM   N  NE1 . TRP    A 1 75  . 75  TRP    A NE1 26  1.0 ?  -1 -1  False TRP False 0 0 0 8  A0-105 A0-105 False 26  -3.11  1.115  -1.418 1
+ATOM   C  CE2 . TRP    A 1 75  . 75  TRP    A CE2 27  1.0 ?  -1 -1  False TRP False 0 0 0 8  A0-105 A0-105 False 27  -3.544 2.34   -1.84  1
+ATOM   C  CE3 . TRP    A 1 75  . 75  TRP    A CE3 28  1.0 ?  -1 -1  False TRP False 0 0 0 8  A0-105 A0-105 False 28  -5.62  3.276  -2.752 1
+ATOM   C  CZ2 . TRP    A 1 75  . 75  TRP    A CZ2 29  1.0 ?  -1 -1  False TRP False 0 0 0 8  A0-105 A0-105 False 29  -2.897 3.54   -1.927 1
+ATOM   C  CZ3 . TRP    A 1 75  . 75  TRP    A CZ3 30  1.0 ?  -1 -1  False TRP False 0 0 0 8  A0-105 A0-105 False 30  -4.959 4.464  -2.801 1
+ATOM   C  CH2 . TRP    A 1 75  . 75  TRP    A CH2 31  1.0 ?  -1 -1  False TRP False 0 0 0 8  A0-105 A0-105 False 31  -3.607 4.574  -2.437 1
+ATOM   N  N   . HIS    A 1 79  . 79  HIS    A N   32  1.0 ?  -1 -1  False HIS False 0 0 0 9  .      A0-105 False 32  -5.28  3.613  4.118  1
+ATOM   C  CA  . HIS    A 1 79  . 79  HIS    A CA  33  1.0 ?  -1 -1  False HIS False 0 0 0 9  .      A0-105 False 33  -4.255 4.544  3.851  1
+ATOM   C  C   . HIS    A 1 79  . 79  HIS    A C   34  1.0 ?  -1 -1  False HIS False 0 0 0 9  .      A0-105 False 34  -4.612 5.953  4.316  1
+ATOM   O  O   . HIS    A 1 79  . 79  HIS    A O   35  1.0 ?  -1 -1  False HIS False 0 0 0 9  .      A0-105 False 35  -3.848 6.601  5.035  1
+ATOM   C  CB  . HIS    A 1 79  . 79  HIS    A CB  36  1.0 ?  -1 -1  False HIS False 0 0 0 9  A0-105 A0-105 False 36  -3.925 4.518  2.362  1
+ATOM   C  CG  . HIS    A 1 79  . 79  HIS    A CG  37  1.0 ?  -1 -1  False HIS False 0 0 0 9  A0-105 A0-105 False 37  -2.852 3.552  1.992  1
+ATOM   N  ND1 . HIS    A 1 79  . 79  HIS    A ND1 38  1.0 +1 -1 -1  False HIS False 0 0 0 9  A0-105 A0-105 False 38  -1.677 3.963  1.42   1
+ATOM   C  CD2 . HIS    A 1 79  . 79  HIS    A CD2 39  1.0 ?  -1 -1  False HIS False 0 0 0 9  A0-105 A0-105 False 39  -2.716 2.239  2.124  1
+ATOM   C  CE1 . HIS    A 1 79  . 79  HIS    A CE1 40  1.0 ?  -1 -1  False HIS False 0 0 0 9  A0-105 A0-105 False 40  -0.892 2.904  1.245  1
+ATOM   N  NE2 . HIS    A 1 79  . 79  HIS    A NE2 41  1.0 ?  -1 -1  False HIS False 0 0 0 9  A0-105 A0-105 False 41  -1.514 1.851  1.62   1
+ATOM   N  N   . HIS    A 1 94  . 94  HIS    A N   42  1.0 ?  -1 -1  False HIS False 0 0 0 10 .      A0-105 False 42  8.319  -0.682 6.943  1
+ATOM   C  CA  . HIS    A 1 94  . 94  HIS    A CA  43  1.0 ?  -1 -1  False HIS False 0 0 0 10 .      A0-105 False 43  7.061  -0.618 6.225  1
+ATOM   C  C   . HIS    A 1 94  . 94  HIS    A C   44  1.0 ?  -1 -1  False HIS False 0 0 0 10 .      A0-105 False 44  6.289  -1.938 6.249  1
+ATOM   O  O   . HIS    A 1 94  . 94  HIS    A O   45  1.0 ?  -1 -1  False HIS False 0 0 0 10 .      A0-105 False 45  5.072  -1.933 6.47   1
+ATOM   C  CB  . HIS    A 1 94  . 94  HIS    A CB  46  1.0 ?  -1 -1  False HIS False 0 0 0 10 A0-105 A0-105 False 46  7.33   -0.159 4.797  1
+ATOM   C  CG  . HIS    A 1 94  . 94  HIS    A CG  47  1.0 ?  -1 -1  False HIS False 0 0 0 10 A0-105 A0-105 False 47  6.064  -0.067 3.975  1
+ATOM   N  ND1 . HIS    A 1 94  . 94  HIS    A ND1 48  1.0 +1 -1 -1  False HIS False 0 0 0 10 A0-105 A0-105 False 48  5.083  0.87   4.198  1
+ATOM   C  CD2 . HIS    A 1 94  . 94  HIS    A CD2 49  1.0 ?  -1 -1  False HIS False 0 0 0 10 A0-105 A0-105 False 49  5.627  -0.871 2.939  1
+ATOM   C  CE1 . HIS    A 1 94  . 94  HIS    A CE1 50  1.0 ?  -1 -1  False HIS False 0 0 0 10 A0-105 A0-105 False 50  4.079  0.667  3.304  1
+ATOM   N  NE2 . HIS    A 1 94  . 94  HIS    A NE2 51  1.0 ?  -1 -1  False HIS False 0 0 0 10 A0-105 A0-105 False 51  4.369  -0.392 2.546  1
+ATOM   N  N   . HIS    A 1 98  . 98  HIS    A N   52  1.0 ?  -1 -1  False HIS False 0 0 0 11 .      A0-105 False 52  2.815  -1.773 7.731  1
+ATOM   C  CA  . HIS    A 1 98  . 98  HIS    A CA  53  1.0 ?  -1 -1  False HIS False 0 0 0 11 .      A0-105 False 53  1.811  -1.832 6.686  1
+ATOM   C  C   . HIS    A 1 98  . 98  HIS    A C   54  1.0 ?  -1 -1  False HIS False 0 0 0 11 .      A0-105 False 54  0.933  -3.095 6.795  1
+ATOM   O  O   . HIS    A 1 98  . 98  HIS    A O   55  1.0 ?  -1 -1  False HIS False 0 0 0 11 .      A0-105 False 55  -0.121 -3.201 6.205  1
+ATOM   C  CB  . HIS    A 1 98  . 98  HIS    A CB  56  1.0 ?  -1 -1  False HIS False 0 0 0 11 A0-105 A0-105 False 56  2.487  -1.711 5.318  1
+ATOM   C  CG  . HIS    A 1 98  . 98  HIS    A CG  57  1.0 ?  -1 -1  False HIS False 0 0 0 11 A0-105 A0-105 False 57  1.749  -0.875 4.333  1
+ATOM   N  ND1 . HIS    A 1 98  . 98  HIS    A ND1 58  1.0 +1 -1 -1  False HIS False 0 0 0 11 A0-105 A0-105 False 58  1.177  0.354  4.709  1
+ATOM   C  CD2 . HIS    A 1 98  . 98  HIS    A CD2 59  1.0 ?  -1 -1  False HIS False 0 0 0 11 A0-105 A0-105 False 59  1.519  -1.03  3.024  1
+ATOM   C  CE1 . HIS    A 1 98  . 98  HIS    A CE1 60  1.0 ?  -1 -1  False HIS False 0 0 0 11 A0-105 A0-105 False 60  0.598  0.881  3.637  1
+ATOM   N  NE2 . HIS    A 1 98  . 98  HIS    A NE2 61  1.0 ?  -1 -1  False HIS False 0 0 0 11 A0-105 A0-105 False 61  0.77   0.079  2.615  1
+ATOM   N  N   . HIS    A 1 102 . 102 HIS    A N   62  1.0 ?  -1 -1  False HIS False 0 0 0 12 .      A0-105 False 62  -2.766 -3.691 5.239  1
+ATOM   C  CA  . HIS    A 1 102 . 102 HIS    A CA  63  1.0 ?  -1 -1  False HIS False 0 0 0 12 .      A0-105 False 63  -2.984 -4.763 4.271  1
+ATOM   C  C   . HIS    A 1 102 . 102 HIS    A C   64  1.0 ?  -1 -1  False HIS False 0 0 0 12 .      A0-105 False 64  -4.092 -5.737 4.698  1
+ATOM   O  O   . HIS    A 1 102 . 102 HIS    A O   65  1.0 ?  -1 -1  False HIS False 0 0 0 12 .      A0-105 False 65  -4.931 -6.108 3.914  1
+ATOM   C  CB  . HIS    A 1 102 . 102 HIS    A CB  66  1.0 ?  -1 -1  False HIS False 0 0 0 12 A0-105 A0-105 False 66  -1.676 -5.507 4.035  1
+ATOM   C  CG  . HIS    A 1 102 . 102 HIS    A CG  67  1.0 ?  -1 -1  False HIS False 0 0 0 12 A0-105 A0-105 False 67  -0.806 -4.909 2.977  1
+ATOM   N  ND1 . HIS    A 1 102 . 102 HIS    A ND1 68  1.0 +1 -1 -1  False HIS False 0 0 0 12 A0-105 A0-105 False 68  0.251  -5.577 2.525  1
+ATOM   C  CD2 . HIS    A 1 102 . 102 HIS    A CD2 69  1.0 ?  -1 -1  False HIS False 0 0 0 12 A0-105 A0-105 False 69  -0.871 -3.766 2.245  1
+ATOM   C  CE1 . HIS    A 1 102 . 102 HIS    A CE1 70  1.0 ?  -1 -1  False HIS False 0 0 0 12 A0-105 A0-105 False 70  0.805  -4.879 1.536  1
+ATOM   N  NE2 . HIS    A 1 102 . 102 HIS    A NE2 71  1.0 ?  -1 -1  False HIS False 0 0 0 12 A0-105 A0-105 False 71  0.169  -3.757 1.352  1
+HETATM X  UNK . 75-100 A 1 104 . 104 75-100 A UNK 72  0.0 ?  75 100 False <M> True  0 0 0 0  .      .      False 72  nan    nan    nan    1
+ATOM   N  N   . KCX    A 1 105 . 105 KCX    A N   73  1.0 ?  -1 -1  True  KCX True  0 0 0 0  .      A0-105 False 73  -7.3   -4.454 4.343  1
+ATOM   C  CA  . KCX    A 1 105 . 105 KCX    A CA  74  1.0 ?  -1 -1  True  KCX True  0 0 0 0  .      A0-105 False 74  -7.701 -4.616 2.956  1
+ATOM   C  CB  . KCX    A 1 105 . 105 KCX    A CB  75  1.0 ?  -1 -1  True  KCX True  0 0 0 0  .      A0-105 False 75  -7.774 -3.253 2.248  1
+ATOM   C  CG  . KCX    A 1 105 . 105 KCX    A CG  76  1.0 ?  -1 -1  True  KCX True  0 0 0 0  .      A0-105 False 76  -6.491 -2.512 2.306  1
+ATOM   C  CD  . KCX    A 1 105 . 105 KCX    A CD  77  1.0 ?  -1 -1  True  KCX True  0 0 0 0  A0-105 A0-105 False 77  -5.458 -3.206 1.485  1
+ATOM   C  CE  . KCX    A 1 105 . 105 KCX    A CE  78  1.0 ?  -1 -1  True  KCX True  0 0 0 0  A0-105 A0-105 False 78  -4.455 -2.073 1.088  1
+ATOM   N  NZ  . KCX    A 1 105 . 105 KCX    A NZ  79  1.0 ?  -1 -1  True  KCX True  0 1 0 0  A0-105 A0-105 False 79  -3.489 -2.502 0.161  1
+ATOM   C  C   . KCX    A 1 105 . 105 KCX    A C   80  1.0 ?  -1 -1  True  KCX True  0 0 0 0  .      A0-105 False 80  -9.013 -5.321 2.951  1
+ATOM   O  O   . KCX    A 1 105 . 105 KCX    A O   81  1.0 ?  -1 -1  True  KCX True  0 0 0 0  .      A0-105 False 81  -9.584 -5.696 1.916  1
+ATOM   C  CX  . KCX    A 1 105 . 105 KCX    A CX  82  1.0 ?  -1 -1  True  KCX True  0 0 0 0  A0-105 A0-105 False 82  -2.24  -1.996 0.123  1
+ATOM   O  OQ1 . KCX    A 1 105 . 105 KCX    A OQ1 83  1.0 ?  -1 -1  True  KCX True  0 0 0 0  A0-105 A0-105 False 83  -1.906 -1.158 1.034  1
+ATOM   O  OQ2 . KCX    A 1 105 . 105 KCX    A OQ2 84  1.0 -1 -1 -1  True  KCX True  0 0 0 0  A0-105 A0-105 False 84  -1.448 -2.366 -0.778 1
+HETATM X  UNK . 75-100 A 1 106 . 106 75-100 A UNK 85  0.0 ?  75 100 False <M> True  0 0 0 0  .      .      False 85  nan    nan    nan    1
+HETATM ZN ZN  . ZN     C 2 1   . 1   ZN     C ZN  86  1.0 +2 -1 -1  True  ZN  True  1 0 0 2  C1     C1     False 86  -0.508 0.196  1.019  1
+HETATM ZN ZN  . ZN     B 2 1   . 1   ZN     B ZN  87  1.0 +2 -1 -1  True  ZN  True  1 0 0 1  B1     B1     False 87  0.501  -3.027 -0.489 1
+HETATM P  P1  . L:0    D 3 1   . 1   L:0    D P1  88  1.0 ?  -1 -1  True  L:0 True  1 0 0 3  D1     D1     False 88  1.394  0.298  -1.206 1
+HETATM C  C2  . L:0    D 3 1   . 1   L:0    D C2  89  1.0 ?  -1 -1  True  L:0 True  2 0 0 3  D1     D1     False 89  0.037  5.386  -1.311 1
+HETATM N  N1  . L:0    D 3 1   . 1   L:0    D N1  90  1.0 +1 -1 -1  True  L:0 True  3 0 0 3  D1     D1     False 90  -0.734 6.458  -0.72  1
+HETATM C  C3  . L:0    D 3 1   . 1   L:0    D C3  91  1.0 ?  -1 -1  True  L:0 True  2 0 0 3  D1     D1     False 91  1.126  4.901  -0.653 1
+HETATM O  O4  . L:0    D 3 1   . 1   L:0    D O4  92  1.0 ?  -1 -1  True  L:0 True  1 0 0 3  D1     D1     False 92  1.356  -0.673 -2.358 1
+HETATM C  C4  . L:0    D 3 1   . 1   L:0    D C4  93  1.0 ?  -1 -1  True  L:0 True  2 0 0 3  D1     D1     False 93  -0.483 4.834  -2.49  1
+HETATM O  O5  . L:0    D 3 1   . 1   L:0    D O5  94  1.0 ?  -1 -1  True  L:0 True  1 2 0 3  D1     D1     False 94  0.176  0.983  -0.625 1
+HETATM C  C5  . L:0    D 3 1   . 1   L:0    D C5  95  1.0 ?  -1 -1  True  L:0 True  2 0 0 3  D1     D1     False 95  1.72   3.748  -1.126 1
+HETATM O  O6  . L:0    D 3 1   . 1   L:0    D O6  96  1.0 ?  -1 -1  True  L:0 True  1 0 0 3  D1     D1     False 96  2.841  0.567  -0.624 1
+HETATM C  C6  . L:0    D 3 1   . 1   L:0    D C6  97  1.0 ?  -1 -1  True  L:0 True  2 0 0 3  D1     D1     False 97  0.195  3.643  -3.002 1
+HETATM O  O7  . L:0    D 3 1   . 1   L:0    D O7  98  1.0 ?  -1 -1  True  L:0 True  1 2 0 3  D1     D1     False 98  1.664  1.887  -2.655 1
+HETATM C  C7  . L:0    D 3 1   . 1   L:0    D C7  99  1.0 ?  -1 -1  True  L:0 True  2 0 0 3  D1     D1     False 99  1.207  3.064  -2.276 1
+HETATM O  O8  . L:0    D 3 1   . 1   L:0    D O8  100 1.0 -1 -1 -1  True  L:0 True  3 0 0 3  D1     D1     False 100 -1.472 7.156  -1.402 1
+HETATM C  C8  . L:0    D 3 1   . 1   L:0    D C8  101 1.0 ?  -1 -1  True  L:0 True  1 0 0 3  D1     D1     False 101 0.355  -0.565 -3.35  1
+HETATM O  O9  . L:0    D 3 1   . 1   L:0    D O9  102 1.0 ?  -1 -1  True  L:0 True  3 0 0 3  D1     D1     False 102 -0.6   6.656  0.494  1
+HETATM C  C9  . L:0    D 3 1   . 1   L:0    D C9  103 1.0 ?  -1 -1  True  L:0 True  1 0 0 3  D1     D1     False 103 3.977  0.469  -1.479 1
+HETATM C  C10 . L:0    D 3 1   . 1   L:0    D C10 104 1.0 ?  -1 -1  True  L:0 True  1 0 0 3  D1     D1     False 104 0.847  -1.355 -4.581 1
+HETATM C  C11 . L:0    D 3 1   . 1   L:0    D C11 105 1.0 ?  -1 -1  True  L:0 True  1 0 0 3  D1     D1     False 105 5.138  1.129  -0.732 1
+HETATM O  O3  . W:1    E 4 1   . 1   W:1    E O3  106 1.0 -1 -1 -1  True  W:1 True  1 0 0 4  E1     E1     False 106 1.087  -1.196 0.132  1
 #
 loop_
-_condition_coordinate_1_atom.idx0 
-_condition_coordinate_1_atom.val0 
-_condition_coordinate_1_atom.val1 
-_condition_coordinate_1_atom.val2 
-0  nan                 nan                   nan
-1  0.47699999809265137 -0.5419999957084656   2.937000036239624
-2  0.546999990940094   0.656000018119812     2.6649999618530273
-3  nan                 nan                   nan
-4  nan                 nan                   nan
-5  nan                 nan                   nan
-6  nan                 nan                   nan
-7  nan                 nan                   nan
-8  nan                 nan                   nan
-9  nan                 nan                   nan
-10 -2.127000093460083  0.3449999988079071    -1.746999979019165
-11 -1.5470000505447388 -0.9990000128746033   -1.559000015258789
-12 nan                 nan                   nan
-13 -0.1720000058412552 -1.0190000534057617   -1.5470000505447388
-14 0.6019999980926514  -0.003000000026077032 -2.125999927520752
-15 nan                 nan                   nan
-16 nan                 nan                   nan
-17 nan                 nan                   nan
-18 nan                 nan                   nan
-19 nan                 nan                   nan
-20 nan                 nan                   nan
-21 2.2230000495910645  1.5609999895095825    1.378000020980835
+_condition_coordinate_1_atom.idx0
+_condition_coordinate_1_atom.val0
+_condition_coordinate_1_atom.val1
+_condition_coordinate_1_atom.val2
+0   nan                  nan                   nan
+1   nan                  nan                   nan
+2   nan                  nan                   nan
+3   nan                  nan                   nan
+4   4.988732416867495    -3.6571410167769374   -0.19023959965858458
+5   3.6267324168674944   -3.0331412167769374   0.0477604023414154
+6   3.5837324168674947   -1.8891412167769372   0.5697604003414154
+7   2.6087324168674946   -3.6941412167769374   -0.2872395996585846
+8   nan                  nan                   nan
+9   nan                  nan                   nan
+10  nan                  nan                   nan
+11  nan                  nan                   nan
+12  -1.0462675831325055  -5.812141216776937    -5.130239499658584
+13  -0.23326754313250542 -5.244140916776937    -4.014239899658585
+14  1.1077324168674947   -5.505141216776937    -3.8102394996585844
+15  -0.5802675831325054  -4.388140916776937    -3.0172394996585847
+16  1.5197325168674947   -4.819141216776937    -2.7282394996585846
+17  0.5197324668674946   -4.127141216776938    -2.2242394996585846
+18  nan                  nan                   nan
+19  nan                  nan                   nan
+20  nan                  nan                   nan
+21  nan                  nan                   nan
+22  -6.678267583132506   0.30085888322306276   -2.4542394996585846
+23  -5.327267583132506   0.8998588832230627    -2.2742394996585844
+24  -4.272267583132505   0.36585888322306276   -1.5902394996585847
+25  -4.9832675831325055  2.2578589832230627    -2.5542394996585847
+26  -3.3042675831325052  1.3138588832230627    -1.3882394996585845
+27  -3.7372674831325052  2.4908589832230628    -1.9302395996585846
+28  -5.6002675831325055  3.2908589832230626    -3.2632394996585847
+29  -3.1982675831325054  3.7658587832230626    -1.8552394996585846
+30  -5.008267583132505   4.532859083223062     -3.2612394996585845
+31  -3.8442675831325053  4.780858783223063     -2.5272394996585845
+32  nan                  nan                   nan
+33  nan                  nan                   nan
+34  nan                  nan                   nan
+35  nan                  nan                   nan
+36  -3.5372675831325053  4.522858783223063     3.0887605003414156
+37  -2.5772675831325054  3.635858983223063     2.3657605003414153
+38  -1.5192674831325055  4.116858783223063     1.6117605003414155
+39  -2.534267583132505   2.2738589832230627    2.3467604003414153
+40  -0.8682675431325054  3.057858983223063     1.1637605003414153
+41  -1.4522674831325053  1.9288588832230626    1.5767605003414153
+42  nan                  nan                   nan
+43  nan                  nan                   nan
+44  nan                  nan                   nan
+45  nan                  nan                   nan
+46  7.105732416867495    -0.6091411167769373   5.040760500341415
+47  5.9477324168674945   -0.35014111677693727  4.142760100341415
+48  5.116732416867495    0.7188588832230628    4.379760100341415
+49  5.505732416867494    -0.9311411167769372   2.9987605003414153
+50  4.220732416867494    0.8168588832230628    3.4137605003414153
+51  4.435732416867495    -0.18014111677693725  2.5607603003414154
+52  nan                  nan                   nan
+53  nan                  nan                   nan
+54  nan                  nan                   nan
+55  nan                  nan                   nan
+56  2.4587324168674947   -1.9321412167769372   5.380760000341415
+57  1.6727325168674947   -1.0651412167769372   4.462760500341416
+58  1.1437325168674946   0.13885888322306275   4.865760200341415
+59  1.3457325168674945   -1.1771412167769373   3.1477605003414153
+60  0.5347324468674945   0.7128588832230628    3.8217605003414152
+61  0.6467324168674946   -0.053141116776937246 2.7507605003414155
+62  nan                  nan                   nan
+63  nan                  nan                   nan
+64  nan                  nan                   nan
+65  nan                  nan                   nan
+66  -1.1982675831325054  -4.923141216776937    4.623760100341415
+67  -0.5762675531325054  -4.743140916776937    3.2787605003414155
+68  0.3457324668674946   -5.627141216776938    2.7567605003414153
+69  -0.7072675331325055  -3.777141216776937    2.3297605003414152
+70  0.7337324468674946   -5.184140916776937    1.5467604003414155
+71  0.11173245686749458  -4.062141216776937    1.2587604003414155
+72  nan                  nan                   nan
+73  nan                  nan                   nan
+74  nan                  nan                   nan
+75  nan                  nan                   nan
+76  nan                  nan                   nan
+77  -5.364760583132505   -3.2830142167769374   1.5229295003414154
+78  -4.432760583132505   -2.1390142167769373   1.1479295003414154
+79  -3.4317605831325055  -2.5490142167769374   0.1739295003414154
+80  nan                  nan                   nan
+81  nan                  nan                   nan
+82  -2.1877605831325053  -2.0180142167769373   0.0989295003414154
+83  -1.8677605831325055  -1.1930142167769373   1.0209295003414154
+84  -1.4237605831325053  -2.3970142167769373   -0.8360704996585846
+85  nan                  nan                   nan
+86  -0.4657605831325054  0.17198578322306277   1.0639295003414153
+87  0.5582394168674946   -3.0370142167769374   -0.49607049965858463
+88  1.3682394168674945   0.2749857832230628    -1.2470704996585846
+89  -0.06576058313250542 5.3789857832230625    -1.3690704996585845
+90  -0.7997605831325054  6.457985783223063     -0.7510704996585846
+91  1.0682394168674947   4.8709857832230625    -0.7440704996585846
+92  1.3522394168674945   -0.6660142167769373   -2.4760704996585847
+93  -0.5527605831325054  4.817985783223063     -2.5460704996585846
+94  0.1832394168674946   0.9909857832230627    -0.6970704996585846
+95  1.6712394168674947   3.745985783223063     -1.2600704996585845
+96  2.8002394168674947   0.6019857832230627    -0.7520704996585846
+97  0.04123941686749458  3.682985783223063     -3.044070499658585
+98  1.6002394168674945   1.9289857832230628    -2.7920704996585846
+99  1.1322394168674945   3.0719857832230626    -2.3830704996585848
+100 -1.5577605831325054  7.119985783223063     -1.4230704996585846
+101 0.2652394168674946   -0.6230142167769372   -3.4670704996585844
+102 -0.6447605831325054  6.6289857832230625    0.4639295003414154
+103 3.9692394168674943   0.5299857832230628    -1.6370704996585845
+104 0.7452394168674946   -1.3590142167769372   -4.687070499658585
+105 5.118239416867494    1.1879857832230627    -0.9200704996585846
+106 1.1622394168674945   -1.1930142167769373   0.056929500341415404
 #
 loop_
-_chem_comp_atom.comp_id 
-_chem_comp_atom.atom_id 
-_chem_comp_atom.type_symbol 
-_chem_comp_atom.charge 
-_chem_comp_atom.pdbx_aromatic_flag 
-_chem_comp_atom.pdbx_leaving_atom_flag 
-_chem_comp_atom.pdbx_model_Cartn_x_ideal 
-_chem_comp_atom.pdbx_model_Cartn_y_ideal 
-_chem_comp_atom.pdbx_model_Cartn_z_ideal 
-180-180 UNK X  0 N N nan                  nan                    nan
-ASP     N   N  0 N N -0.31700000166893005 1.687999963760376      0.06599999964237213
-ASP     CA  C  0 N N -0.4699999988079071  0.28600001335144043    -0.3440000116825104
-ASP     C   C  0 N N -1.8680000305175781  -0.18000000715255737   -0.028999999165534973
-ASP     O   O  0 N N -2.5339999198913574  0.41499999165534973    0.7860000133514404
-ASP     CB  C  0 N N 0.5389999747276306   -0.5799999833106995    0.4129999876022339
-ASP     CG  C  0 N N 1.937999963760376    -0.19499999284744263   0.004000000189989805
-ASP     OD1 O  0 N N 2.1089999675750732   0.6809999942779541     -0.8100000023841858
-ASP     OD2 O  0 N N 2.992000102996826    -0.8259999752044678    0.5429999828338623
-ASP     OXT O  0 N Y -2.374000072479248   -1.25600004196167      -0.6520000100135803
-ASP     H   H  0 N N -0.9279999732971191  2.2890000343322754     -0.46700000762939453
-ASP     H2  H  0 N Y -0.4779999852180481  1.7949999570846558     1.055999994277954
-ASP     HA  H  0 N N -0.2919999957084656  0.19900000095367432    -1.4160000085830688
-ASP     HB2 H  0 N N 0.4189999997615814   -0.42500001192092896   1.4850000143051147
-ASP     HB3 H  0 N N 0.367000013589859    -1.6299999952316284    0.17599999904632568
-ASP     HD2 H  0 N N 3.86899995803833     -0.5450000166893005    0.25
-ASP     HXT H  0 N Y -3.2750000953674316  -1.5169999599456787    -0.41600000858306885
-ORO     N1  N  0 Y N 1.1260000467300415   0.004999999888241291   0.041999999433755875
-ORO     C2  C  0 Y N 1.1929999589920044   -0.0010000000474974513 -1.2990000247955322
-ORO     O2  O  0 N N 2.2839999198913574   -0.0010000000474974513 -1.8359999656677246
-ORO     N3  N  0 Y N 0.08799999952316284  -0.0                   -2.062999963760376
-ORO     C4  C  0 Y N -1.1349999904632568  -0.0                   -1.4950000047683716
-ORO     O4  O  0 N N -2.138000011444092   0.0                    -2.184000015258789
-ORO     C5  C  0 Y N -1.2359999418258667  -0.0                   -0.029999999329447746
-ORO     C6  C  0 Y N -0.08699999749660492 -0.0                   0.6949999928474426
-ORO     C7  C  0 N N -0.13899999856948853 -0.0                   2.177000045776367
-ORO     O71 O  0 N N -1.2109999656677246  -0.0                   2.746000051498413
-ORO     O72 O  0 N N 1.0019999742507935   -0.0                   2.8910000324249268
-ORO     HN1 H  0 N N 1.9450000524520874   0.004000000189989805   0.5609999895095825
-ORO     HN3 H  0 N N 0.17000000178813934  -0.0                   -3.0299999713897705
-ORO     H5  H  0 N N -2.1989998817443848  -0.0                   0.4569999873638153
-ORO     HO7 H  0 N N 0.9679999947547913   -0.0                   3.8570001125335693
-ZN      ZN  ZN 2 N N nan                  nan                    nan
+_annotation_coords-with-insertion_1_atom.idx0
+_annotation_coords-with-insertion_1_atom.val0
+_annotation_coords-with-insertion_1_atom.val1
+_annotation_coords-with-insertion_1_atom.val2
+0   5.058776    -4.775665    -2.1711197
+1   5.5852823   -3.5863466   -1.4928179
+2   7.1183567   -3.5310369   -1.52822
+3   7.6929493   -2.4709764   -1.7152351
+4   4.9887323   -3.657141    -0.1902396
+5   3.6267323   -3.0331411   0.0477604
+6   3.5837324   -1.8891412   0.5697604
+7   2.6087325   -3.6941411   -0.2872396
+8   -0.25411582 -7.6315145   -5.9437103
+9   -1.396657   -7.1085587   -5.1881285
+10  -2.727334   -7.5435705   -5.790429
+11  -3.632743   -7.954149    -5.042404
+12  -1.0462676  -5.8121414   -5.1302395
+13  -0.23326755 -5.244141    -4.01424
+14  1.1077324   -5.5051413   -3.8102396
+15  -0.5802676  -4.3881407   -3.0172396
+16  1.5197325   -4.8191414   -2.7282395
+17  0.5197325   -4.127141    -2.2242396
+18  -8.748015   -0.4209804   -0.67080265
+19  -7.382478   0.113404915  -0.6003996
+20  -7.3006773  1.4537098    0.11775855
+21  -6.5024767  1.5810034    1.0416614
+22  -6.6782675  0.30085889   -2.4542396
+23  -5.3272676  0.8998589    -2.2742395
+24  -4.272268   0.36585888   -1.5902395
+25  -4.983268   2.257859     -2.5542395
+26  -3.3042676  1.3138589    -1.3882395
+27  -3.7372675  2.490859     -1.9302396
+28  -5.6002674  3.290859     -3.2632394
+29  -3.1982677  3.765859     -1.8552395
+30  -5.0082674  4.532859     -3.2612395
+31  -3.8442676  4.780859     -2.5272396
+32  -5.164051   3.5437565    4.2483573
+33  -4.156852   4.486759     3.957921
+34  -4.5168967  5.889855     4.4360595
+35  -3.7421746  6.5442934    5.1374536
+36  -3.5372677  4.5228586    3.0887606
+37  -2.5772676  3.635859     2.3657606
+38  -1.5192674  4.116859     1.6117605
+39  -2.5342677  2.273859     2.3467605
+40  -0.86826754 3.057859     1.1637605
+41  -1.4522675  1.9288589    1.5767605
+42  8.54896     -0.6085157   6.71386
+43  7.2727995   -0.5563856   6.028461
+44  6.5160584   -1.8847146   6.067645
+45  5.3050337   -1.8942761   6.3196774
+46  7.1057324   -0.6091411   5.0407605
+47  5.9477324   -0.3501411   4.1427603
+48  5.1167326   0.7188589    4.3797603
+49  5.5057325   -0.93114114  2.9987605
+50  4.220732    0.8168589    3.4137604
+51  4.4357324   -0.18014112  2.5607603
+52  3.079337    -1.7628655   7.6382446
+53  2.0499346   -1.8293688   6.618705
+54  1.1883253   -3.1024036   6.745762
+55  0.12150049  -3.2181718   6.182784
+56  2.4587324   -1.9321412   5.38076
+57  1.6727325   -1.0651412   4.4627604
+58  1.1437325   0.13885888   4.8657603
+59  1.3457326   -1.1771412   3.1477604
+60  0.53473246  0.71285886   3.8217604
+61  0.6467324   -0.053141117 2.7507606
+62  -2.5418785  -3.7350216   5.2832866
+63  -2.7724051  -4.8066454   4.316969
+64  -3.8583617  -5.7941904   4.7697864
+65  -4.7136407  -6.1729045   4.0064673
+66  -1.1982676  -4.923141    4.62376
+67  -0.57626754 -4.7431407   3.2787604
+68  0.34573248  -5.627141    2.7567606
+69  -0.7072675  -3.7771413   2.3297606
+70  0.73373246  -5.1841407   1.5467604
+71  0.11173246  -4.0621414   1.2587605
+72  nan         nan          nan
+73  -7.0886955  -4.546298    4.499757
+74  -7.522774   -4.708337    3.1229928
+75  -7.6289616  -3.3450482   2.4210434
+76  -6.3533735  -2.5895782   2.4486568
+77  -5.3647604  -3.2830143   1.5229295
+78  -4.4327607  -2.1390142   1.1479295
+79  -3.4317605  -2.5490143   0.1739295
+80  -8.826912   -5.4286127   3.1494784
+81  -9.420234   -5.8070807   2.127674
+82  -2.1877606  -2.0180142   0.0989295
+83  -1.8677605  -1.1930143   1.0209295
+84  -1.4237605  -2.3970141   -0.8360705
+85  nan         nan          nan
+86  -0.4657606  0.17198579   1.0639296
+87  0.5582394   -3.0370142   -0.4960705
+88  1.3682394   0.2749858    -1.2470706
+89  -0.06576058 5.378986     -1.3690705
+90  -0.7997606  6.457986     -0.7510705
+91  1.0682395   4.870986     -0.7440705
+92  1.3522394   -0.6660142   -2.4760704
+93  -0.5527606  4.817986     -2.5460706
+94  0.18323942  0.9909858    -0.6970705
+95  1.6712394   3.7459857    -1.2600704
+96  2.8002393   0.6019858    -0.7520705
+97  0.041239418 3.6829858    -3.0440705
+98  1.6002394   1.9289858    -2.7920704
+99  1.1322395   3.0719857    -2.3830705
+100 -1.5577606  7.1199856    -1.4230705
+101 0.26523942  -0.6230142   -3.4670706
+102 -0.6447606  6.628986     0.4639295
+103 3.9692395   0.5299858    -1.6370705
+104 0.74523944  -1.3590143   -4.6870704
+105 5.1182394   1.1879858    -0.9200705
+106 1.1622394   -1.1930143   0.0569295
+#
+loop_
+_chem_comp_atom.comp_id
+_chem_comp_atom.atom_id
+_chem_comp_atom.type_symbol
+_chem_comp_atom.charge
+_chem_comp_atom.pdbx_aromatic_flag
+_chem_comp_atom.pdbx_leaving_atom_flag
+_chem_comp_atom.pdbx_model_Cartn_x_ideal
+_chem_comp_atom.pdbx_model_Cartn_y_ideal
+_chem_comp_atom.pdbx_model_Cartn_z_ideal
+ASP    N   N  0  N N -0.31700000166893005 1.687999963760376     0.06599999964237213
+ASP    CA  C  0  N N -0.4699999988079071  0.28600001335144043   -0.3440000116825104
+ASP    C   C  0  N N -1.8680000305175781  -0.18000000715255737  -0.028999999165534973
+ASP    O   O  0  N N -2.5339999198913574  0.41499999165534973   0.7860000133514404
+ASP    CB  C  0  N N 0.5389999747276306   -0.5799999833106995   0.4129999876022339
+ASP    CG  C  0  N N 1.937999963760376    -0.19499999284744263  0.004000000189989805
+ASP    OD1 O  0  N N 2.1089999675750732   0.6809999942779541    -0.8100000023841858
+ASP    OD2 O  0  N N 2.992000102996826    -0.8259999752044678   0.5429999828338623
+ASP    OXT O  0  N Y -2.374000072479248   -1.25600004196167     -0.6520000100135803
+ASP    H   H  0  N N -0.9279999732971191  2.2890000343322754    -0.46700000762939453
+ASP    H2  H  0  N Y -0.4779999852180481  1.7949999570846558    1.055999994277954
+ASP    HA  H  0  N N -0.2919999957084656  0.19900000095367432   -1.4160000085830688
+ASP    HB2 H  0  N N 0.4189999997615814   -0.42500001192092896  1.4850000143051147
+ASP    HB3 H  0  N N 0.367000013589859    -1.6299999952316284   0.17599999904632568
+ASP    HD2 H  0  N N 3.86899995803833     -0.5450000166893005   0.25
+ASP    HXT H  0  N Y -3.2750000953674316  -1.5169999599456787   -0.41600000858306885
+HIS    N   N  0  N N -0.03999999910593033 -1.2100000381469727   0.05299999937415123
+HIS    CA  C  0  N N 1.1720000505447388   -1.7089999914169312   0.6520000100135803
+HIS    C   C  0  N N 1.0829999446868896   -3.2070000171661377   0.9049999713897705
+HIS    O   O  0  N N 0.03999999910593033  -3.7699999809265137   1.222000002861023
+HIS    CB  C  0  N N 1.4839999675750732   -0.9750000238418579   1.9620000123977661
+HIS    CG  C  0  Y N 2.940000057220459    -1.059999942779541    2.3529999256134033
+HIS    ND1 N  1  Y N 3.380000114440918    -2.075000047683716    3.128999948501587
+HIS    CD2 C  0  Y N 3.9600000381469727   -0.25099998712539673  2.0460000038146973
+HIS    CE1 C  0  Y N 4.692999839782715    -1.9079999923706055   3.316999912261963
+HIS    NE2 N  0  Y N 5.058000087738037    -0.8009999990463257   2.6619999408721924
+HIS    OXT O  0  N Y 2.246999979019165    -3.881999969482422    0.7440000176429749
+HIS    H   H  0  N N -0.10199999809265137 -1.1549999713897705   -0.949999988079071
+HIS    H2  H  0  N Y -0.7149999737739563  -0.7409999966621399   0.6340000033378601
+HIS    HA  H  0  N N 1.965000033378601    -1.5579999685287476   -0.08900000154972076
+HIS    HB2 H  0  N N 1.215000033378601    0.08699999749660492   1.878999948501587
+HIS    HB3 H  0  N N 0.859000027179718    -1.3680000305175781   2.7750000953674316
+HIS    HD1 H  0  N N 2.828000068664551    -2.8380000591278076   3.510999917984009
+HIS    HD2 H  0  N N 4.107999801635742    0.6470000147819519    1.4789999723434448
+HIS    HE1 H  0  N N 5.340000152587891    -2.549999952316284    3.8919999599456787
+HIS    HE2 H  0  N N 6.001999855041504    -0.42800000309944153  2.627000093460083
+HIS    HXT H  0  N Y 2.187999963760376    -4.8480000495910645   0.9010000228881836
+KCX    N   N  0  N N 2.9000000953674316   1.777999997138977     -0.23100000619888306
+KCX    CA  C  0  N N 2.86899995803833     0.44200000166893005   0.38100001215934753
+KCX    CB  C  0  N N 1.6640000343322754   -0.33500000834465027  -0.15399999916553497
+KCX    CG  C  0  N N 0.37299999594688416  0.3490000069141388    0.3009999990463257
+KCX    CD  C  0  N N -0.8309999704360962  -0.42800000309944153  -0.2329999953508377
+KCX    CE  C  0  N N -2.121999979019165   0.25600001215934753   0.22100000083446503
+KCX    NZ  N  0  N N -3.2760000228881836  -0.48899999260902405  -0.28999999165534973
+KCX    C   C  0  N N 4.136000156402588    -0.2980000078678131   0.03799999877810478
+KCX    O   O  0  N N 4.802999973297119    0.052000001072883606  -0.9070000052452087
+KCX    CX  C  0  N N -4.526000022888184   -0.06800000369548798  -0.014000000432133675
+KCX    OXT O  0  N Y 4.52400016784668     -1.3450000286102295   0.7820000052452087
+KCX    OQ1 O  0  N N -4.696000099182129   0.9290000200271606    0.6600000262260437
+KCX    OQ2 O  0  N N -5.585999965667725   -0.7519999742507935   -0.48399999737739563
+KCX    H   H  0  N N 2.9760000705718994   1.7139999866485596    -1.2350000143051147
+KCX    H2  H  0  N Y 2.0910000801086426   2.316999912261963     0.03700000047683716
+KCX    HA  H  0  N N 2.7869999408721924   0.5400000214576721    1.4630000591278076
+KCX    HB2 H  0  N N 1.7000000476837158   -0.3569999933242798   -1.2430000305175781
+KCX    HB3 H  0  N N 1.690000057220459    -1.3550000190734863   0.23100000619888306
+KCX    HG2 H  0  N N 0.33799999952316284  0.3700000047683716    1.3899999856948853
+KCX    HG3 H  0  N N 0.34700000286102295  1.3680000305175781    -0.08299999684095383
+KCX    HD2 H  0  N N -0.7960000038146973  -0.44999998807907104  -1.3220000267028809
+KCX    HD3 H  0  N N -0.8059999942779541  -1.4479999542236328   0.1509999930858612
+KCX    HE2 H  0  N N -2.1579999923706055  0.2770000100135803    1.3109999895095825
+KCX    HE3 H  0  N N -2.1480000019073486  1.274999976158142     -0.16300000250339508
+KCX    HZ  H  0  N N -3.140000104904175   -1.284000039100647    -0.828000009059906
+KCX    HXT H  0  N Y 5.343999862670898    -1.7879999876022339   0.5239999890327454
+KCX    HQ2 H  0  N N -6.4629998207092285  -0.41200000047683716  -0.2590000033378601
+L:0    P1  P  0  N N 1.4144935607910156   0.2728767395019531    -1.2901687622070312
+L:0    C2  C  0  N N -0.01950836181640625 5.3768768310546875    -1.4121685028076172
+L:0    N1  N  1  N N -0.7535057067871094  6.455879211425781     -0.7941684722900391
+L:0    C3  C  0  N N 1.1144943237304688   4.868877410888672     -0.7871685028076172
+L:0    O4  O  0  N N 1.3984947204589844   -0.668121337890625    -2.5191688537597656
+L:0    C4  C  0  N N -0.5065078735351562  4.815879821777344     -2.5891685485839844
+L:0    O5  O  0  N N 0.2294921875         0.9888763427734375    -0.7401676177978516
+L:0    C5  C  0  N N 1.7174949645996094   3.743877410888672     -1.3031692504882812
+L:0    O6  O  0  N N 2.8464927673339844   0.5998764038085938    -0.7951679229736328
+L:0    C6  C  0  N N 0.087493896484375    3.680877685546875     -3.087167739868164
+L:0    O7  O  0  N N 1.6464920043945312   1.9268760681152344    -2.8351688385009766
+L:0    C7  C  0  N N 1.1784934997558594   3.0698776245117188    -2.426168441772461
+L:0    O8  O  -1 N N -1.511505126953125   7.117877960205078     -1.4661674499511719
+L:0    C8  C  0  N N 0.311492919921875    -0.6251220703125      -3.5101680755615234
+L:0    O9  O  0  N N -0.5985069274902344  6.6268768310546875    0.42083168029785156
+L:0    C9  C  0  N N 4.015491485595703    0.5278778076171875    -1.6801681518554688
+L:0    C10 C  0  N N 0.7914924621582031   -1.3611221313476562   -4.730169296264648
+L:0    C11 C  0  N N 5.164493560791016    1.1858787536621094    -0.9631690979003906
+TRP    N   N  0  N N 1.277999997138977    1.121000051498413     2.059000015258789
+TRP    CA  C  0  N N -0.00800000037997961 0.4169999957084656    1.9700000286102295
+TRP    C   C  0  N N -0.49000000953674316 0.07599999755620956   3.3570001125335693
+TRP    O   O  0  N N 0.30799999833106995  -0.12999999523162842  4.239999771118164
+TRP    CB  C  0  N N 0.1679999977350235   -0.8679999709129333   1.1610000133514404
+TRP    CG  C  0  Y N 0.6499999761581421   -0.5260000228881836   -0.22499999403953552
+TRP    CD1 C  0  Y N 1.9279999732971191   -0.4180000126361847   -0.621999979019165
+TRP    CD2 C  0  Y N -0.1860000044107437  -0.25600001215934753  -1.3960000276565552
+TRP    NE1 N  0  Y N 1.9780000448226929   -0.0949999988079071   -1.9509999752044678
+TRP    CE2 C  0  Y N 0.7009999752044678   0.014000000432133675  -2.4539999961853027
+TRP    CE3 C  0  Y N -1.5640000104904175  -0.20999999344348907  -1.6150000095367432
+TRP    CZ2 C  0  Y N 0.1899999976158142   0.3140000104904175    -3.7119998931884766
+TRP    CZ3 C  0  Y N -2.0439999103546143  0.0860000029206276    -2.8589999675750732
+TRP    CH2 C  0  Y N -1.1729999780654907  0.3479999899864197    -3.9070000648498535
+TRP    OXT O  0  N Y -1.805999994277954   0.0010000000474974513 3.609999895095825
+TRP    H   H  0  N N 1.9210000038146973   0.49300000071525574   2.5179998874664307
+TRP    H2  H  0  N Y 1.6109999418258667   1.2369999885559082    1.1130000352859497
+TRP    HA  H  0  N N -0.7400000095367432  1.0579999685287476    1.4789999723434448
+TRP    HB2 H  0  N N 0.8999999761581421   -1.5089999437332153   1.6519999504089355
+TRP    HB3 H  0  N N -0.7860000133514404  -1.3899999856948853   1.0950000286102295
+TRP    HD1 H  0  N N 2.7890000343322754   -0.5640000104904175   0.012000000104308128
+TRP    HE1 H  0  N N 2.7909998893737793   0.035999998450279236  -2.4619998931884766
+TRP    HE3 H  0  N N -2.247999906539917   -0.4129999876022339   -0.8040000200271606
+TRP    HZ2 H  0  N N 0.8600000143051147   0.5210000276565552    -4.533999919891357
+TRP    HZ3 H  0  N N -3.109999895095825   0.11599999666213989   -3.0290000438690186
+TRP    HH2 H  0  N N -1.5670000314712524  0.5820000171661377    -4.885000228881836
+TRP    HXT H  0  N Y -2.115000009536743   -0.21699999272823334  4.5
+W:1    O3  O  -1 N N 1.2084922790527344   -1.1951217651367188   0.01383209228515625
+ZN     ZN  ZN 2  N N nan                  nan                   nan
+75-100 UNK X  0  N N nan                  nan                   nan
 #

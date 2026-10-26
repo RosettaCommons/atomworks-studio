@@ -48,7 +48,7 @@ try {
   assert.equal(await page.locator("#viewer").getAttribute("data-annotation-atoms"), "0");
   assert.equal(await page.locator("#viewer").getAttribute("data-backend"), backend);
   assert.equal(await page.locator("#download").isEnabled(), true);
-  assert.equal(await page.locator("#clear-annotation-view").isDisabled(), true);
+  assert.equal(await page.locator(".annotation-row.active").count(), 0);
   const undo = page.waitForResponse(r => r.url().endsWith("/undo"));
   await page.locator("#undo").click();
   const restored = await (await undo).json();

@@ -7,7 +7,7 @@ import { chromiumLaunchOptions } from '../../../scripts/browser.mjs';
 const server = await createServer({root:fileURLToPath(new URL('../',import.meta.url)),server:{host:'127.0.0.1',port:0}});
 await server.listen();
 const base = server.resolvedUrls.local[0];
-const cif = await readFile(new URL('../../../packages/api/annotation_studio/examples/inverse_folding.cif', import.meta.url), 'utf8');
+const cif = await readFile(new URL('../../../tests/fixtures/inverse_folding_2kl8.cif', import.meta.url), 'utf8');
 const enzyme = await readFile(new URL('../../../packages/api/annotation_studio/examples/enzyme_design.cif', import.meta.url), 'utf8');
 const browser = await chromium.launch(chromiumLaunchOptions());
 await mkdir('artifacts/local/annotation-camera', {recursive:true});

@@ -21,14 +21,29 @@ try {
     await row.click();
     await page.waitForFunction(() => Number(document.querySelector("#viewer").dataset.annotationAtoms) > 0);
     assert.equal(await row.getAttribute("aria-pressed"), "true");
+    await page.waitForTimeout(400);
+    const coordinateHighlight = await page.locator("#viewer").screenshot();
     await row.click();
     await page.waitForFunction(() => document.querySelector("#viewer").dataset.annotationAtoms === "0");
     assert.equal(await row.getAttribute("aria-pressed"), "false");
     assert.equal(await page.locator(".annotation-row.active").count(), 0);
-    assert.equal(await page.locator("#clear-annotation-view").isDisabled(), true);
+    assert.equal(await page.locator("#clear-annotation-view").count(), 0);
     await page.waitForTimeout(400);
     assert.deepEqual(await page.locator("#viewer").screenshot(), baseline,
       `${viewer}: toggling off restores the original rendered colors, sticks, and camera`);
+
+    // Group 0 has the same conditioned atoms as absolute coordinates in this fixture.
+    // Its highlighting must include the same temporary atom-detail representation.
+    const coordinateGroup = page.locator('[data-view-key="annotations/coordinate_group"]');
+    await coordinateGroup.click();
+    await page.waitForFunction(() => Number(document.querySelector("#viewer").dataset.annotationAtoms) > 0);
+    await page.waitForTimeout(400);
+    assert.deepEqual(await page.locator("#viewer").screenshot(), coordinateHighlight,
+      `${viewer}: coordinate groups show the same atom details as coordinate conditioning`);
+    await coordinateGroup.click();
+    await page.waitForFunction(() => document.querySelector("#viewer").dataset.annotationAtoms === "0");
+    await page.waitForTimeout(400);
+    assert.deepEqual(await page.locator("#viewer").screenshot(), baseline);
 
     await row.focus();
     await row.press("Enter");
@@ -55,12 +70,12 @@ try {
     assert.equal(await page.locator(".annotation-row.active").count(), 0);
 
     await sequence.click();
-    await page.waitForFunction(() => !document.querySelector("#clear-annotation-view").disabled);
-    await page.locator("#clear-annotation-view").click();
+    await page.waitForFunction(() => Number(document.querySelector("#viewer").dataset.annotationAtoms) > 0);
+    await sequence.click();
     await page.waitForFunction(() => document.querySelector("#viewer").dataset.annotationAtoms === "0");
     assert.equal(await page.locator('.annotation-row[aria-pressed="true"]').count(), 0);
     assert.deepEqual(errors, []);
-    console.log(`${viewer}: click/keyboard toggle, exact visual restoration, delayed-response cancellation, and Clear colors passed`);
+    console.log(`${viewer}: click/keyboard toggle, exact visual restoration, delayed-response cancellation, and coordinate-group atom details passed`);
     await page.close();
   }
 } finally {

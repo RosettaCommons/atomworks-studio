@@ -21,6 +21,7 @@ import type {
   ViewerMarker,
   ViewerLoadOptions,
   ViewerOverlayOptions,
+  AtomCharge,
 } from "./contract";
 import {
   normalizeViewerMeasurementRequest,
@@ -73,6 +74,7 @@ export class MolecularViewer {
   private interactionOverlays: ViewerInteraction[] = [];
   private measurementRequests: ViewerMeasurementRequest[] = [];
   private markers: ViewerMarker[] = [];
+  private charges: AtomCharge[] = [];
   // Capture atom indices when a style is applied, not the later contents of "sele".
   private representations: {
     representation: ViewerRepresentation;
@@ -155,6 +157,7 @@ export class MolecularViewer {
       measurementRequests: this.measurementRequests,
     });
     await this.adapter.showMarkers?.(this.markers);
+    await this.adapter.showCharges(this.charges);
   }
 
   async initialize(): Promise<void> {
@@ -229,6 +232,7 @@ export class MolecularViewer {
     this.measurementRequests = [];
     this.updateAnnotationDiagnostics();
     await this.setMarkers([]);
+    await this.setCharges([]);
     await this.adapter?.loadCifs(this.structures);
     this.container.dataset.comparisonStructures = String(this.structures.length);
   }
@@ -345,7 +349,13 @@ export class MolecularViewer {
     this.interactionOverlays = [];
     this.measurementRequests = [];
     await this.setMarkers([]);
+    await this.setCharges([]);
     await this.adapter?.clearMeasurements?.();
+  }
+
+  async setCharges(charges: AtomCharge[]): Promise<void> {
+    this.charges = charges;
+    await this.adapter?.showCharges(charges);
   }
 
   async setMarkers(markers: ViewerMarker[]): Promise<void> {

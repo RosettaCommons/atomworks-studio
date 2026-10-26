@@ -75,21 +75,20 @@ controls:
 - **Remove waters** — optional water filtering
 
 Use **Combine CIF** to merge another file into the active document. The
-**Main → Examples** panel includes a **Protein binder · PD-L1** example and
-the eight NIM inputs: antibody, VHH, enzyme, motif, SAM binder, inverse folding,
-partial diffusion, and unconditional design.
-The same packaged catalog is used by the Gradio Space.
+**Main → Examples** panel includes BHRF1 protein binding, H3pS10 PTM binding,
+PTE enzyme scaffolding and inverse folding, BHRF1 complex partial diffusion,
+antibody, VHH, motif scaffolding, SAM binding, and unconditional design.
+The same packaged catalog is used by the Gradio Space. Bundled examples always
+use the annotated-CIF preset, independently of the settings for uploaded files.
 
-The fixtures are described in
-[examples/README.md](https://github.com/RosettaCommons/atomworks-studio/blob/main/examples/README.md).
+See [examples/README.md](https://github.com/RosettaCommons/atomworks-studio/blob/main/examples/README.md)
+for conditions, source provenance, and validation limitations.
 
-To make the protein-binder input from an unannotated PD-L1 CIF, open the target
-and use **AtomWorks query** `chain_id == 'A'` to select it. In **Annotations**,
-enable **Sequence**, reselect chain A, then enable **Coordinate**. Mark these six target
-atoms as **Hotspot**: residue 56 CG and OH, residue 115 CG and SD, and residue
-123 CD2 and OH. Then use **Main → Expandable segments** to add a new
-protein chain B with a 50–120 residue segment. Save the CIF. These are the
-conditions in the packaged example; the same controls work in PyMOL.
+The BHRF1 example keeps target chain B sequence-conditioned and places its
+N/CA/C/O atoms in one internal-coordinate group. Chain A is a 50–120 residue
+expandable binder. To reproduce this in the editor, keep target chain B, enable
+**Sequence** on it, select its backbone atoms, and enable **Internal coordinates**.
+Then add a new protein chain A with a 50–120 residue segment.
 
 ## Navigate and select
 
@@ -123,6 +122,11 @@ The inspector stays open while using viewer menus.
 The inspector uses the same **Main**, **Annotations**, and **Structure** tabs as PyMOL.
 Structure contains Charges, Protonation, and Bonds, in that order. Main contains examples, structure edits,
 and expandable segments. Tab names and order come from the shared Python package.
+For in-chain segment insertion, select one or more atoms or residues. **Insert
+before selection** uses the first selected residue in structure order; unchecking
+it inserts after the last. Pick order does not affect placement. **Create as a
+new chain** needs no selection. Insertion uses the same residue-boundary and undo
+logic as the PyMOL plugin.
 The browser and VS Code use the same UI code. Select atoms or residues, choose an operation,
 then apply it. **Undo** reverts the last document edit.
 
@@ -133,18 +137,26 @@ restore the previous colors. Pick an atom to inspect its values.
 The clickable list shows active conditions without needing to search by name.
 Up to seven values use distinct annotation colors. With more values, choose one
 group to highlight from the selector; colors are never reused within that view.
-Condition colors never move the camera. Atom-level conditions show temporary
-sticks for the affected residues, with the conditioned atoms colored. Switching
-conditions or clearing colors removes those temporary sticks; atoms without
+Condition colors never move the camera. Atom-level conditions and coordinate
+groups show temporary sticks for the affected residues, with the conditioned
+atoms colored. Coordinate and coordinate-group highlights gray out the remaining
+atoms so unconditioned side chains are easy to distinguish. Switching conditions
+or toggling the active condition off restores the previous colors and removes
+those temporary sticks; atoms without
 coordinates remain in the document and are not rendered.
-The editor displays supported design conditions only. Raw fields, stored defaults,
+The web editor currently omits nucleic acid secondary structure and sequence
+probability from the editing options. Their definitions, API support, and saved
+annotations remain available. The editor displays supported design conditions
+only. Raw fields, stored defaults,
 and B-factors/confidence are preserved in the document but not listed as conditions.
 N- and C-terminus fields and the internal-coordinate payload are also hidden.
 Use **Coordinate Group** to edit internal-coordinate membership; group 0 represents
 absolute coordinate conditioning, and positive groups preserve internal geometry.
-The bundled antibody keeps its heavy and light chains in separate internal groups
-1 and 2, with HER2 in **Absolute coordinates (group 0)**. H99–H109 is free for
-sequence and structure design.
+The bundled MZB1 antibody example keeps the heavy/light framework backbones in
+one shared internal group, preserving their relative arrangement. The target
+backbone uses **Absolute coordinates (group 0)**; all six CDRs are expandable
+segments for sequence and structure design. The BHRF1 protein-binder example
+instead uses an internal group for the target backbone, with no absolute targets.
 Value legends show names, atom counts, and their highlight colors. Unchecking
 **Enable condition** hides the value input while retaining its draft for re-enabling.
 
@@ -253,7 +265,12 @@ An annotated file with no missing heavy atoms uses **Annotated CIF**, preserving
 annotations and atom list. Existing atom records with unresolved coordinates count as present;
 adding missing records does not predict their coordinates.
 
-When a file has both saved StandardAnnotations and missing heavy atoms, Studio asks you to
+A missing terminal OXT is the exception: design outputs routinely omit it, so an annotated file
+whose only missing heavy atoms are OXT on a free C-terminal carboxyl (the end of a chain, or of a
+separately placed segment such as a motif residue) still uses **Annotated CIF**, and the import
+message says how many are left absent.
+
+When a file has both saved StandardAnnotations and other missing heavy atoms, Studio asks you to
 choose a preset or **Custom** before importing. AtomWorks cannot retain annotation
 indices while adding atoms (or converting MSE to MET). Choosing Unannotated input
 discards saved annotations; choosing Annotated CIF leaves missing atoms absent. Custom settings

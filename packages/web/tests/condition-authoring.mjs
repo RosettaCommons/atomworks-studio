@@ -16,8 +16,7 @@ try {
   await page.locator("#parse-preset").selectOption("minimal");
   await page.locator(".load-options > summary").click();
   await page.locator("#file-input").setInputFiles(resolve("tests/fixtures/minimal_multichain.cif"));
-  const loaded = await (await upload).json();
-  const session = loaded.session_id;
+  assert.equal((await upload).status(), 200);
   await page.waitForFunction(() => !document.querySelector("#viewer-mode")?.disabled);
   await page.locator("#editor-tab-annotations").click();
 
@@ -43,32 +42,11 @@ try {
   await select();
   assert.equal((await edit("#apply-condition", "/conditions")).edit_result.affected_count, 2);
   await page.locator("#enabled").check();
-  const groups = await page.locator("#condition option").allTextContents();
-  assert.equal(groups.filter(label => label === "Sequence probability").length, 1);
-  assert.equal(groups.filter(label => label.startsWith("Sequence Probability ")).length, 0);
-  await page.locator("#condition").selectOption({ label: "Sequence probability" });
-  assert.equal(await page.locator("#condition-residue-type option").count(), 28);
-  assert.equal(await page.locator("#pick-scope").inputValue(), "atom");
-  assert.match(await page.locator("#condition-feedback").innerText(), /whole residues/);
-  const value = page.locator("#condition-value-input");
-  assert.equal(await value.getAttribute("step"), "0.1");
-  await value.fill("0.1234");
-  await value.press("Tab");
-  assert.equal(await value.inputValue(), "0.12");
-  await value.fill("0.2");
-  await value.press("ArrowUp");
-  await value.press("Tab");
-  assert.equal(Number(await value.inputValue()), 0.3);
-  await page.locator("#condition-residue-type").selectOption("sequence_probability_arg");
-  await select();
-  assert.equal((await edit("#apply-condition", "/conditions")).edit_result.affected_count, 2);
-  const annotation = await (await page.request.get(`${baseUrl}api/sessions/${session}/annotations/sequence_probability_arg`)).json();
-  assert.deepEqual(annotation.annotation.values[0].atom_indices, [0, 1]);
-  await page.locator("#enabled").uncheck();
-  assert.equal(await page.locator("#condition-residue-type").inputValue(), "sequence_probability_arg");
-  await select();
-  await edit("#apply-condition", "/conditions");
-  await page.locator("#enabled").check();
+  const options = await page.locator("#condition option").allTextContents();
+  assert.ok(!options.some(label => /Sequence probability|Nucleic Acid Secondary Structure/i.test(label)));
+  assert.equal(await page.locator('#condition option[value^="sequence_probability_"]').count(), 0);
+  assert.doesNotMatch(await page.locator("#structure-summary").innerText(), /Undo|\d+\/10/);
+  assert.equal(await page.locator("#undo").count(), 1, "undo action remains available");
 
   // Changing future picking granularity must not expand an existing selection during edits.
   for (const scope of ["atom", "residue", "chain"]) {
@@ -85,6 +63,27 @@ try {
   await page.locator("#pick-scope").selectOption("atom");
   await page.locator("#editor-tab-main").click();
   await page.getByText("Expandable segments", { exact: true }).click();
+  await page.locator("#clear-selection").click();
+  assert.equal(await page.locator("#insert-segment").isEnabled(), false);
+  // Sequence picks select whole residues. Reversed clicks must still use structure order.
+  for (const before of [true, false]) {
+    await page.locator("#segment-before").setChecked(before);
+    for (const orders of [[0], [1, 0], [0, 1]]) {
+      await page.locator("#clear-selection").click();
+      for (const order of orders) await page.locator(`.sequence-token[data-order="${order}"]`).click();
+      assert.equal(await page.locator("#insert-segment").isEnabled(), true);
+      const request = page.waitForRequest(r => r.url().endsWith("/segments") && r.method() === "POST");
+      const result = await edit("#insert-segment", "/segments");
+      const anchor = before ? 0 : orders.length === 1 ? 1 : 3;
+      assert.equal((await request).postDataJSON().atom_index, anchor);
+      const chain = result.structure.sequence.find(chain => chain.chain_id.startsWith(anchor < 2 ? "A" : "B"));
+      assert.ok(chain);
+      assert.equal(chain.items[before ? 0 : chain.items.length - 1].kind, "segment");
+      await edit("#undo", "/undo");
+      assert.equal(await page.locator(".sequence-segment").count(), 0);
+    }
+  }
+  await page.locator("#clear-selection").click();
   await page.locator("#segment-new-chain").check();
   assert.equal(await page.locator("#segment-chain-id").inputValue(), "C");
   const inserted = await edit("#insert-segment", "/segments");
@@ -93,11 +92,11 @@ try {
   await edit("#undo", "/undo");
   assert.equal(await page.locator("#segment-chain-id").inputValue(), "C");
   await page.locator("#editor-tab-annotations").click();
-  await page.locator("#condition").selectOption({ label: "Sequence probability" });
+  await page.locator("#condition").selectOption("sequence");
   const directory = resolve("artifacts/local");
   mkdirSync(directory, { recursive: true });
   await page.screenshot({ path: resolve(directory, `${viewer}-condition-authoring.png`) });
-  console.log(`${viewer}: probability grouping, precision, step, broadcasting, interaction roles and chain defaults passed`);
+  console.log(`${viewer}: editor filtering, broadcasting, interaction roles, segment selection and chain defaults passed`);
 } finally {
   await browser.close();
 }

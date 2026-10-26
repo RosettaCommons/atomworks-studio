@@ -250,6 +250,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/bonds/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** V1 Inspect Selection Bonds */
+        post: operations["v1_inspect_selection_bonds_api_v1_sessions__session_id__bonds_inspect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions/{session_id}/centroids": {
         parameters: {
             query?: never;
@@ -1003,6 +1020,11 @@ export interface components {
              */
             syntax: "expression" | "path";
         };
+        /** SelectionRequest */
+        SelectionRequest: {
+            /** Atom Indices */
+            atom_indices: number[];
+        };
         /** SelectionResolve */
         SelectionResolve: {
             /** Atom Indices */
@@ -1507,6 +1529,43 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    v1_inspect_selection_bonds_api_v1_sessions__session_id__bonds_inspect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SelectionRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

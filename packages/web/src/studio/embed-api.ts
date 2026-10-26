@@ -72,14 +72,14 @@ export function installEmbedApi(api: StudioEmbedApi): void {
   notifyEmbedder("ready");
 }
 
+/** The `source` an iframe host already matches on, carried on the same-page event too. */
+export const HOST_MESSAGE_SOURCE = "atomworks-annotation-studio";
+
 /**
  * Tell a same-page host what happened: `ready`, `changed` and `example` as an iframe host hears them over
  * `postMessage`, plus `selection` when the user's selection changes, which a host offering selection-based actions
  * needs and cannot poll for.
  */
-/** The `source` an iframe host already matches on, carried on the same-page event too. */
-export const HOST_MESSAGE_SOURCE = "atomworks-annotation-studio";
-
 export function notifyEmbedder(
   type: "ready" | "changed" | "example" | "selection",
   detail: Record<string, unknown> = {},

@@ -892,6 +892,15 @@ def inspect_bonds(session_id: str, atom_index: int | None = None) -> dict:
     return {"bonds": bonds, "count": len(bonds)}
 
 
+@app.post("/api/sessions/{session_id}/bonds/inspect")
+def inspect_selection_bonds(session_id: str, selection: SelectionRequest) -> dict:
+    try:
+        bonds = _call(session_id, lambda document: document.inspect_bonds(atom_indices=selection.atom_indices))
+    except (IndexError, ValueError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return {"bonds": bonds, "count": len(bonds)}
+
+
 @app.post("/api/sessions/{session_id}/bonds/infer-ccd")
 def infer_bonds_from_ccd(session_id: str) -> dict:
     return _apply(session_id, lambda document: document.infer_bonds_from_ccd())

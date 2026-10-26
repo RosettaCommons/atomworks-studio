@@ -163,15 +163,15 @@ export class SessionFileController {
     return this.openFile(file);
   }
 
-  private openFile(file: File, targetSession: string | null = null): Promise<boolean> {
+  private openFile(file: File, targetSession: string | null = null, annotatedExample = false): Promise<boolean> {
     const generation = ++this.openGeneration;
     this.importDialog?.close("cancel");
-    const request = this.openQueue.then(() => this.performOpen(file, generation, targetSession));
+    const request = this.openQueue.then(() => this.performOpen(file, generation, targetSession, annotatedExample));
     this.openQueue = request.then(() => undefined, () => undefined);
     return request;
   }
 
-  private async performOpen(file: File, generation: number, targetSession: string | null): Promise<boolean> {
+  private async performOpen(file: File, generation: number, targetSession: string | null, annotatedExample: boolean): Promise<boolean> {
     const isCurrent = () => generation === this.openGeneration
       && (targetSession === null || targetSession === this.options.getSessionId());
     if (!isCurrent()) return false;
@@ -179,7 +179,7 @@ export class SessionFileController {
     try {
       const cif = await file.text();
       inspect_cif(cif);
-      const form = await this.prepareImport(file, isCurrent);
+      const form = await this.prepareImport(file, isCurrent, annotatedExample);
       if (!form) return false;
       const response = await api<SessionResponse>("/api/sessions", { method: "POST", body: form });
       temporarySession = response.session_id;
@@ -214,9 +214,13 @@ export class SessionFileController {
     }
   }
 
-  private async prepareImport(file: File, isCurrent: () => boolean): Promise<FormData | null> {
+  private async prepareImport(file: File, isCurrent: () => boolean, annotatedExample: boolean): Promise<FormData | null> {
     const form = new FormData();
     form.append("file", file);
+    if (annotatedExample) {
+      form.append("parse_preset", "minimal");
+      return form;
+    }
     const preset = element<HTMLSelectElement>("parse-preset").value;
     if (preset !== "auto") {
       this.appendParseOptions(form);
@@ -317,6 +321,7 @@ export class SessionFileController {
     try {
       const loaded = await this.openFile(
         new File([await apiText(`/api/examples/${example.id}/cif`)], example.file, { type: "chemical/x-mmcif" }),
+        null, true,
       );
       if (!loaded) return;
       this.options.log(`Loaded ${example.label}.`);

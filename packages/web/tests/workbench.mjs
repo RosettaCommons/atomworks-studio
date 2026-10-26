@@ -61,7 +61,9 @@ try {
     ["Charges", "Protonation", "Bonds"]);
   assert.deepEqual(await page.locator("#bond-type option").allTextContents(),
     ["SINGLE", "DOUBLE", "TRIPLE", "AROMATIC_SINGLE", "AROMATIC_DOUBLE", "AROMATIC", "COORDINATION", "ANY"]);
-  const bonds = page.waitForResponse(response => new URL(response.url()).pathname.endsWith("/bonds"));
+  const bonds = page.waitForResponse(response => new URL(response.url()).pathname.endsWith("/bonds/inspect"));
+  await page.locator("#clear-selection").click();
+  await page.locator("button.sequence-token").first().click();
   await page.locator("#inspect-bonds").click();
   assert.ok((await (await bonds).json()).bonds.length > 0);
   await page.locator("#bond-list button").first().click();

@@ -52,6 +52,8 @@ try {
     await page.screenshot({ path: `${output}/${mode}-grouped-contacts.png` });
 
     await page.locator("#editor-tab-structure").click();
+    await page.locator("#clear-selection").click();
+    await page.locator("button.sequence-token").first().click();
     await page.locator("#inspect-bonds").click();
     await page.locator("#bond-list button").first().click();
     if (await page.locator('[data-menu="analyze"]').getAttribute("open") === null) await page.locator('[data-menu="analyze"] > summary').click();

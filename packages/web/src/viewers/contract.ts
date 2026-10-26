@@ -118,7 +118,10 @@ export type AnnotationGroup = {
   atomIndices: number[];
   color?: AnnotationColor;
   showAtoms?: boolean;
+  dimUnhighlighted?: boolean;
 };
+
+export type AtomCharge = { atomIndex: number; charge: number };
 
 export type ViewerMarker = { label: string; position: [number, number, number]; color: number };
 
@@ -193,6 +196,7 @@ export interface ViewerAdapter {
   showInteractions?(interactions: ViewerInteraction[]): Promise<void>;
   clearMeasurements?(): Promise<void>;
   showMarkers?(markers: ViewerMarker[]): Promise<void>;
+  showCharges(charges: AtomCharge[]): Promise<void>;
   destroy(): void;
 }
 
@@ -265,6 +269,8 @@ export async function replayViewerTransientVisuals(
     await adapter.addMeasurement?.(request);
   }
 }
+
+export const ANNOTATION_CONTEXT_COLOR = 0x909090;
 
 export const ANNOTATION_PALETTE: readonly AnnotationColor[] = annotationPalette;
 

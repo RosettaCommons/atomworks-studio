@@ -1,27 +1,27 @@
 # Edit, save, and reopen a structure
 
-This walkthrough uses the bundled NIM inverse-folding example (2KL8). Run Studio using the
+This walkthrough uses the bundled PTE p2H11 inverse-folding example. Run Studio using the
 [installation guide](INSTALLATION.md), then open its URL in your browser.
 No GPU is needed to edit or save a structure.
 
 ## Try it here
 
 The installed guide can open the same editor used by the browser and VS Code.
-Choose **Open 2KL8 example**, then follow the steps below. On a narrow screen,
+Choose **Open PTE p2H11 example**, then follow the steps below. On a narrow screen,
 use the editor's **Guide** link to keep the instructions in a separate tab.
 
 ```{raw} html
 <div class="studio-example">
-  <button type="button" data-studio-example="inverse_folding">Open 2KL8 example</button>
+  <button type="button" data-studio-example="inverse_folding">Open PTE p2H11 example</button>
   <p role="status">Interactive editing is available when this guide is served by Studio at /guide/.</p>
 </div>
 ```
 
 ## Open and select
 
-1. In **Edit → Main → Examples**, choose **Inverse folding · 2KL8**. Wait for the molecule and sequence to appear.
+1. In **Edit → Main → Examples**, choose **Inverse folding · PTE p2H11**. Wait for the molecule and sequence to appear.
 2. Set the command bar to **AtomWorks query**, enter `atom_name == 'CA'`, and
-   choose **Select**. The selection count should read **59 atoms** for the bundled example.
+   choose **Select**. The selection count should read **220 atoms** for the bundled example.
 3. In the same **AtomWorks query** mode, enter `sel('*/*/*/CA')`. It selects the same atoms.
 4. Click a residue in the sequence to replace the selection. Ctrl/Cmd-click
    toggles a residue; Shift-click extends a range.
@@ -43,7 +43,7 @@ the default installation. All three interfaces also include hotspots, coordinate
 groups, and CATH labels from the same RFD4 definitions registered with AtomWorks.
 
 To remove a condition, select its atoms again, uncheck **Enable condition**, and
-choose **Remove from selection**. **Clear colors** only clears the visualization;
+choose **Remove from selection**. Clicking the active condition row again clears its visualization;
 it does not remove saved annotations. If an edit fails, the message beside the
 controls explains why and the selection remains available for correction.
 
@@ -60,7 +60,7 @@ preserve AtomWorks annotations.
 
 ## Edit a ligand
 
-Choose **Small-molecule binder · SAM** from the NIM examples to work with a ligand.
+Choose **Small-molecule binder · SAM** from the examples to work with a ligand.
 
 - **Protonation:** in **Charges**, set pH and choose **Protonate structure**.
   It updates the whole structure, including hydrogens, and can be undone.

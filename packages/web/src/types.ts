@@ -80,6 +80,7 @@ export type StructureSummary = {
   condition_editors: ConditionEditorState;
   name: string;
   atom_count: number;
+  charged_atoms: Array<{ atom_index: number; charge: number }>;
   chain_ids: string[];
   next_chain_id: string;
   sequence: SequenceChain[];

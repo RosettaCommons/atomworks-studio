@@ -58,11 +58,11 @@ try {
             await page.waitForFunction(()=>Number(document.querySelector('#viewer').dataset.annotationAtoms)>0&&!document.querySelector('#viewer-mode').disabled);
           }
           await failRenderer();
-          await (method==='clearAnnotation' ? page.locator('#clear-annotation-view') : annotation).click();
+          await annotation.click();
           await page.waitForFunction(()=>document.querySelector('#viewer').dataset.backend==='molstar'&&!document.querySelector('#viewer-mode').disabled);
           const colored=Number(await page.locator('#viewer').getAttribute('data-annotation-atoms'));
           assert.equal(colored,method==='clearAnnotation' ? 0 : 2);
-          assert.equal(await page.locator('#clear-annotation-view').isDisabled(),method==='clearAnnotation');
+          assert.equal(await annotation.getAttribute('aria-pressed'), String(method!=='clearAnnotation'));
         }
       }
     }

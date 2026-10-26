@@ -1,65 +1,72 @@
 [
   {
-    "label": "Protein binder · PD-L1",
-    "description": "Design a new protein that binds a fixed target.",
+    "label": "Protein binder · BHRF1",
     "file": "protein_binder.cif",
     "task": "unconditional",
-    "id": "protein_binder"
+    "id": "protein_binder",
+    "description": "Design a new protein that binds a fixed target."
   },
   {
-    "label": "Antibody · HER2 CDR H3",
-    "description": "Redesign the CDR H3 loop of an antibody against its target.",
+    "label": "PTM binder · H3pS10",
+    "file": "ptm_binder.cif",
+    "task": "unconditional",
+    "id": "ptm_binder",
+    "description": "Design a protein that binds the phosphorylated H3pS10 peptide."
+  },
+  {
+    "label": "Antibody · MZB1 / adalimumab Fv",
     "file": "antibody_design.cif",
     "task": "antibody_design",
-    "id": "antibody_design"
+    "id": "antibody_design",
+    "description": "Design the CDR loops of an antibody against its target."
   },
   {
-    "label": "Enzyme · catalytic motif",
-    "description": "Place catalytic residues and build a pocket around the ligand.",
+    "label": "Enzyme scaffolding · PTE p2H11",
     "file": "enzyme_design.cif",
     "task": "enzyme_design",
-    "id": "enzyme_design"
+    "id": "enzyme_design",
+    "description": "Place catalytic residues and build a pocket around the ligand."
   },
   {
-    "label": "Inverse folding · 2KL8",
-    "description": "Keep a backbone and design a new sequence for it.",
+    "label": "Inverse folding · PTE p2H11",
     "file": "inverse_folding.cif",
     "task": "inverse_folding",
-    "id": "inverse_folding"
+    "id": "inverse_folding",
+    "description": "Keep the PTE backbone and catalytic motif while designing the remaining sequence."
   },
   {
     "label": "Motif scaffolding · 1QJG",
-    "description": "Keep a few key residues and build the rest of the fold around them.",
     "file": "motif_scaffolding.cif",
     "task": "motif_scaffolding",
-    "id": "motif_scaffolding"
+    "id": "motif_scaffolding",
+    "description": "Keep a few key residues and build the rest of the fold around them."
   },
   {
     "label": "VHH · PD-L1 CDRs",
-    "description": "Design the CDR loops of a VHH against its target.",
     "file": "nanobody.cif",
     "task": "antibody_design",
-    "id": "nanobody"
+    "id": "nanobody",
+    "description": "Design the CDR loops of a VHH against its target."
   },
   {
-    "label": "Partial diffusion · 2KL8",
-    "description": "Make variants that stay close to a starting fold.",
+    "label": "Partial diffusion · BHRF1",
     "file": "partial_diffusion.cif",
     "task": "partial_diffusion",
-    "id": "partial_diffusion"
+    "id": "partial_diffusion",
+    "description": "Make variants that stay close to a starting fold."
   },
   {
     "label": "Small-molecule binder · SAM",
-    "description": "Design a protein pocket around a small molecule.",
     "file": "small_molecule_binder.cif",
     "task": "small_molecule_binder",
-    "id": "small_molecule_binder"
+    "id": "small_molecule_binder",
+    "description": "Design a protein pocket around a small molecule."
   },
   {
     "label": "Unconditional protein",
-    "description": "Generate a new protein fold of the length you choose.",
     "file": "unconditional.cif",
     "task": "unconditional",
-    "id": "unconditional"
+    "id": "unconditional",
+    "description": "Generate a new protein fold of the length you choose."
   }
 ]

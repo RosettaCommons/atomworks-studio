@@ -1225,16 +1225,19 @@ class StudioDocument:
             refresh_chain_derived_annotations(self.array)
             self.condition_provider.after_condition_update("index", self.array)
 
-    def inspect_bonds(self, atom_index: int | None = None) -> list[dict[str, Any]]:
-        """Return covalent bonds, optionally restricted to one atom."""
+    def inspect_bonds(
+        self, atom_index: int | None = None, *, atom_indices: list[int] | None = None
+    ) -> list[dict[str, Any]]:
+        """Return covalent bonds touching any selected atom, or all bonds if omitted."""
         if atom_index is not None:
-            atom_index = int(self.resolve_indices([atom_index])[0])
+            atom_indices = [atom_index]
+        selected = None if atom_indices is None else set(self.resolve_indices(atom_indices))
         if self.array.bonds is None:
             return []
         bonds = []
         for atom1, atom2, bond_type in self.array.bonds.as_array():
             atom1, atom2, bond_type = int(atom1), int(atom2), int(bond_type)
-            if atom_index is not None and atom_index not in (atom1, atom2):
+            if selected is not None and atom1 not in selected and atom2 not in selected:
                 continue
             bonds.append(
                 {
@@ -1521,6 +1524,12 @@ class StudioDocument:
             "name": self.name,
             "revision": self.revision,
             "atom_count": len(self.array),
+            "charged_atoms": [
+                {"atom_index": int(index), "charge": int(self.array.charge[index])}
+                for index in np.flatnonzero(self.array.charge)
+            ]
+            if "charge" in self.array.get_annotation_categories()
+            else [],
             "condition_editors": self.condition_editor_state(),
             "chain_ids": sorted(str(value) for value in np.unique(self.array.get_annotation(chain_key))),
             "next_chain_id": self.next_chain_id(),

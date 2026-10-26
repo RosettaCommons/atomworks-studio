@@ -39,7 +39,7 @@ try {
   assert.equal((await page.request.get(`${base}api/v1/sessions/${closedSession}`)).status(), 404);
   assert.equal((await page.request.get(`${base}api/v1/sessions/${closedSession}/cif`)).status(), 404);
 
-  await page.locator('[data-example="inverse_folding"]').click();
+  await page.locator('#file-input').setInputFiles(fileURLToPath(new URL('../../../tests/fixtures/inverse_folding_2kl8.cif', import.meta.url)));
   await page.waitForFunction(() => !document.querySelector('#download').disabled && !document.querySelector('#workspace').inert);
   assert.equal(await page.locator('#viewer').getAttribute('data-rendered-structures'), '1');
   assert.equal(await page.locator('#viewer').getAttribute('data-rendered-atoms'), '481');

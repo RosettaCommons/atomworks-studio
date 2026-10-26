@@ -25,7 +25,7 @@ _condition_coordinate_1_atom.val2
 #`;
   assert.deepEqual(unpositionedAtomIndices(cif), [0]);
   assert.deepEqual(unpositionedAtomIndices(cif.replace("0 0 0 0\n", "0 2 3 4\n")), []);
-  const nimInput = readFileSync(new URL("../../../packages/api/annotation_studio/examples/enzyme_design.cif", import.meta.url), "utf8");
+  const nimInput = readFileSync(new URL("../../../tests/fixtures/tip_atom_enzyme.cif", import.meta.url), "utf8");
   assert.deepEqual(unpositionedAtomIndices(nimInput), [0, 3, 4, 5, 6, 7, 8, 9, 12, 15, 16, 17, 18, 19, 20]);
 });
 

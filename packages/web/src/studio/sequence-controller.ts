@@ -2,6 +2,7 @@ import { element } from "../dom";
 import type { SelectionController } from "../selection-controller";
 import type { SequenceChain } from "../types";
 import { chainColorCss } from "../chain-colors";
+import { sequenceRangeSelection } from "./sequence-selection";
 
 export interface SequenceControllerOptions {
   selection: SelectionController;
@@ -13,7 +14,14 @@ export class SequenceController {
   private readonly view = element<HTMLDivElement>("sequence-view");
   private readonly toggle = element<HTMLButtonElement>("sequence-toggle");
   private anchorOrder: number | null = null;
-  private dragging = false;
+  private residues: { token: HTMLElement; atoms: number[] }[] = [];
+  private drag: {
+    pointerId: number;
+    start: number;
+    end: number;
+    baseline: ReadonlySet<number>;
+    remove: boolean;
+  } | null = null;
 
   constructor(private readonly options: SequenceControllerOptions) {}
 
@@ -25,15 +33,52 @@ export class SequenceController {
       this.toggle.textContent = hidden ? "Show sequence" : "Hide sequence";
       this.toggle.setAttribute("aria-expanded", String(!hidden));
     });
-    document.addEventListener("pointerup", () => {
-      this.dragging = false;
+    this.view.addEventListener("pointermove", (event) => {
+      if (event.pointerId !== this.drag?.pointerId) return;
+      if (!(event.buttons & 1)) {
+        this.endDrag();
+        return;
+      }
+      this.extendDrag(event);
     });
+    this.view.addEventListener("pointerup", (event) => {
+      const drag = this.drag;
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      this.extendDrag(event);
+      this.endDrag();
+      const atom = this.residues[drag.end].atoms[0];
+      if (atom !== undefined) void this.options.inspectAtom(atom);
+    });
+    this.view.addEventListener("pointercancel", () => this.endDrag());
+    this.view.addEventListener("lostpointercapture", () => this.endDrag());
+    window.addEventListener("blur", () => this.endDrag());
+  }
+
+  private endDrag(): void {
+    const drag = this.drag;
+    this.drag = null;
+    if (drag && this.view.hasPointerCapture(drag.pointerId)) {
+      this.view.releasePointerCapture(drag.pointerId);
+    }
+  }
+
+  private extendDrag(event: PointerEvent): void {
+    const token = document.elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>(".sequence-token[data-order]");
+    if (!this.drag || !token || !this.view.contains(token)) return;
+    const end = Number(token.dataset.order);
+    if (end === this.drag.end) return;
+    this.drag.end = end;
+    this.applyRange(this.drag.start, end, this.drag.baseline, this.drag.remove);
+  }
+
+  private applyRange(start: number, end: number, baseline: ReadonlySet<number>, remove: boolean): void {
+    this.options.selection.replace(sequenceRangeSelection(this.residues, start, end, baseline, remove));
   }
 
   syncSelection(scroll = false): void {
     let firstActive: HTMLElement | null = null;
-    for (const token of this.view.querySelectorAll<HTMLButtonElement>(".sequence-token[data-atoms]")) {
-      const atoms = (token.dataset.atoms ?? "").split(",").filter(Boolean).map(Number);
+    for (const { token, atoms } of this.residues) {
       const selected = atoms.filter((index) => this.options.selection.values.has(index)).length;
       const active = atoms.length > 0 && selected === atoms.length;
       const partial = selected > 0 && !active;
@@ -46,13 +91,10 @@ export class SequenceController {
   }
 
   render(chains: SequenceChain[]): void {
+    this.endDrag();
+    this.anchorOrder = null;
+    this.residues = [];
     this.view.replaceChildren();
-    let sequenceOrder = 0;
-    const selectResidue = (token: HTMLElement, atoms: number[]): void => {
-      this.options.selection.toggle(atoms);
-      this.anchorOrder = Number(token.dataset.order);
-      void this.options.inspectAtom(atoms[0]);
-    };
     for (const chain of chains) {
       const row = document.createElement("div");
       row.className = "sequence-chain";
@@ -78,7 +120,9 @@ export class SequenceController {
         } else {
           token.textContent = item.code.length === 1 ? item.code : "X";
           token.dataset.atoms = item.atom_indices.join(",");
-          token.dataset.order = String(sequenceOrder++);
+          const order = this.residues.length;
+          this.residues.push({ token, atoms: item.atom_indices });
+          token.dataset.order = String(order);
           token.title = `${chain.chain_id}/${item.residue_name} ${item.residue_id}`
             + (item.conditions.length ? ` · ${item.conditions.join(", ")}` : "")
             + " · click to toggle, drag, Shift-click range";
@@ -88,30 +132,30 @@ export class SequenceController {
           );
           for (const condition of item.conditions) token.classList.add(`condition-${condition}`);
           token.addEventListener("pointerdown", (event) => {
-            if (event.button !== 0 || event.shiftKey) return;
-            this.dragging = true;
-            selectResidue(token, item.atom_indices);
-          });
-          token.addEventListener("pointerenter", (event) => {
-            if (this.dragging && event.buttons === 1) selectResidue(token, item.atom_indices);
+            if (event.button !== 0 || !event.isPrimary || !item.atom_indices.length) return;
+            event.preventDefault();
+            token.focus({ preventScroll: true });
+            const range = event.shiftKey && this.anchorOrder !== null;
+            const start = range ? this.anchorOrder ?? order : order;
+            this.anchorOrder = start;
+            this.drag = {
+              pointerId: event.pointerId, start, end: order,
+              baseline: range ? new Set() : new Set(this.options.selection.values),
+              remove: !range && item.atom_indices.every((index) => this.options.selection.values.has(index)),
+            };
+            this.view.setPointerCapture(event.pointerId);
+            this.applyRange(start, order, this.drag.baseline, this.drag.remove);
           });
           token.addEventListener("click", (event) => {
+            // Pointer gestures are handled above; native keyboard activation still toggles.
+            if (event.detail !== 0 || !item.atom_indices.length) return;
             if (event.shiftKey && this.anchorOrder !== null) {
-              const current = Number(token.dataset.order);
-              const low = Math.min(this.anchorOrder, current);
-              const high = Math.max(this.anchorOrder, current);
-              const rangeAtoms = [...track.querySelectorAll<HTMLButtonElement>("[data-order]")]
-                .filter((candidate) => {
-                  const order = Number(candidate.dataset.order);
-                  return order >= low && order <= high;
-                })
-                .flatMap((candidate) =>
-                  (candidate.dataset.atoms ?? "").split(",").filter(Boolean).map(Number)
-                );
-              this.options.selection.replace(rangeAtoms);
-            } else if (event.detail === 0 || event.shiftKey) {
-              selectResidue(token, item.atom_indices);
+              this.applyRange(this.anchorOrder, order, new Set(), false);
+            } else {
+              this.options.selection.toggle(item.atom_indices);
+              this.anchorOrder = order;
             }
+            void this.options.inspectAtom(item.atom_indices[0]);
           });
         }
         track.appendChild(token);

@@ -158,8 +158,6 @@ function updateSelectionUi(): void {
   structureEditController?.updateSelectionUi(hasSession);
   element<HTMLButtonElement>("run-analysis").disabled = !hasSession;
   analysisController?.updateSelectionUi(hasSession);
-  element<HTMLButtonElement>("inspect-bonds").disabled = !hasSession;
-  element<HTMLButtonElement>("infer-bonds").disabled = !hasSession;
   sequenceController?.syncSelection();
   viewerToolbarController?.renderDrawers();
 }
@@ -278,7 +276,6 @@ function renderDesignSummary(summary: StructureSummary): string {
       <dt>Atoms</dt><dd>${summary.atom_count.toLocaleString()}</dd>
       ${designing}
       ${contig}
-      <dt>Undo</dt><dd>${summary.undo_depth}/10</dd>
     </dl>`;
 }
 
@@ -414,6 +411,7 @@ async function refreshFromServer(summary?: StructureSummary, preserveSelection =
       selectionController.clear();
     }
     await refreshCentroidMarkers();
+    await structureEditController?.updateStructure(summary ?? lastSummary);
   };
   try {
     await refresh();
@@ -592,7 +590,6 @@ async function initialize(): Promise<void> {
     getSessionId: () => sessionId,
     getAtomCount: () => lastSummary?.atom_count ?? 0,
     getSequence: () => lastSummary?.sequence ?? [],
-    mutate,
     renderViewerDrawers: () => viewerToolbarController?.renderDrawers(),
     log,
     onSelectionUiChange: updateSelectionUi,
@@ -614,6 +611,8 @@ async function initialize(): Promise<void> {
     inspectAtom: (atomIndex) => annotationController!.inspectAtom(atomIndex),
   });
   structureEditController = new StructureEditController({
+    viewer: () => molecularViewer,
+    runViewerUpdate,
     selection: selectionController,
     getSessionId: () => sessionId,
     mutate,
@@ -665,7 +664,6 @@ async function initialize(): Promise<void> {
   viewerToolbarController.bind();
   element("empty-open").addEventListener("click", () => element<HTMLInputElement>("file-input").click());
   analysisController.bind();
-  annotationController.bind();
   conditionController.bind();
   sequenceController.bind();
   structureEditController.bind();

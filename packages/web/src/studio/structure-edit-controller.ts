@@ -1,3 +1,5 @@
+import type { MolecularViewer } from "../viewers";
+import type { AtomCharge } from "../viewers/contract";
 import { api } from "../api";
 import { element } from "../dom";
 import type { SelectionController } from "../selection-controller";
@@ -5,6 +7,8 @@ import type { StructureSummary } from "../types";
 
 export interface StructureEditControllerOptions {
   selection: SelectionController;
+  viewer: () => MolecularViewer;
+  runViewerUpdate: (operation: () => Promise<void>) => Promise<void>;
   getSessionId: () => string | null;
   mutate: (path: string, body?: unknown) => Promise<void>;
   log: (message: string, level?: "info" | "error") => void;
@@ -12,6 +16,10 @@ export interface StructureEditControllerOptions {
 
 export class StructureEditController {
   private readonly feedback = element<HTMLParagraphElement>("structure-edit-feedback");
+
+  private charges: AtomCharge[] = [];
+  private chargesVisible = false;
+  private chargeSession: string | null = null;
 
   constructor(private readonly options: StructureEditControllerOptions) {}
 
@@ -21,6 +29,18 @@ export class StructureEditController {
   }
 
   bind(): void {
+    element("show-charges").addEventListener("click", () => {
+      void this.options.runViewerUpdate(async () => {
+        this.chargesVisible = !this.chargesVisible;
+        try {
+          await this.renderCharges();
+        } catch (error) {
+          this.chargesVisible = false;
+          this.updateChargeToggle();
+          throw error;
+        }
+      }).catch(error => this.options.log(`Charge labels failed: ${String(error)}`, "error"));
+    });
     const phInput = element<HTMLInputElement>("protonation-ph");
     phInput.addEventListener("input", () => this.updateSelectionUi(this.options.getSessionId() !== null));
     element("protonate").addEventListener("click", async () => {
@@ -89,11 +109,15 @@ export class StructureEditController {
     element("insert-segment").addEventListener("click", () => {
       const newChain = element<HTMLInputElement>("segment-new-chain").checked;
       const chainId = element<HTMLInputElement>("segment-chain-id").value.trim();
+      const before = element<HTMLInputElement>("segment-before").checked;
+      // Match the native dialog: use the selection's boundary in structure order.
+      const atoms = [...this.options.selection.values].sort((a, b) => a - b);
+      if (!newChain && !atoms.length) return;
       void this.options.mutate("/segments", {
         minimum: Number(element<HTMLInputElement>("segment-min").value),
         maximum: Number(element<HTMLInputElement>("segment-max").value),
-        atom_index: newChain ? null : [...this.options.selection.values][0],
-        before: element<HTMLInputElement>("segment-before").checked,
+        atom_index: newChain ? null : before ? atoms[0] : atoms.at(-1),
+        before,
         new_chain: newChain,
         chain_id: newChain && chainId ? chainId : null,
         chain_type: newChain ? element<HTMLSelectElement>("segment-chain-type").value : null,
@@ -104,18 +128,44 @@ export class StructureEditController {
 
   updateSelectionUi(hasSession: boolean): void {
     const count = this.options.selection.size;
+    element<HTMLButtonElement>("show-charges").disabled = !hasSession;
+    if (!hasSession) {
+      this.chargesVisible = false;
+      this.chargeSession = null;
+      this.charges = [];
+      this.updateChargeToggle();
+    }
     const ph = element<HTMLInputElement>("protonation-ph");
     element<HTMLButtonElement>("protonate").disabled = !hasSession || ph.value === "" || !ph.validity.valid;
     element<HTMLButtonElement>("apply-charge").disabled = !hasSession || count === 0;
     element<HTMLButtonElement>("delete-atoms").disabled = !hasSession || count === 0;
     const newSegmentChain = element<HTMLInputElement>("segment-new-chain").checked;
     element<HTMLButtonElement>("insert-segment").disabled =
-      !hasSession || (!newSegmentChain && count !== 1);
+      !hasSession || (!newSegmentChain && count === 0);
     element<HTMLButtonElement>("add-bond").disabled = !hasSession || count !== 2;
     element<HTMLButtonElement>("remove-bond").disabled = !hasSession || count !== 2;
     this.feedback.textContent = !hasSession
       ? "Open a structure to begin."
       : `${count} atom${count === 1 ? "" : "s"} selected`;
+  }
+
+  async updateStructure(summary: StructureSummary | null): Promise<void> {
+    const session = this.options.getSessionId();
+    if (session !== this.chargeSession) this.chargesVisible = false;
+    this.chargeSession = session;
+    this.charges = (summary?.charged_atoms ?? []).map(atom => ({ atomIndex: atom.atom_index, charge: atom.charge }));
+    await this.renderCharges();
+  }
+
+  private updateChargeToggle(): void {
+    const button = element("show-charges");
+    button.textContent = this.chargesVisible ? "Hide charges" : "Show charges";
+    button.setAttribute("aria-pressed", String(this.chargesVisible));
+  }
+
+  private async renderCharges(): Promise<void> {
+    await this.options.viewer().setCharges(this.chargesVisible ? this.charges : []);
+    this.updateChargeToggle();
   }
 
   updateNextChainId(nextChainId: string): void {

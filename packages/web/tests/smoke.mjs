@@ -135,6 +135,38 @@ try {
     assert.equal(await page.locator(".sequence-dock .sequence-token.selected").count(), 2);
     await sequenceResidues.nth(3).click({ modifiers: ["Shift"] });
     assert.equal(await page.locator(".sequence-dock .sequence-token.selected").count(), 3);
+
+    const selectedOrders = () => page.locator(".sequence-token.selected[data-order]")
+      .evaluateAll(tokens => tokens.map(token => Number(token.dataset.order)));
+    async function moveToResidue(order) {
+      const box = await sequenceResidues.nth(order).boundingBox();
+      assert.ok(box);
+      // One move intentionally skips intermediate pointer events.
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    }
+    for (const [start, end] of [[0, 3], [3, 0]]) {
+      await page.locator("#clear-selection").click();
+      await moveToResidue(start);
+      await page.mouse.down();
+      await moveToResidue(end);
+      assert.deepEqual(await selectedOrders(), [0, 1, 2, 3]);
+      await moveToResidue(1);
+      assert.deepEqual(await selectedOrders(), start === 0 ? [0, 1] : [1, 2, 3]);
+      await moveToResidue(end);
+      await page.mouse.up();
+      assert.deepEqual(await selectedOrders(), [0, 1, 2, 3]);
+
+      // Starting on a selected residue removes a range, preserving the rest.
+      await moveToResidue(1);
+      await page.mouse.down();
+      await moveToResidue(2);
+      assert.deepEqual(await selectedOrders(), [0, 3]);
+      await moveToResidue(1);
+      assert.deepEqual(await selectedOrders(), [0, 2, 3]);
+      await page.mouse.up();
+      await moveToResidue(2);
+      assert.deepEqual(await selectedOrders(), [0, 2, 3], "release ends the drag");
+    }
   }
   await page.locator("#sequence-toggle").click();
   assert.equal(await page.locator("#sequence-view").isHidden(), true);
@@ -536,7 +568,7 @@ try {
   assert.equal(inspectionResult.status(), 200);
   const inspectedAnnotation = (await inspectionResult.json()).annotation;
   assert.ok(inspectedAnnotation);
-  // An earlier inspection can leave the clear button enabled while this request is pending.
+  // Wait for this inspection to finish rather than an earlier highlight.
   await page.waitForFunction(
     (label) =>
       (document.querySelector("#selection-count")?.textContent?.startsWith("0 atoms") &&
@@ -546,7 +578,7 @@ try {
     inspectedAnnotation.label,
   );
   assert.doesNotMatch(await page.locator("#annotation-detail").innerText(), /Could not inspect annotation/);
-  assert.equal(await page.locator("#clear-annotation-view").isEnabled(), true);
+  assert.equal(await inspectionRow.getAttribute("aria-pressed"), "true");
   assert.match(await page.locator("#selection-count").innerText(), /^0 atoms/, "inspection clears unrelated selection markers");
   await page.waitForFunction(
     () => Number(document.querySelector("#viewer")?.getAttribute("data-annotation-atoms")) > 0,
@@ -556,7 +588,7 @@ try {
     Number(await page.locator("#viewer").getAttribute("data-annotation-groups")) >= 1,
     "annotation groups render independently from active selection",
   );
-  await page.locator("#clear-annotation-view").click();
+  await inspectionRow.click();
   await page.waitForFunction(
     () => document.querySelector("#viewer")?.getAttribute("data-annotation-atoms") === "0",
   );

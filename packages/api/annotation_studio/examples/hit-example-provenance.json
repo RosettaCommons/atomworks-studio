@@ -1,0 +1,83 @@
+{
+  "inverse_folding.cif": {
+    "source_file": "PTE_p2H11__design.cif",
+    "source_sha256": "b21808ee08b43d33ffedf9e59e7484030cb779da9bc62c257de25b7971aaedf4",
+    "sha256": "2459039182727e76bc47ff13cb41fb6318743b2a6bb512d653549268bb4b21f4",
+    "atoms": 1739,
+    "sequence_atoms": 105,
+    "absolute_coordinate_atoms": 951,
+    "internal_coordinate_atoms": 0,
+    "unindexed_residues": 0,
+    "studio_validation": [
+      {
+        "severity": "error",
+        "check": "missing_atoms",
+        "message": "Structure is missing 1 heavy atoms that would be added by prepare_atom_array. Check for incomplete residues."
+      }
+    ],
+    "roundtrip": "atom identities, coordinates, bonds, charges and saved annotations match",
+    "ligand_bond_orders": "6 aromatic bonds of unstated order are stated as a Kekule structure (AROMATIC_SINGLE/AROMATIC_DOUBLE, aromatic flag kept) so protonation can run."
+  },
+  "enzyme_design.cif": {
+    "source_file": "PTE_p2H11__design.cif",
+    "source_sha256": "b21808ee08b43d33ffedf9e59e7484030cb779da9bc62c257de25b7971aaedf4",
+    "sha256": "8d8da5e1d1dd0202ed5a976c770576d363d0b1fadd55e081305c80adc88119c9",
+    "atoms": 107,
+    "sequence_atoms": 105,
+    "absolute_coordinate_atoms": 71,
+    "internal_coordinate_atoms": 0,
+    "unindexed_residues": 7,
+    "studio_validation": [],
+    "roundtrip": "atom identities, coordinates, bonds, charges and saved annotations match",
+    "ligand_bond_orders": "6 aromatic bonds of unstated order are stated as a Kekule structure (AROMATIC_SINGLE/AROMATIC_DOUBLE, aromatic flag kept) so protonation can run."
+  },
+  "ptm_binder.cif": {
+    "source_file": "H3S10_hit04__design.cif",
+    "source_sha256": "f0a27c3fba603ec1d20acc5a361b754d1d601c308085aee583e6749cf1fd5654",
+    "sha256": "a38f8028c41848792695f9dd84e161e02fe84e7c33f39b5b464df47f092035f7",
+    "atoms": 97,
+    "sequence_atoms": 96,
+    "absolute_coordinate_atoms": 0,
+    "internal_coordinate_atoms": 0,
+    "unindexed_residues": 0,
+    "studio_validation": [
+      {
+        "severity": "error",
+        "check": "missing_atoms",
+        "message": "Structure is missing 1 heavy atoms that would be added by prepare_atom_array. Check for incomplete residues."
+      }
+    ],
+    "roundtrip": "atom identities, coordinates, bonds, charges and saved annotations match"
+  },
+  "protein_binder.cif": {
+    "source_file": "29_BHRF1_rep6_job18_generated.cif",
+    "source_sha256": "a0ba838ceacc226eecdf4a7016df78168f94e047315e299897ccc1170c09d69f",
+    "sha256": "ee1fc92dde76c607578eef476e767cdafb0e244c74590235978df9cce37d237a",
+    "atoms": 1267,
+    "sequence_atoms": 1266,
+    "absolute_coordinate_atoms": 0,
+    "internal_coordinate_atoms": 628,
+    "unindexed_residues": 0,
+    "studio_validation": [
+      {
+        "severity": "error",
+        "check": "missing_atoms",
+        "message": "Structure is missing 1 heavy atoms that would be added by prepare_atom_array. Check for incomplete residues."
+      }
+    ],
+    "roundtrip": "atom identities, coordinates, bonds, charges and saved annotations match"
+  },
+  "partial_diffusion.cif": {
+    "source_file": "29_BHRF1_rep6_job18_generated.cif",
+    "source_sha256": "a0ba838ceacc226eecdf4a7016df78168f94e047315e299897ccc1170c09d69f",
+    "sha256": "a0ba838ceacc226eecdf4a7016df78168f94e047315e299897ccc1170c09d69f",
+    "unchanged_source_bytes": true,
+    "studio_validation": [
+      {
+        "severity": "error",
+        "check": "missing_atoms",
+        "message": "Structure is missing 2 heavy atoms that would be added by prepare_atom_array. Check for incomplete residues."
+      }
+    ]
+  }
+}

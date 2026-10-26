@@ -28,10 +28,11 @@ try {
     await page.goto(`${base}?viewer=${mode}&session=${session}`);
     await page.waitForFunction(() => !document.querySelector("#download").disabled && !document.querySelector("#viewer-mode").disabled);
     await page.locator("#editor-tab-annotations").click();
-    for (const key of ["n_terminus", "c_terminus", "internal_coordinate"]) {
+    for (const key of ["n_terminus", "c_terminus", "internal_coordinate", "na_ss_state"]) {
       assert.equal(await page.locator(`#condition option[value="${key}"]`).count(), 0);
     }
-    assert.equal(await page.locator('#condition option[value="na_ss_state"]').textContent(), "Nucleic Acid Secondary Structure");
+    assert.equal(await page.locator('#condition option[value^="sequence_probability_"]').count(), 0);
+    assert.equal(await page.locator("#clear-annotation-view").count(), 0);
     await page.locator("#condition").selectOption("hbond");
     await page.locator("#condition-value-input").selectOption("3");
     await page.locator("#enabled").uncheck();
@@ -48,10 +49,6 @@ try {
     await page.waitForFunction(() => !document.querySelector("#viewer-mode").disabled);
     await page.waitForTimeout(250);
     await page.screenshot({ path: `${output}/${mode}.png` });
-    await page.locator("#condition").selectOption({ label: "Sequence probability" });
-    await page.locator("#enabled").uncheck();
-    assert.equal(await page.locator("#condition-value-input").isVisible(), false);
-    assert.equal(await page.locator("#condition-residue-type").isVisible(), true);
     await page.locator("#condition").selectOption("coordinate_group");
     assert.equal(await page.locator("#group-new").isVisible(), true);
     assert.equal(await page.locator("#clear-internal-targets").count(), 0);

@@ -24,19 +24,12 @@ export class AnnotationController {
 
   constructor(private readonly options: AnnotationControllerOptions) {}
 
-  bind(): void {
-    element("clear-annotation-view").addEventListener("click", () => {
-      void this.clearView();
-    });
-  }
-
   private async clearView(): Promise<void> {
     const session = this.options.getSessionId();
     const generation = ++this.inspectionGeneration;
     this.activeView = null;
     this.activeValue = null;
     this.activateRow(null);
-    element<HTMLButtonElement>("clear-annotation-view").disabled = true;
     try {
       await this.options.runViewerUpdate(async () => {
         if (session !== this.options.getSessionId()) return;
@@ -78,12 +71,12 @@ export class AnnotationController {
     }
     const groups = values.map((value, index) => ({
       label: value.label, atomIndices: value.atom_indices!, color: value.color ?? ANNOTATION_PALETTE[index],
-      showAtoms: annotation.unit === "atoms" || annotation.unit === "pairs",
+      dimUnhighlighted: annotation.name === "coordinate" || annotation.name === "coordinate_group",
+      showAtoms: annotation.name === "coordinate_group" || annotation.unit === "atoms" || annotation.unit === "pairs",
     }));
     // Inspection must not leave unrelated editing-selection markers over the annotation.
     if (clearSelection) this.options.selection.clear();
     await this.overlay.show(this.options.viewer(), groups, this.options.selection.values);
-    element<HTMLButtonElement>("clear-annotation-view").disabled = groups.length === 0;
   }
 
   async inspectAtom(atomIndex: number): Promise<void> {
@@ -145,7 +138,6 @@ export class AnnotationController {
         this.renderDetail(result.annotation);
       } else {
         await this.overlay.clear(this.options.viewer(), this.options.selection.values);
-        element<HTMLButtonElement>("clear-annotation-view").disabled = true;
         this.detail.textContent = "This annotation currently has no active values.";
       }
       return;
@@ -158,7 +150,6 @@ export class AnnotationController {
     this.overlay.reset();
     this.activeView = null;
     this.activeValue = null;
-    element<HTMLButtonElement>("clear-annotation-view").disabled = true;
   }
 
   setDetail(message: string): void {
@@ -240,7 +231,6 @@ export class AnnotationController {
           this.activeValue = null;
           this.activateRow(null);
           await this.overlay.clear(this.options.viewer(), this.options.selection.values);
-          element<HTMLButtonElement>("clear-annotation-view").disabled = true;
           this.detail.textContent = "This annotation is no longer active.";
           return;
         }

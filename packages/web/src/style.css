@@ -267,6 +267,7 @@ button:disabled { cursor: not-allowed; opacity: .38; }
   font-family: var(--font-mono);
 }
 .sequence-token {
+  user-select: none; touch-action: none;
   width: 17px; min-width: 17px; min-height: 0; height: 19px; padding: 0; color: var(--text-secondary);
   background: transparent; border: 1px solid transparent; border-radius: 2px;
   font: 11px/17px var(--font-mono); text-align: center;
@@ -276,11 +277,12 @@ button.sequence-token:hover { color: var(--text); background: var(--accent-soft)
 .sequence-token.condition-coordinate { border-color: var(--condition-coordinate); }
 .sequence-token.condition-hotspot { color: #fff3e8; background: #42261d; border-color: var(--condition-hotspot); }
 .sequence-token.condition-index { outline: 1px dashed var(--condition-index); outline-offset: -2px; }
-.sequence-token.selected {
+/* Selection takes precedence over annotation colors and hover. */
+button.sequence-token.selected {
   color: var(--accent-ink); background: var(--accent); border-color: var(--accent-hover);
   box-shadow: 0 0 0 1px var(--accent);
 }
-.sequence-token.partially-selected {
+button.sequence-token.partially-selected {
   background: linear-gradient(to top, var(--accent) 35%, var(--accent-soft) 35%);
   border-color: var(--accent-hover);
 }
@@ -477,3 +479,5 @@ body.host-vscode[data-host-theme="high-contrast-light"] {
 .example-card:hover { border-color: var(--border-strong); background: var(--surface-raised); }
 .example-card strong { font-size: 13px; }
 .example-card span { color: var(--text-muted); font-size: 12px; line-height: 1.35; }
+
+#show-charges { flex: 0 0 auto; }

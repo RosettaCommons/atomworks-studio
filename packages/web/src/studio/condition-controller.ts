@@ -86,6 +86,8 @@ export class ConditionController {
     element("reset-conditions").hidden = !schema.document_operations?.includes("reset_conditions");
     const groups = new Set<string>();
     for (const [name, definition] of Object.entries(schema.conditions)) {
+      // Keep these definitions and stored annotations, but do not offer web editors yet.
+      if (name === "na_ss_state" || name.startsWith("sequence_probability_")) continue;
       if (definition.editor_group) {
         if (groups.has(definition.editor_group)) continue;
         groups.add(definition.editor_group);

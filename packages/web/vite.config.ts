@@ -90,6 +90,11 @@ export default defineConfig({
       "/api": "http://127.0.0.1:8000",
     },
   },
+  // Reference bundled files relative to the page rather than the server root, so the editor works wherever it is
+  // served from: the API serves it at "/", a VS Code webview at its own URL, and an embedder may mount it under a
+  // project path (GitHub Pages serves one under "/<repo>/"). With the default "/" every asset request goes to the
+  // domain root and misses.
+  base: "./",
   build: {
     target: "es2022",
   },

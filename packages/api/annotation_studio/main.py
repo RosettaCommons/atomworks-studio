@@ -384,6 +384,8 @@ class ExportResponse(BaseModel):
     name: str
     revision: int
     issues: list[dict[str, str]]
+    # So a generation host can reject options that need every residue defined before it spends GPU time.
+    has_expandable_segments: bool = False
 
 
 class SelectionQuery(BaseModel):
@@ -758,7 +760,13 @@ def export_cif(session_id: str) -> ExportResponse:
     # Validate and export one snapshot. Later edits cannot change the approved file.
     document = _call(session_id, lambda current: current.clone())
     issues = document.validate(full_pipeline=True)
-    return ExportResponse(cif=document.to_cif(), name=document.name, revision=document.revision, issues=issues)
+    return ExportResponse(
+        cif=document.to_cif(),
+        name=document.name,
+        revision=document.revision,
+        issues=issues,
+        has_expandable_segments=document.has_expandable_segments,
+    )
 
 
 @app.post("/api/sessions/{session_id}/conditions")

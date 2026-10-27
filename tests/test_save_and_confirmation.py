@@ -45,7 +45,13 @@ def test_export_validates_one_snapshot_and_returns_that_exact_cif(monkeypatch, s
     monkeypatch.setattr(StudioDocument, "validate", validate)
     response = client.post(f"/api/sessions/{session_id}/export")
     assert response.status_code == 200, response.text
-    assert response.json() == {"name": "presave", "revision": 0, "issues": issues, "cif": before}
+    assert response.json() == {
+        "name": "presave",
+        "revision": 0,
+        "issues": issues,
+        "cif": before,
+        "has_expandable_segments": True,
+    }
     assert calls == [0]
     assert live.revision == 1
     assert live.to_cif() != before

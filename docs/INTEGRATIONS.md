@@ -134,7 +134,7 @@ from atomworks_studio_rfd4.generation import RFD4GenerationProvider
 
 # generate(cif: str, options: dict) -> list[str] is supplied by your deployment.
 app = create_app(
-    provider=RFD4GenerationProvider(noise_defaults=(0.3, 0.1)),
+    provider=RFD4GenerationProvider(k_defaults=(16.0, 4.0)),
     generate_fn=generate,
 )
 ```
@@ -158,7 +158,7 @@ from gradio_client import Client
 client = Client("https://<space>.hf.space/design/", token=os.environ["HF_TOKEN"])
 result = client.predict(
     Path("input.cif").read_text(),
-    {"task": "antibody_design", "thinking": "medium", "samples": 1, "seed": 42},
+    {"thinking": "medium", "samples": 1, "seed": 42},
     api_name="/generate_cif",
 )
 Path("design.cif").write_text(result["designs"][0])
@@ -166,8 +166,30 @@ Path("design.cif").write_text(result["designs"][0])
 
 The editor button and this endpoint call the same validated model callback.
 
+Task conditioning, inverse folding included, comes from the annotated CIF: which
+residues are held, which are new and what is marked a hotspot already say what is
+being designed, so there is no task option to keep in step with the document.
+RFD4 partial diffusion is controlled by `partial_diffusion`, off by default. With
+`partial_diffusion: true`, `partial_diffusion_percent` ranges from 1 to 100 and
+defaults to 70; the deployment maps it to
+`generation.args.partial_trajectory_fraction_steps` by dividing by 100.
+
+A provider may implement three optional members, each read with a default so
+providers written against earlier releases keep working: `default_example`, an
+example id Studio opens on instead of an empty editor; `css`, appended to
+Studio's own so provider element ids stay out of the host; and
+`validate_input(snapshot, options)`, which rejects an input the chosen options
+cannot run on before any GPU time is spent. The RFD4 provider uses the last of
+these to refuse partial diffusion on expandable segments, reading
+`has_expandable_segments` from the same exported snapshot — this includes
+realized segments whose residues are still undefined. Generate a fully defined
+input first, or use the partial diffusion example.
+
+Run `python scripts/preview_generation.py` to see this UI locally with a
+simulated model, including the generation and failure states.
+
 The deployment owns model weights, CUDA dependencies and execution. Pass native
-noise defaults from its inference configuration to the RFD4 provider. No Torch
+`tsr_k` defaults from its inference configuration to the RFD4 provider. No Torch
 model, model download, GPU provisioning or job-provider registry is added to
 Studio. Other model providers implement the small `GenerationProvider` interface
 in `annotation_studio.gradio`. Gradio and model generation remain optional for

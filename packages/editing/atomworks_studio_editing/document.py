@@ -1417,6 +1417,15 @@ class StudioDocument:
         issues.extend(self.validation_provider.validate(self.array, full_pipeline=full_pipeline))
         return issues
 
+    @property
+    def has_expandable_segments(self) -> bool:
+        """Whether any residue is still an undefined-length segment the model has to fill in.
+
+        A generation provider needs this to refuse options that only make sense once every residue is defined —
+        partial diffusion, for instance, has nothing to diffuse from where the length is not yet decided.
+        """
+        return has_stored_mask(S_SEGMIN, self.array) and bool(S_SEGMIN.mask(self.array).any())
+
     def sequence_view(self) -> list[dict[str, Any]]:
         """Return a compact chain/residue model for the interactive sequence strip."""
         chain_key = "chain_iid" if "chain_iid" in self.array.get_annotation_categories() else "chain_id"

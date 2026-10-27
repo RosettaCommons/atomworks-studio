@@ -17,15 +17,43 @@ from fastapi.responses import RedirectResponse
 
 
 class GenerationProvider(Protocol):
-    """UI and validation supplied by a model's Studio provider."""
+    """UI and validation supplied by a model's Studio provider.
+
+    `title`, `warning_checks`, `controls`, `validate` and `example_options` are required. The rest are optional and
+    read with a default, so a provider written against an earlier release keeps working unchanged.
+    """
 
     title: str
     warning_checks: frozenset[str]
+
+    # Optional. An example id to open Studio on, so a visitor lands on something runnable instead of an empty editor.
+    default_example: str | None
+    # Optional. Extra CSS for the provider's own controls, appended to Studio's. Keeps provider element ids out of
+    # this module.
+    css: str
 
     def controls(self) -> dict[str, gr.Component]: ...
     def validate(self, options: dict) -> dict: ...
     def example_options(self, example: dict) -> dict: ...
 
+    # Optional. Reject an input the chosen options cannot be run on, before any GPU time is spent. Receives the
+    # export snapshot (`cif`, `issues`, `has_expandable_segments`, ...) and the already-validated options, and
+    # raises `gr.Error` to stop the run.
+    def validate_input(self, snapshot: dict, options: dict) -> None: ...
+
+
+# Gradio renders the progress tracker as an overlay positioned over its target, so a one-line Markdown status
+# collapses it to a sliver. Give it room and drop the default spinner; a provider dresses the space through its own
+# `css`, targeting `#generation-status [data-testid="status-tracker"]`.
+STUDIO_CSS = """
+.gradio-container { max-width: 1600px !important; }
+#studio-editor { padding: 0; }
+#generation-status:has([data-testid="status-tracker"]:not(.hide)) { min-height: 144px; }
+#generation-status [data-testid="status-tracker"] svg { display: none; }
+#generation-status [data-testid="status-tracker"]:not(.hide) {
+    min-height: 144px; flex-direction: row; gap: 12px;
+}
+"""
 
 HOST_BRIDGE = """
 const configure = () => {
@@ -75,10 +103,12 @@ class StudioHandoff:
         session_id = session["session_id"]
         return session_id, self.frame(session_id)
 
-    def frame(self, session_id: str | None = None) -> str:
+    def frame(self, session_id: str | None = None, *, example: str | None = None) -> str:
         query = "embed=1"
         if session_id:
             query += "&amp;session=" + html.escape(quote(session_id, safe=""))
+        elif example:
+            query += "&amp;example=" + html.escape(quote(example, safe=""))
         return (
             f'<iframe src="{self.editor_path}?{query}" title="AtomWorks Studio" '
             'style="width:100%;height:76vh;min-height:620px;border:0" '
@@ -124,11 +154,21 @@ def create_demo(
         status = gr.Markdown(
             "Open a CIF or choose an example in Studio, then generate a design.", elem_id="generation-status"
         )
-        editor = gr.HTML(handoff.frame(), elem_id="studio-editor", js_on_load=HOST_BRIDGE)
+        editor = gr.HTML(
+            handoff.frame(example=getattr(provider, "default_example", None)),
+            elem_id="studio-editor",
+            js_on_load=HOST_BRIDGE,
+        )
         api_cif = gr.Textbox(visible=False)
         api_options = gr.JSON(visible=False)
         api_result = gr.JSON(visible=False)
         api_run = gr.Button(visible=False)
+
+        def check_input(snapshot: dict, options: dict) -> None:
+            """Give the provider the last word on whether these options suit this input."""
+            hook = getattr(provider, "validate_input", None)
+            if hook is not None:
+                hook(snapshot, options)
 
         async def run_cifs(cif: str, options: dict) -> list[str]:
             results = await asyncio.to_thread(generate_fn, cif, options)
@@ -141,6 +181,7 @@ def create_demo(
             validated = provider.validate(options or {})
             session_id, _ = await handoff.open("input.cif", cif)
             snapshot = await handoff.export(session_id, provider.warning_checks)
+            check_input(snapshot, validated)
             return {
                 "designs": await run_cifs(snapshot["cif"], validated),
                 "warnings": [issue["message"] for issue in snapshot["issues"]],
@@ -155,6 +196,7 @@ def create_demo(
                 progress(None, desc="Checking current edits…")
                 options = provider.validate(dict(zip(controls, values, strict=True)))
                 snapshot = await handoff.export(session_id, provider.warning_checks)
+                check_input(snapshot, options)
                 with tempfile.TemporaryDirectory(prefix="studio-generation-") as directory:
                     progress(None, desc="Generating design (including any GPU wait)…")
                     results = await run_cifs(snapshot["cif"], options)
@@ -248,7 +290,7 @@ def create_app(*, provider: GenerationProvider, generate_fn: Callable[[str, dict
         create_demo(studio, provider=provider, generate_fn=generate_fn),
         path="/design",
         theme=gr.themes.Default(primary_hue="blue"),
-        css=".gradio-container { max-width: 1600px !important; } #studio-editor { padding: 0; }",
+        css=STUDIO_CSS + getattr(provider, "css", ""),
         max_file_size="10mb",
         show_error=False,
         ssr_mode=False,

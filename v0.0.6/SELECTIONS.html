@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Selecting atoms &#8212; AtomWorks Studio</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="_static/studio.css?v=e5508dc1" />
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/studio.js?v=a7d9f6d2"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Browser guide" href="WEB.html" />
+    <link rel="prev" title="Edit, save, and reopen a structure" href="TUTORIAL.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="selecting-atoms">
+<h1>Selecting atoms<a class="headerlink" href="#selecting-atoms" title="Link to this heading">¶</a></h1>
+<p>The browser and VS Code command bar has two modes. <strong>AtomWorks query</strong> selects
+atoms in either renderer, using expressions or <code class="docutils literal notranslate"><span class="pre">sel()</span></code> for selection paths.
+<strong>PyMOL commands</strong> selects and styles atoms through Patinae.</p>
+<section id="picking-in-the-viewer">
+<h2>Picking in the viewer<a class="headerlink" href="#picking-in-the-viewer" title="Link to this heading">¶</a></h2>
+<p>The <strong>Pick</strong> control is always visible in the viewer toolbar:</p>
+<ul class="simple">
+<li><p><strong>Atoms</strong> (default): clicking a cartoon only reveals local sticks and focuses the view.
+Click atoms in those sticks to add or remove individual atoms.</p></li>
+<li><p><strong>Residues:</strong> clicks toggle the whole residue, including clicks on sticks.</p></li>
+<li><p><strong>Chains:</strong> clicks toggle the whole chain.</p></li>
+</ul>
+<p>A click adds all targeted atoms if any are unselected, or removes them if all
+are selected. Atoms outside that target never change. There is no automatic
+refinement based on previous clicks and no modifier key is required. In Atoms mode, selecting
+one atom within an already selected residue removes only that atom.</p>
+<p>Showing local sticks and moving the camera do not change selection. <strong>Clear
+selection</strong> empties the selection while leaving local sticks available. Query
+and sequence-range selections explicitly replace the selection; pending canvas
+requests are cancelled by Clear, replacement selections, picking-mode changes,
+or document changes.</p>
+<p>Clicking a residue in the sequence toggles that whole residue without changing
+other selected atoms. Clicking a partially selected residue selects the rest of
+it; clicking again removes it. Enter and Space behave the same way.</p>
+<p>The sequence strip fills fully selected residues and partially fills residues
+with only some atoms selected. All selection counts share the same editing state.</p>
+<p>All actions use this same selection: condition edits, charges, bonds, deletion,
+measurements, and selection styling. The Pick control determines what future
+viewer clicks select; changing it or the condition type leaves existing selections
+unchanged. Conditions that inherently operate on residues or chains apply to the
+whole residues or chains containing selected atoms, using the same shared editing
+logic as the native PyMOL plugin. The condition editor explains this expansion.</p>
+</section>
+<section id="atomworks-query">
+<h2>AtomWorks query<a class="headerlink" href="#atomworks-query" title="Link to this heading">¶</a></h2>
+<p>Queries are expressions over the current structure’s annotations. Studio uses
+AtomWorks’ <code class="docutils literal notranslate"><span class="pre">QueryExpression</span></code>; this field is not a Python console.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Expression</p></th>
+<th class="head"><p>Selects</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">atom_name</span> <span class="pre">==</span> <span class="pre">'CA'</span></code></p></td>
+<td><p>Alpha carbons.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">chain_id</span> <span class="pre">==</span> <span class="pre">'A'</span> <span class="pre">and</span> <span class="pre">res_id</span> <span class="pre">&gt;=</span> <span class="pre">10</span> <span class="pre">and</span> <span class="pre">res_id</span> <span class="pre">&lt;=</span> <span class="pre">20</span></code></p></td>
+<td><p>Residues 10–20 in chain A.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">element</span> <span class="pre">in</span> <span class="pre">['N',</span> <span class="pre">'O']</span></code></p></td>
+<td><p>Nitrogen and oxygen atoms.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">atom_name</span> <span class="pre">not</span> <span class="pre">in</span> <span class="pre">['N',</span> <span class="pre">'CA',</span> <span class="pre">'C',</span> <span class="pre">'O']</span></code></p></td>
+<td><p>Atoms outside those four names.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">has_bonds()</span></code></p></td>
+<td><p>Atoms participating in stored bonds.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">has_nan_coord()</span></code></p></td>
+<td><p>Atoms with missing coordinates.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">sel('[A,B]/*/*/CA')</span></code></p></td>
+<td><p>A path selection inside an expression.</p></td>
+</tr>
+</tbody>
+</table>
+<p>Use <code class="docutils literal notranslate"><span class="pre">and</span></code>, <code class="docutils literal notranslate"><span class="pre">or</span></code>, and <code class="docutils literal notranslate"><span class="pre">not</span></code>, or parenthesized comparisons with <code class="docutils literal notranslate"><span class="pre">&amp;</span></code>, <code class="docutils literal notranslate"><span class="pre">|</span></code>, and <code class="docutils literal notranslate"><span class="pre">~</span></code>.
+Names must be stored annotations, supported query functions, or annotations that
+AtomWorks can derive. Derived fields are evaluated on a temporary copy; selecting
+atoms does not change the saved document or undo history.</p>
+<p><code class="docutils literal notranslate"><span class="pre">chain_id</span></code> is the source chain identifier. Assembly copies can share it.
+<code class="docutils literal notranslate"><span class="pre">chain_iid</span></code> identifies the chain instance shown in Studio; for example,
+<code class="docutils literal notranslate"><span class="pre">chain_iid</span> <span class="pre">==</span> <span class="pre">'A_1'</span></code> selects that instance if it exists. Inspect your structure
+before assuming either identifier. <code class="docutils literal notranslate"><span class="pre">res_id</span></code> is a residue number, not its position
+in the displayed sequence; <code class="docutils literal notranslate"><span class="pre">atom_id</span></code> is an annotation, not a zero-based row index.</p>
+</section>
+<section id="selection-paths">
+<h2>Selection paths<a class="headerlink" href="#selection-paths" title="Link to this heading">¶</a></h2>
+<p>Use <code class="docutils literal notranslate"><span class="pre">sel('A/*/[10-20]/CA')</span></code> in <strong>AtomWorks query</strong> to select alpha carbons in
+residues 10–20 of chain A. A path describes atoms, not a filesystem location.
+You can combine it with expressions, for example <code class="docutils literal notranslate"><span class="pre">sel('A')</span> <span class="pre">and</span> <span class="pre">element</span> <span class="pre">==</span> <span class="pre">'N'</span></code>.</p>
+<p>Wrap the paths below in <code class="docutils literal notranslate"><span class="pre">sel('...')</span></code>. Fields appear in this order:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>CHAIN_ID / RES_NAME / RES_ID / ATOM_NAME / TRANSFORMATION_ID
+</pre></div>
+</div>
+<p>Use <code class="docutils literal notranslate"><span class="pre">*</span></code> for any value. Omitted trailing fields are wildcards. Lists and residue
+ranges go inside brackets; top-level commas join selections.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Path</p></th>
+<th class="head"><p>Selects</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">A</span></code></p></td>
+<td><p>Source chain A, including its assembly copies.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*/ALA</span></code></p></td>
+<td><p>All alanine residues.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">*/*/*/CA</span></code></p></td>
+<td><p>Alpha carbons.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">[A,B]/*/*/[N,CA,C,O]</span></code></p></td>
+<td><p>Those backbone atoms in chains A and B.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">A/*/[10-20,25]</span></code></p></td>
+<td><p>Residues 10–20 and 25 in A.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">A/*/[10-20],</span> <span class="pre">B/*/[3-8]</span></code></p></td>
+<td><p>Two different residue ranges.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">A/*/*/CA/1</span></code></p></td>
+<td><p>Alpha carbons in transformation 1 of A.</p></td>
+</tr>
+</tbody>
+</table>
+<p>Ranges are inclusive. Write <code class="docutils literal notranslate"><span class="pre">[10-20]</span></code>, not bare <code class="docutils literal notranslate"><span class="pre">10-20</span></code>. Studio delegates parsing
+to AtomWorks’ <code class="docutils literal notranslate"><span class="pre">AtomSelectionStack</span></code>; it does not maintain a separate grammar.
+A valid query with no matching atoms selects zero atoms. In a union, an unmatched
+member does not discard the matching members.</p>
+</section>
+<section id="pymol-commands">
+<h2>PyMOL commands<a class="headerlink" href="#pymol-commands" title="Link to this heading">¶</a></h2>
+<p>With Patinae active, select <strong>PyMOL commands</strong> and try:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>select sele, name CA
+show spheres, sele
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">select</span></code> command also updates Studio’s editing selection, so an annotation
+applies to those atoms. <code class="docutils literal notranslate"><span class="pre">deselect</span></code> clears it. Invalid commands retain the input
+and selection for correction. <strong>More</strong> contains the supported
+command list. Only Patinae’s supported PyMOL-style commands work here; arbitrary
+PyMOL commands, <code class="docutils literal notranslate"><span class="pre">aw_*</span></code> plugin commands and Python are not supported.
+<code class="docutils literal notranslate"><span class="pre">remove</span> <span class="pre">&lt;selection&gt;</span></code> uses Studio’s delete operation, updating the annotated CIF
+and the viewer together. <strong>Undo</strong> restores the atoms and their annotations.
+For example, <code class="docutils literal notranslate"><span class="pre">remove</span> <span class="pre">solvent</span></code> removes water when present. Other structural
+commands such as <code class="docutils literal notranslate"><span class="pre">alter</span></code> and <code class="docutils literal notranslate"><span class="pre">bond</span></code> remain disabled; use Studio’s editing controls.
+Mol* uses <strong>AtomWorks query</strong> and its menus instead.</p>
+<p>Inside the native PyMOL application, use the normal PyMOL selection language:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>select sele, name CA
+show spheres, sele
+</pre></div>
+</div>
+<p>Then apply edits through the Studio panel. PyMOL uses its own selection parser;
+AtomWorks expressions such as <code class="docutils literal notranslate"><span class="pre">atom_name</span> <span class="pre">==</span> <span class="pre">'CA'</span></code> belong in the browser’s
+<strong>AtomWorks query</strong> mode. See the <a class="reference internal" href="PYMOL.html"><span class="std std-doc">PyMOL guide</span></a> for console commands
+and the distinction between the displayed molecule and the saved document.</p>
+</section>
+<section id="show-and-hide-atoms">
+<h2>Show and hide atoms<a class="headerlink" href="#show-and-hide-atoms" title="Link to this heading">¶</a></h2>
+<p><strong>Style</strong> uses the same controls in Studio, VS Code, and embedded Gradio.
+Choose <strong>All atoms</strong> or <strong>Selection</strong>, then <strong>Show</strong>, <strong>Hide</strong>, or <strong>Show only</strong>
+and a representation. <strong>Show only</strong> replaces other representations on that target.
+<strong>Hide everything</strong> hides all representations on the target; it does not delete atoms.</p>
+<p>For a binding-site view, select the protein and show a cartoon, then select the
+ligand and show sticks. Show a surface to inspect the pocket and hide that surface
+when it obscures contacts. Both Patinae and Mol* support these controls. Ribbon
+uses Mol*’s backbone representation; rendering details differ between engines.</p>
+<p>Display changes leave the annotated CIF and edit history unchanged. Selection
+styles stay attached to the selected atoms through annotation refreshes and
+renderer switches. Opening another structure or changing its atom inventory
+resets these styles. Structural changes still go through AtomWorks and <strong>Undo</strong>.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">AtomWorks Studio</a></h1>
+
+
+
+<p class="blurb">Structure editing</p>
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Using Studio</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="INSTALLATION.html">Installation and packaging</a></li>
+<li class="toctree-l1"><a class="reference internal" href="TUTORIAL.html">Edit, save, and reopen a structure</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Selecting atoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="WEB.html">Browser guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PYMOL.html">AtomWorks Studio for PyMOL</a></li>
+<li class="toctree-l1"><a class="reference internal" href="VSCODE.html">VS Code and Cursor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="INTEGRATIONS.html">Use Studio in a workflow</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Development</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="DEVELOPMENT.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="RELEASE.html">Releasing Studio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ARCHITECTURE.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="INPUTS.html">ConditionSpec and Studio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ACCEPTANCE.html">Acceptance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PROVENANCE.html">Source provenance</a></li>
+</ul>
+
+
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

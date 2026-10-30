@@ -308,16 +308,23 @@ export class MolstarAdapter implements ViewerAdapter {
     const structure = await plugin.state.data.build().to(model).apply(PositionedStructure, { excluded: [] }).commit();
     const component = await plugin.builders.structure.tryCreateComponentStatic(structure, "all", { label });
     if (component) {
-      await plugin.builders.structure.representation.addRepresentation(component, {
-        type: "ball-and-stick",
-        ...(options?.color != null
-          ? { color: "uniform" as const, colorParams: { value: Color(options.color) } }
-          : { color: CHAIN_COLOR_THEME, colorParams: CHAIN_COLOR_THEME_PARAMS }),
-        typeParams: {
-          sizeAspectRatio: options?.sizeAspectRatio ?? 1,
-          ...(options?.alpha != null ? { alpha: options.alpha } : {}),
-        },
-      });
+      const coloring = options?.color != null
+        ? { color: "uniform" as const, colorParams: { value: Color(options.color) } }
+        : { color: CHAIN_COLOR_THEME, colorParams: CHAIN_COLOR_THEME_PARAMS };
+      const alpha = options?.alpha != null ? { alpha: options.alpha } : {};
+      if (options?.representation === "cartoon") {
+        await plugin.builders.structure.representation.addRepresentation(component, {
+          type: "cartoon",
+          ...coloring,
+          typeParams: alpha,
+        });
+      } else {
+        await plugin.builders.structure.representation.addRepresentation(component, {
+          type: "ball-and-stick",
+          ...coloring,
+          typeParams: { sizeAspectRatio: options?.sizeAspectRatio ?? 1, ...alpha },
+        });
+      }
     }
     // Atom count drawn per overlay, for tests.
     dataset[`overlay_${key}`] = String(component ? structure.obj?.data.elementCount ?? 0 : 0);

@@ -128,9 +128,14 @@ export type ViewerMarker = { label: string; position: [number, number, number]; 
 /** `keepCamera` leaves the view where it is, for successive frames of the same structure. */
 export type ViewerLoadOptions = { keepCamera?: boolean };
 
-/** How a display-only overlay structure is drawn (ball-and-stick; element colours unless `color` is set). */
+/**
+ * How a display-only overlay structure is drawn: ball-and-stick unless `representation` says otherwise, element colours
+ * unless `color` is set. `sizeAspectRatio` applies to ball-and-stick only. The options take effect when the overlay is
+ * created; to change them, remove it (`null`) and set it again.
+ */
 export type ViewerOverlayOptions = {
   label?: string;
+  representation?: "ball-and-stick" | "cartoon";
   alpha?: number;
   color?: number;
   sizeAspectRatio?: number;

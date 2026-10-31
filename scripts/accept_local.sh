@@ -42,6 +42,8 @@ uv run --project "${root}" python "${root}/scripts/reconstruct_examples.py" \
 
 node "${root}/packages/web/tests/annotation-camera.mjs" | tee "${artifact_dir}/annotation-camera.log"
 
+node "${root}/packages/web/tests/live-frames.mjs" | tee "${artifact_dir}/live-frames.log"
+
 for viewer in patinae molstar; do
   VIEWER_MODE="${viewer}" ANNOTATION_STUDIO_URL="${accept_url}" \
     "${pnpm_cmd[@]}" --dir "${root}/packages/web" test:e2e \

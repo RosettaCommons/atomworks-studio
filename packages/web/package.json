@@ -23,6 +23,7 @@
     "test:examples": "node tests/example-imports.mjs",
     "test:example-actions": "node tests/example-actions.mjs",
     "test:annotation-camera": "node tests/annotation-camera.mjs",
+    "test:live-frames": "node tests/live-frames.mjs",
     "test:interactions": "node tests/interactions.mjs",
     "test:condition-presentation": "node tests/condition-presentation.mjs"
   },

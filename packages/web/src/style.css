@@ -178,10 +178,9 @@ h2 { margin: 0 0 12px; font-size: 13px; font-weight: 600; color: var(--text); }
   flex: 0 1 auto; min-height: 34px; max-height: 136px; padding: 6px 10px; overflow: auto;
   border-bottom: 1px solid var(--border); background: var(--surface-recessed);
 }
-.sequence-dock.collapsed { flex-basis: 34px; min-height: 34px; }
-.sequence-dock-heading { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text-muted); }
-.sequence-help { margin-left: 10px; color: var(--text-subtle); font-size: 11px; }
-.sequence-dock .sequence-view { margin-top: 5px; max-height: 98px; }
+.sequence-dock.collapsed { display: none; }
+.picking-toolbar > .selection-actions { display: flex; gap: 6px; }
+.sequence-dock .sequence-view { max-height: 98px; }
 .viewer-command-bar {
   flex: 0 0 auto; margin: 0; padding: 7px 10px; display: grid;
   grid-template-columns: 152px minmax(0, 1fr) auto; align-items: center; gap: 8px;
@@ -315,7 +314,6 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 14px 0; }
 @media (max-width: 1000px) {
   .workspace { grid-template-columns: minmax(0, 1fr) 300px; }
   .document-name { display: none; }
-  .sequence-help { display: none; }
   header { gap: 10px; padding: 8px 10px; }
 }
 @media (max-width: 680px) {

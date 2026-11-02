@@ -56,6 +56,7 @@ import {
   type ViewerTarget,
   type ViewerLoadOptions,
   type ViewerOverlayOptions,
+  type ViewerResidue,
 } from "./contract";
 
 // Mol* types colour-theme names as a union of its built-ins, so a registered theme needs a cast. Keeping it in one
@@ -128,6 +129,8 @@ export class MolstarAdapter implements ViewerAdapter {
   private liveIsDocument = false;
   // Display-only overlay structures by key: raw-data node plus the CIF it currently holds.
   private overlayRefs = new Map<string, { ref: string; data: string }>();
+  // Highlighted residues by key (`setHighlight`), re-applied after every load and live update.
+  private highlights = new Map<string, { residues: ViewerResidue[]; color: number }>();
   // What the canvas looked like before live mode, so it can be put back exactly.
   private savedLook: { postprocessing: unknown; multiSample: unknown } | null = null;
 
@@ -232,6 +235,7 @@ export class MolstarAdapter implements ViewerAdapter {
     await this.loadPositionedStructure(cif, name, preset);
     // The structure just loaded is what a later live update replaces in place.
     this.liveDataRef = this.lastDataRef;
+    await this.applyHighlights();
     if (!options?.keepCamera) this.viewer.plugin.managers.camera.reset();
   }
 
@@ -266,6 +270,7 @@ export class MolstarAdapter implements ViewerAdapter {
     }
     await update.commit();
     this.unpositionedAtoms = new Set(excluded);
+    await this.applyHighlights();
     // Frames served by the live path; `liveRebuilds` counts the subset that rebuilt the scene instead.
     dataset.liveUpdates = String(Number(dataset.liveUpdates ?? 0) + 1);
     dataset.renderedAtoms = String(
@@ -294,6 +299,39 @@ export class MolstarAdapter implements ViewerAdapter {
     } else if (this.savedLook) {
       canvas.setProps(this.savedLook as never);
       this.savedLook = null;
+    }
+  }
+
+  /** See `ViewerAdapter.setHighlight`. */
+  async setHighlight(key: string, residues: ViewerResidue[] | null, options?: { color?: number }): Promise<void> {
+    const had = this.highlights.size > 0;
+    if (residues?.length) this.highlights.set(key, { residues, color: options?.color ?? 0xf59e0b });
+    else this.highlights.delete(key);
+    if (had || this.highlights.size) await this.applyHighlights(true);
+  }
+
+  /** Overpaint every highlight on the main structure; with `reset`, first clear what earlier calls painted. */
+  private async applyHighlights(reset = false): Promise<void> {
+    if (!this.viewer) return;
+    const plugin = this.viewer.plugin;
+    const reference = plugin.managers.structure.hierarchy.current.structures[0];
+    const structure = reference?.cell.obj?.data;
+    const dataset = this.context.container.dataset;
+    if (!reference || !structure) return;
+    if (reset) await clearStructureOverpaint(plugin, reference.components);
+    for (const [key, { residues, color }] of this.highlights) {
+      const items = {
+        auth_asym_id: residues.map(r => r.chain),
+        auth_seq_id: residues.map(r => r.residue),
+      };
+      const loci = StructureElement.Schema.toLoci(structure, { items } as never);
+      await setStructureOverpaint(plugin, reference.components, Color(color),
+        async s => StructureElement.Schema.toLoci(s, { items } as never));
+      // Atom count painted per highlight, for tests.
+      dataset[`highlight_${key}`] = String(StructureElement.Loci.size(loci));
+    }
+    for (const name of Object.keys(dataset)) {
+      if (name.startsWith("highlight_") && !this.highlights.has(name.slice(10))) delete dataset[name];
     }
   }
 

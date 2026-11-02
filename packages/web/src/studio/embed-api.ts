@@ -11,7 +11,7 @@
  * and the "changed" notification behave exactly as they do for a click. The document on the server stays the source
  * of truth; nothing here writes to the viewer behind its back.
  */
-import type { ViewerLoadOptions, ViewerOverlayOptions } from "../viewers";
+import type { ViewerLoadOptions, ViewerOverlayOptions, ViewerResidue } from "../viewers";
 
 export type StudioEmbedApi = {
   /** The Studio release this page was built from, so a host can check what it is talking to. */
@@ -28,6 +28,12 @@ export type StudioEmbedApi = {
    * place on later calls and removed with `null`. Overlays take no part in selection, annotation or analysis.
    */
   setOverlay(key: string, cif: string | null, options?: ViewerOverlayOptions): Promise<void>;
+
+  /**
+   * Colour residues of the shown structure (chain and author residue number) under `key`, such as hotspots, in its
+   * own cartoon and sticks; kept across documents and live frames until set to `null`.
+   */
+  setHighlight(key: string, residues: ViewerResidue[] | null, options?: { color?: number }): Promise<void>;
 
   /**
    * Trade picture quality for frame rate while you are streaming frames, and put the view back exactly as it was

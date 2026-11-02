@@ -141,6 +141,9 @@ export type ViewerOverlayOptions = {
   sizeAspectRatio?: number;
 };
 
+/** A residue by chain and author residue number, as a host names it (stable across live frames and designs). */
+export type ViewerResidue = { chain: string; residue: number };
+
 export type AnnotationColor = {
   name: string;
   value: number;
@@ -179,6 +182,12 @@ export interface ViewerAdapter {
    * annotation or analysis. Optional: a no-op on backends without overlays.
    */
   setOverlayCif?(key: string, cif: string | null, options?: ViewerOverlayOptions): Promise<void>;
+  /**
+   * Colour `residues` of the shown structure under `key` (e.g. a design's hotspots), in its own representations
+   * rather than as extra geometry; `null` or an empty list removes it. Kept across loads and live frames until
+   * removed. Optional: a no-op on backends without it.
+   */
+  setHighlight?(key: string, residues: ViewerResidue[] | null, options?: { color?: number }): Promise<void>;
   /**
    * Trade picture quality for frame rate while a stream of frames is arriving, restoring exactly what was in force
    * when it ends. Optional: a no-op on backends that do not distinguish the two.

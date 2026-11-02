@@ -21,6 +21,7 @@ import type {
   ViewerMarker,
   ViewerLoadOptions,
   ViewerOverlayOptions,
+  ViewerResidue,
   AtomCharge,
 } from "./contract";
 import {
@@ -47,6 +48,7 @@ export type {
   ViewerTarget,
   ViewerLoadOptions,
   ViewerOverlayOptions,
+  ViewerResidue,
 } from "./contract";
 
 const BACKEND_LABELS: Record<ViewerBackend, string> = {
@@ -144,6 +146,7 @@ export class MolecularViewer {
     }
     this.adapter = adapter;
     this.container.dataset.backend = backend;
+    for (const [key, { residues, options }] of this.highlights) await adapter.setHighlight?.(key, residues, options);
     const softwarePicking =
       backend === "patinae" && this.container.dataset.picking === "software-disabled";
     this.backendLabel.textContent =
@@ -209,6 +212,16 @@ export class MolecularViewer {
   /** See `ViewerAdapter.setLiveMode`; a no-op on backends that do not distinguish a live stream. */
   setLiveMode(on: boolean): void {
     this.adapter?.setLiveMode?.(on);
+  }
+
+  // Highlights by key, kept here so ones set before the renderer starts (or across a renderer switch) still show.
+  private highlights = new Map<string, { residues: ViewerResidue[]; options?: { color?: number } }>();
+
+  /** See `ViewerAdapter.setHighlight`; a no-op on backends without it. Remembered until the renderer is ready. */
+  async setHighlight(key: string, residues: ViewerResidue[] | null, options?: { color?: number }): Promise<void> {
+    if (residues?.length) this.highlights.set(key, { residues, options });
+    else this.highlights.delete(key);
+    await this.adapter?.setHighlight?.(key, residues, options);
   }
 
   /** See `ViewerAdapter.setOverlayCif`; a no-op on backends without overlays. */

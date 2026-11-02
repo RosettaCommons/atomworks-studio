@@ -680,6 +680,9 @@ async function initialize(): Promise<void> {
       element("coordinate-summary").hidden = true;
       await molecularViewer.renderLiveCif(cif, name, options);
     }),
+    setHighlight: (key, residues, options) => runVisualUpdate(async () => {
+      await molecularViewer.setHighlight(key, residues, options);
+    }),
     setOverlay: (key, cif, options) => runVisualUpdate(async () => {
       if (molecularViewer.initialized) await molecularViewer.setOverlayCif(key, cif, options);
     }),

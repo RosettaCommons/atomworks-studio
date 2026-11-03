@@ -741,6 +741,7 @@ async function initialize(): Promise<void> {
     getSelection: () => [...selectionController.values].sort((first, second) => first - second),
     setSelection: (atomIndices) => selectionController.replace(atomIndices.filter((index) => Number.isInteger(index) && index >= 0)),
     chainColor: chainColorCss,
+    centerOn: (atomIndices) => molecularViewer.centerOn(atomIndices.filter((index) => Number.isInteger(index) && index >= 0)),
   });
   // Start in the scope the menu shows (residues by default: a click on the cartoon selects that residue).
   selectionController.setScope(pickScope.value as SelectionScope);

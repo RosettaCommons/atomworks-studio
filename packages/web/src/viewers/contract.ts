@@ -207,6 +207,8 @@ export interface ViewerAdapter {
   setColor?(color: ViewerColor, target: ViewerTarget): void;
   setBackground?(color: "black" | "white"): void;
   camera?(action: ViewerCameraAction): void;
+  /** Pan to put these atoms (document indices) in the middle of the view, keeping the zoom. Optional. */
+  centerOn?(atomIndices: number[]): void;
   executeCommand?(command: string): unknown;
   evaluateSelection?(expression: string): number[];
   getObjectList?(): ViewerObject[];

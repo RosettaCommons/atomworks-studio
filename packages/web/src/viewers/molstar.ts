@@ -34,6 +34,7 @@ import { Mesh } from "molstar/lib/mol-geo/geometry/mesh/mesh";
 import { MeshBuilder } from "molstar/lib/mol-geo/geometry/mesh/mesh-builder";
 import { addSphere } from "molstar/lib/mol-geo/geometry/mesh/builder/sphere";
 import { Vec3 } from "molstar/lib/mol-math/linear-algebra";
+import { Loci } from "molstar/lib/mol-model/loci";
 import "molstar/lib/mol-plugin-ui/skin/dark.scss";
 import { FxaaParams } from "molstar/lib/mol-canvas3d/passes/fxaa";
 import { unpositionedAtomIndices } from "./unpositioned-atoms";
@@ -706,6 +707,18 @@ export class MolstarAdapter implements ViewerAdapter {
       return;
     }
     this.viewer.plugin.managers.camera.reset();
+  }
+
+  /** See `ViewerAdapter.centerOn`: the camera slides sideways, at the distance it was. */
+  centerOn(atomIndices: number[]): void {
+    const canvas = this.viewer?.plugin.canvas3d;
+    const indices = atomIndices.filter(index => !this.unpositionedAtoms.has(index));
+    if (!canvas || !indices.length || !this.viewer?.plugin.managers.structure.hierarchy.current.structures.length) return;
+    const sphere = Loci.getBoundingSphere(this.lociFor(indices));
+    if (!sphere) return;
+    const { position, target } = canvas.camera.getSnapshot();
+    const shift = Vec3.sub(Vec3(), sphere.center, target);
+    canvas.camera.setState({ target: Vec3.clone(sphere.center), position: Vec3.add(Vec3(), position, shift) }, 300);
   }
 
   listMeasurements(): ViewerMeasurement[] {

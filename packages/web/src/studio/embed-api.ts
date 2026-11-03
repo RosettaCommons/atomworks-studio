@@ -75,6 +75,9 @@ export type StudioEmbedApi = {
    */
   setSelection(atomIndices: number[]): void;
 
+  /** Pan the view so these atoms (document indices) sit in its middle, keeping the zoom. */
+  centerOn(atomIndices: number[]): void;
+
   /** The colour Studio draws a chain in, so a host's own UI can match it. */
   chainColor(chainId: string): string;
 };

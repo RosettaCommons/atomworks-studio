@@ -300,6 +300,11 @@ export class MolecularViewer {
     this.adapter.camera(action);
   }
 
+  /** See `ViewerAdapter.centerOn`; a no-op on backends without it. */
+  centerOn(atomIndices: number[]): void {
+    this.adapter?.centerOn?.(atomIndices);
+  }
+
   executeCommand(command: string): unknown {
     if (!this.adapter?.executeCommand) {
       throw new Error("Viewer commands are available only with the Patinae renderer.");

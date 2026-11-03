@@ -202,11 +202,7 @@ export class MolstarAdapter implements ViewerAdapter {
       const loci = Bond.isLoci(current.loci) ? Bond.toFirstStructureElementLoci(current.loci) : current.loci;
       if (!StructureElement.Loci.is(loci) || loci.elements.length === 0) return;
       const scope = StructureElement.Loci.size(loci) > 1 ? "residue" : "atom";
-      // In atom picking, a residue clicked on the cartoon shows its sticks to pick atoms from; when residues are
-      // picked, the selection that follows sets (or clears) the sticks instead.
-      if (scope === "residue") {
-        this.viewer!.plugin.managers.structure.focus.setFromLoci(loci);
-      }
+      // The selection that follows sets (or clears) the sticks: atoms picked show their residues' sticks.
       const group = loci.elements[0];
       if (OrderedSet.size(group.indices) === 0) return;
       const elementIndex = group.unit.elements[OrderedSet.getAt(group.indices, 0)];
@@ -557,7 +553,8 @@ export class MolstarAdapter implements ViewerAdapter {
   setSelection(atomIndices: number[]): void {
     if (!this.viewer) return;
     this.clearSelection();
-    // The selection is what is shown in sticks (Mol*'s focus): nothing selected, nothing left behind.
+    // Whole residues selected are outlined on the cartoon, no sticks; atoms picked show their residues in sticks
+    // (Mol*'s focus), to pick more from. Nothing selected, nothing left behind.
     const focus = this.viewer.plugin.managers.structure.focus;
     if (!atomIndices.length) {
       focus.clear();
@@ -567,8 +564,9 @@ export class MolstarAdapter implements ViewerAdapter {
     if (!this.viewer.plugin.managers.structure.hierarchy.current.structures.length) return;
     const loci = this.lociFor(this.selectedAtomIndices);
     this.viewer.plugin.managers.interactivity.lociSelects.select({ loci });
-    // A few residues in sticks; a whole chain selected stays a cartoon.
-    if (this.selectedAtomIndices.length <= 600) focus.setFromLoci(loci);
+    const residues = StructureElement.Loci.extendToWholeResidues(loci);
+    const atomsPicked = StructureElement.Loci.size(residues) > StructureElement.Loci.size(loci);
+    if (atomsPicked && this.selectedAtomIndices.length <= 600) focus.setFromLoci(residues);
     else focus.clear();
   }
 

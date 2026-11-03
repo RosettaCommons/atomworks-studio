@@ -713,6 +713,7 @@ async function initialize(): Promise<void> {
     openExample: async (id) => { await sessionFileController?.loadPendingExample(id); },
     applyEdit: (path, body) => mutate(path, body, true),
     getSelection: () => [...selectionController.values].sort((first, second) => first - second),
+    setSelection: (atomIndices) => selectionController.replace(atomIndices.filter((index) => Number.isInteger(index) && index >= 0)),
     chainColor: chainColorCss,
   });
   pickScope.addEventListener("change", () => {

@@ -62,6 +62,12 @@ export type StudioEmbedApi = {
   /** The current selection, as document atom indices in ascending order. */
   getSelection(): number[];
 
+  /**
+   * Select these atoms (document atom indices), replacing the selection, as a click in the viewer or the sequence
+   * would: both show it, and the host hears a `selection` event.
+   */
+  setSelection(atomIndices: number[]): void;
+
   /** The colour Studio draws a chain in, so a host's own UI can match it. */
   chainColor(chainId: string): string;
 };

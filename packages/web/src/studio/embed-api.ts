@@ -44,6 +44,12 @@ export type StudioEmbedApi = {
   /** Go back to showing the open document, after frames or a failed run. */
   showDocument(): Promise<void>;
 
+  /**
+   * Put the editor back as it is with nothing open: an empty viewer and sequence, no selection. The session is kept,
+   * so `openSession` can bring it back; nothing asks for confirmation and the page does not reload.
+   */
+  closeDocument(): Promise<void>;
+
   /** Open a session the host created, optionally with a trajectory to scrub. */
   openSession(sessionId: string, options?: { trajectoryUrl?: string | null }): Promise<void>;
 

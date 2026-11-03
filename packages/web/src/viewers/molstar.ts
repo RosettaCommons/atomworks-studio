@@ -169,6 +169,7 @@ export class MolstarAdapter implements ViewerAdapter {
     // Chain colours shared with the sequence bar.
     this.viewer.plugin.representation.structure.themes.colorThemeRegistry.add(StudioChainColorThemeProvider);
     this.viewer.plugin.canvas3d.setProps({ camera: { manualReset: true } });
+    this.selectionLook("black");
     // Docking the inspector and toggling sequence change the canvas without
     // resizing the browser window. Keep Mol*'s drawing buffer in step.
     this.resizeObserver = new ResizeObserver(() => this.viewer?.plugin.handleResize());
@@ -698,6 +699,19 @@ export class MolstarAdapter implements ViewerAdapter {
     this.viewer?.plugin.canvas3d?.setProps({
       renderer: { backgroundColor: Color(color === "black" ? 0x000000 : 0xffffff) },
     });
+    this.selectionLook(color);
+  }
+
+  /**
+   * Selection is an outline in the foreground colour (white on black, near-black on white), as in the sequence bar,
+   * with no tint, so chain colours, highlights and transparency still show; hovering draws the same outline, fainter.
+   */
+  private selectionLook(background: "black" | "white"): void {
+    const ink = Color(background === "white" ? 0x1f2328 : 0xffffff);
+    this.viewer?.plugin.canvas3d?.setProps({
+      renderer: { selectColor: ink, selectStrength: 0, highlightColor: ink, highlightStrength: 0 },
+      marking: { enabled: true, selectEdgeColor: ink, highlightEdgeColor: ink, selectEdgeStrength: 1, highlightEdgeStrength: 0.5 },
+    } as never);
   }
 
   camera(action: ViewerCameraAction): void {

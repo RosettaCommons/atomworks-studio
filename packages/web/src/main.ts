@@ -716,6 +716,8 @@ async function initialize(): Promise<void> {
     setSelection: (atomIndices) => selectionController.replace(atomIndices.filter((index) => Number.isInteger(index) && index >= 0)),
     chainColor: chainColorCss,
   });
+  // Start in the scope the menu shows (residues by default: a click on the cartoon selects that residue).
+  selectionController.setScope(pickScope.value as SelectionScope);
   pickScope.addEventListener("change", () => {
     selectionController.setScope(pickScope.value as SelectionScope);
   });

@@ -2,6 +2,7 @@ import { StateTransforms } from "molstar/lib/mol-plugin-state/transforms";
 import { Viewer as MolstarViewer } from "molstar/lib/apps/viewer/app";
 import { FocusLoci } from "molstar/lib/mol-plugin/behavior/dynamic/representation";
 import { FocusLoci as FocusCamera } from "molstar/lib/mol-plugin/behavior/dynamic/camera";
+import { StructureFocusRepresentation } from "molstar/lib/mol-plugin/behavior/dynamic/selection/structure-focus-representation";
 import { ButtonsType } from "molstar/lib/mol-util/input/input-observer";
 import { Binding } from "molstar/lib/mol-util/binding";
 import { Bond, Structure } from "molstar/lib/mol-model/structure";
@@ -185,6 +186,10 @@ export class MolstarAdapter implements ViewerAdapter {
         };
       }
     });
+    // A clicked residue is shown on its own: no 5 Å surroundings, interaction lines or labels around it.
+    await this.viewer.plugin.state.updateBehavior(StructureFocusRepresentation, (params) => {
+      params.components = ["target"];
+    });
     this.viewer.subscribe(this.viewer.plugin.behaviors.interaction.click, ({ current, button }) => {
       if (button !== ButtonsType.Flag.Primary) return;
       const loci = Bond.isLoci(current.loci) ? Bond.toFirstStructureElementLoci(current.loci) : current.loci;
@@ -192,7 +197,6 @@ export class MolstarAdapter implements ViewerAdapter {
       const scope = StructureElement.Loci.size(loci) > 1 ? "residue" : "atom";
       if (scope === "residue") {
         this.viewer!.plugin.managers.structure.focus.setFromLoci(loci);
-        this.viewer!.plugin.managers.camera.focusLoci(loci);
       }
       const group = loci.elements[0];
       if (OrderedSet.size(group.indices) === 0) return;

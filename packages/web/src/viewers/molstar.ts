@@ -195,6 +195,8 @@ export class MolstarAdapter implements ViewerAdapter {
       const loci = Bond.isLoci(current.loci) ? Bond.toFirstStructureElementLoci(current.loci) : current.loci;
       if (!StructureElement.Loci.is(loci) || loci.elements.length === 0) return;
       const scope = StructureElement.Loci.size(loci) > 1 ? "residue" : "atom";
+      // In atom picking, a residue clicked on the cartoon shows its sticks to pick atoms from; when residues are
+      // picked, the selection that follows sets (or clears) the sticks instead.
       if (scope === "residue") {
         this.viewer!.plugin.managers.structure.focus.setFromLoci(loci);
       }
@@ -540,11 +542,19 @@ export class MolstarAdapter implements ViewerAdapter {
   setSelection(atomIndices: number[]): void {
     if (!this.viewer) return;
     this.clearSelection();
-    if (!atomIndices.length) return;
+    // The selection is what is shown in sticks (Mol*'s focus): nothing selected, nothing left behind.
+    const focus = this.viewer.plugin.managers.structure.focus;
+    if (!atomIndices.length) {
+      focus.clear();
+      return;
+    }
     this.selectedAtomIndices = [...new Set(atomIndices)];
     if (!this.viewer.plugin.managers.structure.hierarchy.current.structures.length) return;
     const loci = this.lociFor(this.selectedAtomIndices);
     this.viewer.plugin.managers.interactivity.lociSelects.select({ loci });
+    // A few residues in sticks; a whole chain selected stays a cartoon.
+    if (this.selectedAtomIndices.length <= 600) focus.setFromLoci(loci);
+    else focus.clear();
   }
 
   clearSelection(): void {

@@ -22,6 +22,7 @@ import type {
   ViewerLoadOptions,
   ViewerOverlayOptions,
   ViewerResidue,
+  ViewerHighlightOptions,
   AtomCharge,
 } from "./contract";
 import {
@@ -49,6 +50,7 @@ export type {
   ViewerLoadOptions,
   ViewerOverlayOptions,
   ViewerResidue,
+  ViewerHighlightOptions,
 } from "./contract";
 
 const BACKEND_LABELS: Record<ViewerBackend, string> = {
@@ -215,10 +217,10 @@ export class MolecularViewer {
   }
 
   // Highlights by key, kept here so ones set before the renderer starts (or across a renderer switch) still show.
-  private highlights = new Map<string, { residues: ViewerResidue[]; options?: { color?: number } }>();
+  private highlights = new Map<string, { residues: ViewerResidue[]; options?: ViewerHighlightOptions }>();
 
   /** See `ViewerAdapter.setHighlight`; a no-op on backends without it. Remembered until the renderer is ready. */
-  async setHighlight(key: string, residues: ViewerResidue[] | null, options?: { color?: number }): Promise<void> {
+  async setHighlight(key: string, residues: ViewerResidue[] | null, options?: ViewerHighlightOptions): Promise<void> {
     if (residues?.length) this.highlights.set(key, { residues, options });
     else this.highlights.delete(key);
     await this.adapter?.setHighlight?.(key, residues, options);

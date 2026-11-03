@@ -18,6 +18,10 @@ import {
   clearStructureOverpaint,
   setStructureOverpaint,
 } from "molstar/lib/mol-plugin-state/helpers/structure-overpaint";
+import {
+  clearStructureTransparency,
+  setStructureTransparency,
+} from "molstar/lib/mol-plugin-state/helpers/structure-transparency";
 import type { StructureRepresentationProps } from "molstar/lib/mol-plugin-state/helpers/structure-representation-params";
 import { Color } from "molstar/lib/mol-util/color";
 import { Shape } from "molstar/lib/mol-model/shape";
@@ -56,6 +60,7 @@ import {
   type ViewerRepresentationAction,
   type ViewerTarget,
   type ViewerLoadOptions,
+  type ViewerHighlightOptions,
   type ViewerOverlayOptions,
   type ViewerResidue,
 } from "./contract";
@@ -131,7 +136,7 @@ export class MolstarAdapter implements ViewerAdapter {
   // Display-only overlay structures by key: raw-data node plus the CIF it currently holds.
   private overlayRefs = new Map<string, { ref: string; data: string }>();
   // Highlighted residues by key (`setHighlight`), re-applied after every load and live update.
-  private highlights = new Map<string, { residues: ViewerResidue[]; color: number }>();
+  private highlights = new Map<string, { residues: ViewerResidue[]; color: number; transparency?: number }>();
   // What the canvas looked like before live mode, so it can be put back exactly.
   private savedLook: { postprocessing: unknown; multiSample: unknown } | null = null;
 
@@ -309,9 +314,9 @@ export class MolstarAdapter implements ViewerAdapter {
   }
 
   /** See `ViewerAdapter.setHighlight`. */
-  async setHighlight(key: string, residues: ViewerResidue[] | null, options?: { color?: number }): Promise<void> {
+  async setHighlight(key: string, residues: ViewerResidue[] | null, options?: ViewerHighlightOptions): Promise<void> {
     const had = this.highlights.size > 0;
-    if (residues?.length) this.highlights.set(key, { residues, color: options?.color ?? 0xf59e0b });
+    if (residues?.length) this.highlights.set(key, { residues, color: options?.color ?? 0xf59e0b, transparency: options?.transparency });
     else this.highlights.delete(key);
     if (had || this.highlights.size) await this.applyHighlights(true);
   }
@@ -324,15 +329,23 @@ export class MolstarAdapter implements ViewerAdapter {
     const structure = reference?.cell.obj?.data;
     const dataset = this.context.container.dataset;
     if (!reference || !structure) return;
-    if (reset) await clearStructureOverpaint(plugin, reference.components);
-    for (const [key, { residues, color }] of this.highlights) {
+    if (reset) {
+      await clearStructureOverpaint(plugin, reference.components);
+      await clearStructureTransparency(plugin, reference.components);
+    }
+    for (const [key, { residues, color, transparency }] of this.highlights) {
       const items = {
         auth_asym_id: residues.map(r => r.chain),
         auth_seq_id: residues.map(r => r.residue),
       };
       const loci = StructureElement.Schema.toLoci(structure, { items } as never);
-      await setStructureOverpaint(plugin, reference.components, Color(color),
-        async s => StructureElement.Schema.toLoci(s, { items } as never));
+      if (transparency !== undefined) {
+        await setStructureTransparency(plugin, reference.components, Math.max(0, Math.min(1, transparency)),
+          async s => StructureElement.Schema.toLoci(s, { items } as never));
+      } else {
+        await setStructureOverpaint(plugin, reference.components, Color(color),
+          async s => StructureElement.Schema.toLoci(s, { items } as never));
+      }
       // Atom count painted per highlight, for tests.
       dataset[`highlight_${key}`] = String(StructureElement.Loci.size(loci));
     }

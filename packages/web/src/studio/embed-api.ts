@@ -11,7 +11,7 @@
  * and the "changed" notification behave exactly as they do for a click. The document on the server stays the source
  * of truth; nothing here writes to the viewer behind its back.
  */
-import type { ViewerLoadOptions, ViewerOverlayOptions, ViewerResidue } from "../viewers";
+import type { ViewerHighlightOptions, ViewerLoadOptions, ViewerOverlayOptions, ViewerResidue } from "../viewers";
 
 export type StudioEmbedApi = {
   /** The Studio release this page was built from, so a host can check what it is talking to. */
@@ -31,9 +31,10 @@ export type StudioEmbedApi = {
 
   /**
    * Colour residues of the shown structure (chain and author residue number) under `key`, such as hotspots, in its
-   * own cartoon and sticks; kept across documents and live frames until set to `null`.
+   * own cartoon and sticks, or with `transparency` (0 to 1) fade them instead, such as residues still to be built;
+   * kept across documents and live frames until set to `null`.
    */
-  setHighlight(key: string, residues: ViewerResidue[] | null, options?: { color?: number }): Promise<void>;
+  setHighlight(key: string, residues: ViewerResidue[] | null, options?: ViewerHighlightOptions): Promise<void>;
 
   /**
    * Trade picture quality for frame rate while you are streaming frames, and put the view back exactly as it was

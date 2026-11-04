@@ -279,7 +279,10 @@ export class MolstarAdapter implements ViewerAdapter {
     }
     await update.commit();
     this.unpositionedAtoms = new Set(excluded);
-    await this.applyHighlights();
+    // Repainted from scratch: Mol* keeps a highlight's paint as atom positions in the structure it was made on, and a
+    // live frame's designed residues change type (and atom count) from step to step, so paint carried over from the
+    // last frame lands on whichever residues now sit at those positions.
+    await this.applyHighlights(true);
     // Frames served by the live path; `liveRebuilds` counts the subset that rebuilt the scene instead.
     dataset.liveUpdates = String(Number(dataset.liveUpdates ?? 0) + 1);
     dataset.renderedAtoms = String(
@@ -350,6 +353,26 @@ export class MolstarAdapter implements ViewerAdapter {
     for (const name of Object.keys(dataset)) {
       if (name.startsWith("highlight_") && !this.highlights.has(name.slice(10))) delete dataset[name];
     }
+    // Paint layers in the scene, for tests: one per highlight and representation, never growing frame by frame.
+    // And which residues the colour layers actually cover in the structure shown now ("A27 A35"), read back from them.
+    let layers = 0;
+    const painted = new Set<string>();
+    for (const cell of plugin.state.data.cells.values()) {
+      const values = cell.params?.values as { layers?: { bundle?: StructureElement.Bundle }[] } | undefined;
+      const id = cell.transform.transformer.id;
+      if (!/overpaint|transparency/i.test(id) || !Array.isArray(values?.layers)) continue;
+      layers += values.layers.length;
+      if (!/overpaint/i.test(id)) continue;
+      for (const layer of values.layers) {
+        if (!layer.bundle) continue;
+        const loci = StructureElement.Bundle.toLoci(layer.bundle, structure);
+        StructureElement.Loci.forEachLocation(loci, (l) => {
+          painted.add(`${StructureProperties.chain.auth_asym_id(l)}${StructureProperties.residue.auth_seq_id(l)}`);
+        });
+      }
+    }
+    dataset.highlightLayers = String(layers);
+    dataset.highlightResidues = [...painted].sort().join(" ");
   }
 
   /** See `ViewerAdapter.setOverlayCif`. Overlays are separate structures, so Mol* never bonds across them. */

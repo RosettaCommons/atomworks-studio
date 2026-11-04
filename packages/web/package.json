@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test:unit": "node --experimental-strip-types --test tests/*.test.ts",
     "test:e2e": "node tests/smoke.mjs",
+    "test:overlay-representation": "node tests/overlay-representation.mjs",
     "test:workbench": "node tests/workbench.mjs",
     "test:menus": "node tests/menu-layout.mjs",
     "test:editor": "node tests/editor-qol.mjs",

@@ -44,6 +44,8 @@ node "${root}/packages/web/tests/annotation-camera.mjs" | tee "${artifact_dir}/a
 
 node "${root}/packages/web/tests/live-frames.mjs" | tee "${artifact_dir}/live-frames.log"
 
+node "${root}/packages/web/tests/overlay-representation.mjs" | tee "${artifact_dir}/overlay-representation.log"
+
 for viewer in patinae molstar; do
   VIEWER_MODE="${viewer}" ANNOTATION_STUDIO_URL="${accept_url}" \
     "${pnpm_cmd[@]}" --dir "${root}/packages/web" test:e2e \

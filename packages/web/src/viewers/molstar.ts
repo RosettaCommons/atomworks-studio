@@ -124,6 +124,8 @@ export class MolstarAdapter implements ViewerAdapter {
   // Raw-data node of the last load, and of the structure that live updates replace in place.
   private lastDataRef: string | undefined;
   private liveDataRef: string | undefined;
+  // Whether `liveDataRef` is still the document a load put there, rather than a structure a live frame started.
+  private liveIsDocument = false;
   // Display-only overlay structures by key: raw-data node plus the CIF it currently holds.
   private overlayRefs = new Map<string, { ref: string; data: string }>();
   // What the canvas looked like before live mode, so it can be put back exactly.
@@ -207,6 +209,13 @@ export class MolstarAdapter implements ViewerAdapter {
   }
 
   async loadCif(cif: string, name: string, options?: ViewerLoadOptions): Promise<void> {
+    await this.loadCifWith(cif, name, options, "auto");
+    this.liveIsDocument = true;
+  }
+
+  private async loadCifWith(
+    cif: string, name: string, options: ViewerLoadOptions | undefined, preset: "auto" | "polymer-and-ligand",
+  ): Promise<void> {
     if (!this.viewer) throw new Error("Mol* is not initialized");
     this.liveDataRef = undefined;
     this.displayComponents.clear();
@@ -220,7 +229,7 @@ export class MolstarAdapter implements ViewerAdapter {
     this.context.container.dataset.renderedAtoms = "0";
     this.context.container.dataset.renderedStructures = "0";
     this.unpositionedAtoms = new Set(unpositionedAtomIndices(cif));
-    await this.loadPositionedStructure(cif, name);
+    await this.loadPositionedStructure(cif, name, preset);
     // The structure just loaded is what a later live update replaces in place.
     this.liveDataRef = this.lastDataRef;
     if (!options?.keepCamera) this.viewer.plugin.managers.camera.reset();
@@ -234,8 +243,18 @@ export class MolstarAdapter implements ViewerAdapter {
     if (!this.viewer) throw new Error("Mol* is not initialized");
     const plugin = this.viewer.plugin;
     const ref = this.liveDataRef;
-    if (!ref || !plugin.state.data.cells.has(ref)) {
-      await this.loadCif(cif, name, options);
+    const dataset = this.context.container.dataset;
+    // The first frame of a run gets a structure of its own, drawn as cartoon plus ligands. Updated in place, the
+    // document's representations would carry over, and "auto" judged on the document (whose designed residues often
+    // have no coordinates yet) or on an early, broken-up frame picks atomic detail, which then holds for every frame.
+    if (!ref || !plugin.state.data.cells.has(ref) || this.liveIsDocument) {
+      await this.loadCifWith(cif, name, options, "polymer-and-ligand");
+      this.liveIsDocument = false;
+      // Still a frame served by the live path, as a rebuild rather than an in-place update — which is exactly what
+      // Patinae counts here, every one of its frames being a rebuild. One key, one meaning across both backends:
+      // `liveRebuilds` carries the in-place-vs-rebuild distinction this counter used to carry on its own.
+      dataset.liveUpdates = String(Number(dataset.liveUpdates ?? 0) + 1);
+      dataset.liveRebuilds = String(Number(dataset.liveRebuilds ?? 0) + 1);
       return;
     }
     const excluded = unpositionedAtomIndices(cif);
@@ -247,8 +266,7 @@ export class MolstarAdapter implements ViewerAdapter {
     }
     await update.commit();
     this.unpositionedAtoms = new Set(excluded);
-    // Count of in-place updates, so tests can tell them from a scene rebuild.
-    const dataset = this.context.container.dataset;
+    // Frames served by the live path; `liveRebuilds` counts the subset that rebuilt the scene instead.
     dataset.liveUpdates = String(Number(dataset.liveUpdates ?? 0) + 1);
     dataset.renderedAtoms = String(
       plugin.managers.structure.hierarchy.current.structures.reduce((count, entry) => count + (entry.cell.obj?.data.elementCount ?? 0), 0),
@@ -308,22 +326,31 @@ export class MolstarAdapter implements ViewerAdapter {
     const structure = await plugin.state.data.build().to(model).apply(PositionedStructure, { excluded: [] }).commit();
     const component = await plugin.builders.structure.tryCreateComponentStatic(structure, "all", { label });
     if (component) {
-      await plugin.builders.structure.representation.addRepresentation(component, {
-        type: "ball-and-stick",
-        ...(options?.color != null
-          ? { color: "uniform" as const, colorParams: { value: Color(options.color) } }
-          : { color: CHAIN_COLOR_THEME, colorParams: CHAIN_COLOR_THEME_PARAMS }),
-        typeParams: {
-          sizeAspectRatio: options?.sizeAspectRatio ?? 1,
-          ...(options?.alpha != null ? { alpha: options.alpha } : {}),
-        },
-      });
+      const coloring = options?.color != null
+        ? { color: "uniform" as const, colorParams: { value: Color(options.color) } }
+        : { color: CHAIN_COLOR_THEME, colorParams: CHAIN_COLOR_THEME_PARAMS };
+      const alpha = options?.alpha != null ? { alpha: options.alpha } : {};
+      if (options?.representation === "cartoon") {
+        await plugin.builders.structure.representation.addRepresentation(component, {
+          type: "cartoon",
+          ...coloring,
+          typeParams: alpha,
+        });
+      } else {
+        await plugin.builders.structure.representation.addRepresentation(component, {
+          type: "ball-and-stick",
+          ...coloring,
+          typeParams: { sizeAspectRatio: options?.sizeAspectRatio ?? 1, ...alpha },
+        });
+      }
     }
     // Atom count drawn per overlay, for tests.
     dataset[`overlay_${key}`] = String(component ? structure.obj?.data.elementCount ?? 0 : 0);
   }
 
-  private async loadPositionedStructure(cif: string, name: string): Promise<string> {
+  private async loadPositionedStructure(
+    cif: string, name: string, preset: "auto" | "polymer-and-ligand" = "auto",
+  ): Promise<string> {
     const plugin = this.viewer!.plugin;
     const data = await plugin.builders.data.rawData({ data: cif, label: name });
     this.lastDataRef = data.ref;
@@ -333,7 +360,7 @@ export class MolstarAdapter implements ViewerAdapter {
       excluded: unpositionedAtomIndices(cif),
     }).commit();
     if (structure.obj?.data.elementCount) {
-      await plugin.builders.structure.representation.applyPreset(structure, "auto");
+      await plugin.builders.structure.representation.applyPreset(structure, preset);
       // The preset colours by Mol*'s order-based chain palette, which drifts from the sequence bar as chains are
       // added or removed. Use the shared id-keyed one instead; the Style menu can still override it.
       const components = plugin.managers.structure.hierarchy.current.structures

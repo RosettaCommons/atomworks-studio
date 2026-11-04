@@ -78,6 +78,12 @@ export type StudioEmbedApi = {
   /** Pan the view so these atoms (document indices) sit in its middle, keeping the zoom. */
   centerOn(atomIndices: number[]): void;
 
+  /**
+   * Light or dark: Studio's colours (the same light palette a VS Code light theme gets) and the viewer's background,
+   * white or black, with the selection outline in the matching ink. Dark until set.
+   */
+  setTheme(theme: "light" | "dark"): void;
+
   /** The colour Studio draws a chain in, so a host's own UI can match it. */
   chainColor(chainId: string): string;
 };

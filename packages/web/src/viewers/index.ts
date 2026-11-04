@@ -147,6 +147,8 @@ export class MolecularViewer {
       throw error;
     }
     this.adapter = adapter;
+    // A new renderer starts black: the background chosen (a light page's white) carries over.
+    if (this.background !== "black") adapter.setBackground?.(this.background);
     this.container.dataset.backend = backend;
     for (const [key, { residues, options }] of this.highlights) await adapter.setHighlight?.(key, residues, options);
     const softwarePicking =
@@ -290,7 +292,10 @@ export class MolecularViewer {
     this.adapter.setColor(color, target);
   }
 
+  private background: "black" | "white" = "black";
+
   setBackground(color: "black" | "white"): void {
+    this.background = color;
     if (!this.adapter?.setBackground) throw new Error("Background controls are unavailable.");
     this.adapter.setBackground(color);
   }

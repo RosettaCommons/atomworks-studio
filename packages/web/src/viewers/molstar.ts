@@ -1,3 +1,4 @@
+import { pageBackground } from "./page-background";
 import { StateTransforms } from "molstar/lib/mol-plugin-state/transforms";
 import { Viewer as MolstarViewer } from "molstar/lib/apps/viewer/app";
 import { FocusLoci } from "molstar/lib/mol-plugin/behavior/dynamic/representation";
@@ -147,6 +148,8 @@ export class MolstarAdapter implements ViewerAdapter {
   constructor(private readonly context: ViewerAdapterContext) {}
 
   async initialize(): Promise<void> {
+    // Start on the page's background (a host may have set light before Studio started), so nothing flashes black.
+    const background = pageBackground();
     this.context.container.dataset.renderedAtoms = "0";
     this.context.container.dataset.renderedStructures = "0";
     this.viewer = await MolstarViewer.create(this.context.container, {
@@ -158,7 +161,7 @@ export class MolstarAdapter implements ViewerAdapter {
       layoutShowLeftPanel: false,
       viewportShowControls: true,
       viewportShowSelectionMode: false,
-      viewportBackgroundColor: "#02080d",
+      viewportBackgroundColor: background === "white" ? "#ffffff" : "#000000",
       preferWebgl1: false,
     });
     // Mol* can resolve create() even when its canvas failed to initialize.
@@ -169,7 +172,7 @@ export class MolstarAdapter implements ViewerAdapter {
     // Chain colours shared with the sequence bar.
     this.viewer.plugin.representation.structure.themes.colorThemeRegistry.add(StudioChainColorThemeProvider);
     this.viewer.plugin.canvas3d.setProps({ camera: { manualReset: true } });
-    this.selectionLook("black");
+    this.selectionLook(background);
     // Docking the inspector and toggling sequence change the canvas without
     // resizing the browser window. Keep Mol*'s drawing buffer in step.
     this.resizeObserver = new ResizeObserver(() => this.viewer?.plugin.handleResize());
@@ -902,3 +905,4 @@ export class MolstarAdapter implements ViewerAdapter {
 export function createMolstarAdapter(context: ViewerAdapterContext): ViewerAdapter {
   return new MolstarAdapter(context);
 }
+

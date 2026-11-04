@@ -339,7 +339,8 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 14px 0; }
 }
 
 /* Host colors arrive by postMessage. These palettes cover unset host tokens. */
-body:is([data-host-theme="light"], [data-host-theme="high-contrast-light"]) {
+body:is([data-host-theme="light"], [data-host-theme="high-contrast-light"]),
+:root:is([data-host-theme="light"], [data-host-theme="high-contrast-light"]) {
   color-scheme: light;
   --bg-app: #f5f6f7;
   --bg-canvas: #ffffff;

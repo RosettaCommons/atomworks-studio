@@ -37,6 +37,7 @@ import { addSphere } from "molstar/lib/mol-geo/geometry/mesh/builder/sphere";
 import { Vec3 } from "molstar/lib/mol-math/linear-algebra";
 import { Loci } from "molstar/lib/mol-model/loci";
 import "molstar/lib/mol-plugin-ui/skin/dark.scss";
+import "./molstar-light.scss";
 import { FxaaParams } from "molstar/lib/mol-canvas3d/passes/fxaa";
 import { unpositionedAtomIndices } from "./unpositioned-atoms";
 import { StudioChainColorThemeProvider } from "./studio-chain-theme";

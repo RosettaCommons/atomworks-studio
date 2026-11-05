@@ -139,6 +139,8 @@ export type ViewerOverlayOptions = {
   alpha?: number;
   color?: number;
   sizeAspectRatio?: number;
+  /** A cartoon's thickness (Mol*'s sizeFactor, 0.2 by default): a thicker copy behind another outlines it. */
+  sizeFactor?: number;
 };
 
 /** A residue by chain and author residue number, as a host names it (stable across live frames and designs). */

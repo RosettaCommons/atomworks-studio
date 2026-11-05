@@ -416,7 +416,8 @@ export class MolstarAdapter implements ViewerAdapter {
         await plugin.builders.structure.representation.addRepresentation(component, {
           type: "cartoon",
           ...coloring,
-          typeParams: alpha,
+          // A thinner copy behind another hides inside it where they overlap (a host draws a chain as loaded faint so).
+          typeParams: { ...alpha, ...(options?.sizeFactor ? { sizeFactor: options.sizeFactor } : {}) },
         });
       } else {
         await plugin.builders.structure.representation.addRepresentation(component, {

@@ -343,10 +343,11 @@ export class MolstarAdapter implements ViewerAdapter {
       await clearStructureTransparency(plugin, reference.components);
     }
     for (const [key, { residues, color, transparency }] of this.highlights) {
-      const items = {
-        auth_asym_id: residues.map(r => r.chain),
-        auth_seq_id: residues.map(r => r.residue),
-      };
+      const items = residues.map(r => ({
+        auth_asym_id: r.chain,
+        auth_seq_id: r.residue,
+        ...(r.insCode === undefined ? {} : { pdbx_PDB_ins_code: r.insCode }),
+      }));
       const loci = StructureElement.Schema.toLoci(structure, { items } as never);
       if (transparency !== undefined) {
         await setStructureTransparency(plugin, reference.components, Math.max(0, Math.min(1, transparency)),
@@ -362,7 +363,7 @@ export class MolstarAdapter implements ViewerAdapter {
       if (name.startsWith("highlight_") && !this.highlights.has(name.slice(10))) delete dataset[name];
     }
     // Paint layers in the scene, for tests: one per highlight and representation, never growing frame by frame.
-    // And which residues the colour layers actually cover in the structure shown now ("A27 A35"), read back from them.
+    // And which residues the colour layers actually cover in the structure shown now ("A27 A35 H82A"), read back from them.
     let layers = 0;
     const painted = new Set<string>();
     for (const cell of plugin.state.data.cells.values()) {
@@ -375,7 +376,7 @@ export class MolstarAdapter implements ViewerAdapter {
         if (!layer.bundle) continue;
         const loci = StructureElement.Bundle.toLoci(layer.bundle, structure);
         StructureElement.Loci.forEachLocation(loci, (l) => {
-          painted.add(`${StructureProperties.chain.auth_asym_id(l)}${StructureProperties.residue.auth_seq_id(l)}`);
+          painted.add(`${StructureProperties.chain.auth_asym_id(l)}${StructureProperties.residue.auth_seq_id(l)}${StructureProperties.residue.pdbx_PDB_ins_code(l)}`);
         });
       }
     }

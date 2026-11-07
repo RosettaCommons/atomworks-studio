@@ -143,8 +143,12 @@ export type ViewerOverlayOptions = {
   sizeFactor?: number;
 };
 
-/** A residue by chain and author residue number, as a host names it (stable across live frames and designs). */
-export type ViewerResidue = { chain: string; residue: number };
+/**
+ * A residue by chain and author residue number, as a host names it (stable across live frames and designs). With
+ * `insCode` ("" for none) only the residue with that insertion code: without it, an antibody's H82 is H82, H82A, H82B
+ * and H82C alike.
+ */
+export type ViewerResidue = { chain: string; residue: number; insCode?: string };
 
 /** A highlight's look: a colour (the default, amber), or a transparency (0 solid to 1 invisible) instead. */
 export type ViewerHighlightOptions = { color?: number; transparency?: number };

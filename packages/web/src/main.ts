@@ -704,6 +704,7 @@ async function initialize(): Promise<void> {
         trajectoryController = new TrajectoryController(molecularViewer, async () => {
           await molecularViewer.clearAllVisuals();
           await refreshFromServer();
+          await molecularViewer.restoreOverlays();
         }, log);
         trajectoryController.bind(trajectoryUrl);
       }
@@ -796,6 +797,7 @@ async function initialize(): Promise<void> {
     trajectoryController = new TrajectoryController(molecularViewer, async () => {
       await molecularViewer.clearAllVisuals();
       await refreshFromServer();
+      await molecularViewer.restoreOverlays();
     }, log);
     trajectoryController.bind(query.get("trajectory")!);
   }

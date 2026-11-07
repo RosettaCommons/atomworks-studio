@@ -231,7 +231,18 @@ export class MolecularViewer {
 
   /** See `ViewerAdapter.setOverlayCif`; a no-op on backends without overlays. */
   async setOverlayCif(key: string, cif: string | null, options?: ViewerOverlayOptions): Promise<void> {
+    if (cif) this.overlays.set(key, { cif, options });
+    else this.overlays.delete(key);
     await this.adapter?.setOverlayCif?.(key, cif, options);
+  }
+
+  // Overlays by key, as the host last set them, so a structure reloaded without the host (a design shown again after
+  // its trajectory) gets them back: loading a structure clears the scene, overlays with it.
+  private overlays = new Map<string, { cif: string; options?: ViewerOverlayOptions }>();
+
+  /** Draw the overlays the host has set again, after a load the host did not make. */
+  async restoreOverlays(): Promise<void> {
+    for (const [key, { cif, options }] of this.overlays) await this.adapter?.setOverlayCif?.(key, cif, options);
   }
 
   get trajectoryFrameCount(): number {

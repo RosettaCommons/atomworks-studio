@@ -6,7 +6,7 @@ import { FocusLoci as FocusCamera } from "molstar/lib/mol-plugin/behavior/dynami
 import { StructureFocusRepresentation } from "molstar/lib/mol-plugin/behavior/dynamic/selection/structure-focus-representation";
 import { ButtonsType } from "molstar/lib/mol-util/input/input-observer";
 import { Binding } from "molstar/lib/mol-util/binding";
-import { Bond, Structure } from "molstar/lib/mol-model/structure";
+import { Bond, Structure, Unit } from "molstar/lib/mol-model/structure";
 import { PluginStateObject, PluginStateTransform } from "molstar/lib/mol-plugin-state/objects";
 import { StateObject } from "molstar/lib/mol-state";
 import { ParamDefinition } from "molstar/lib/mol-util/param-definition";
@@ -84,7 +84,7 @@ const PositionedStructure = PluginStateTransform.BuiltIn({
 })({
   apply({ a, params }) {
     const full = Structure.ofModel(a.data);
-    const excluded = StructureElement.Schema.toLoci(full, { items: { atom_index: params.excluded } });
+    const excluded = atomLoci(full, params.excluded);
     const visible = StructureElement.Loci.toStructure(
       StructureElement.Loci.subtract(StructureElement.Loci.all(full), excluded),
     );
@@ -103,6 +103,46 @@ const COMPARISON_COLORS = {
   red: 0xff3333,
   blue: 0x3388ff,
 } as const;
+
+/**
+ * The atoms of `structure` that `keep` accepts, as one Loci, in one pass over its atoms. Mol*'s schema loci
+ * (`StructureElement.Schema.toLoci` with `items`) query the structure once per item, so a few hundred residues or
+ * atoms on an antibody-sized structure took hundreds of milliseconds.
+ */
+function lociWhere(structure: Structure, keep: (l: StructureElement.Location) => boolean): StructureElement.Loci {
+  const loc = StructureElement.Location.create(structure);
+  const elements: StructureElement.Loci["elements"][number][] = [];
+  for (const unit of structure.units) {
+    if (!Unit.isAtomic(unit)) continue;
+    loc.unit = unit;
+    const indices: number[] = [];
+    for (let i = 0; i < unit.elements.length; i++) {
+      loc.element = unit.elements[i];
+      if (keep(loc)) indices.push(i);
+    }
+    if (indices.length) elements.push({ unit, indices: OrderedSet.ofSortedArray(indices as never) });
+  }
+  return StructureElement.Loci(structure, elements);
+}
+
+/** Atoms by their row in the file (`atom_index`, Mol*'s source index). */
+function atomLoci(structure: Structure, atomIndices: readonly number[]): StructureElement.Loci {
+  const wanted = new Set(atomIndices);
+  return lociWhere(structure, l => wanted.has(StructureProperties.atom.sourceIndex(l)));
+}
+
+/** Residues by chain and author number, and insertion code where one is given. */
+function residueLoci(structure: Structure, residues: readonly ViewerResidue[]): StructureElement.Loci {
+  const any = new Set<string>(), exact = new Set<string>();
+  for (const r of residues) {
+    if (r.insCode === undefined) any.add(`${r.chain}|${r.residue}`);
+    else exact.add(`${r.chain}|${r.residue}|${r.insCode}`);
+  }
+  return lociWhere(structure, (l) => {
+    const key = `${StructureProperties.chain.auth_asym_id(l)}|${StructureProperties.residue.auth_seq_id(l)}`;
+    return any.has(key) || (exact.size > 0 && exact.has(`${key}|${StructureProperties.residue.pdbx_PDB_ins_code(l)}`));
+  });
+}
 
 export class MolstarAdapter implements ViewerAdapter {
   readonly backend = "molstar" as const;
@@ -343,18 +383,13 @@ export class MolstarAdapter implements ViewerAdapter {
       await clearStructureTransparency(plugin, reference.components);
     }
     for (const [key, { residues, color, transparency }] of this.highlights) {
-      const items = residues.map(r => ({
-        auth_asym_id: r.chain,
-        auth_seq_id: r.residue,
-        ...(r.insCode === undefined ? {} : { pdbx_PDB_ins_code: r.insCode }),
-      }));
-      const loci = StructureElement.Schema.toLoci(structure, { items } as never);
+      const loci = residueLoci(structure, residues);
       if (transparency !== undefined) {
         await setStructureTransparency(plugin, reference.components, Math.max(0, Math.min(1, transparency)),
-          async s => StructureElement.Schema.toLoci(s, { items } as never));
+          async s => residueLoci(s, residues));
       } else {
         await setStructureOverpaint(plugin, reference.components, Color(color),
-          async s => StructureElement.Schema.toLoci(s, { items } as never));
+          async s => residueLoci(s, residues));
       }
       // Atom count painted per highlight, for tests.
       dataset[`highlight_${key}`] = String(StructureElement.Loci.size(loci));
@@ -526,7 +561,7 @@ export class MolstarAdapter implements ViewerAdapter {
 
   private lociFor(atomIndices: number[]) {
     const { structure } = this.currentStructure();
-    return StructureElement.Schema.toLoci(structure, { items: { atom_index: atomIndices } });
+    return atomLoci(structure, atomIndices);
   }
 
   async showAnnotation(groups: AnnotationGroup[]): Promise<AnnotationRenderResult> {
@@ -628,7 +663,7 @@ export class MolstarAdapter implements ViewerAdapter {
       const structure = reference.cell.obj?.data;
       if (!structure) continue;
       const selected = target === "all" ? StructureElement.Loci.all(structure) :
-        StructureElement.Schema.toLoci(structure, { items: { atom_index: this.selectedAtomIndices } });
+        atomLoci(structure, this.selectedAtomIndices);
       const root = reference.cell.transform.ref;
       let components = this.displayComponents.get(root);
       if (!components) {
@@ -719,9 +754,7 @@ export class MolstarAdapter implements ViewerAdapter {
         reference.components,
         Color(color.value),
         async (structure) =>
-          StructureElement.Schema.toLoci(structure, {
-            items: { atom_index: group.atomIndices },
-          }),
+          atomLoci(structure, group.atomIndices),
       );
     }
   }

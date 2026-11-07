@@ -162,6 +162,10 @@ export class MolstarAdapter implements ViewerAdapter {
       layoutShowLeftPanel: false,
       viewportShowControls: true,
       viewportShowSelectionMode: false,
+      // Studio's trajectory bar plays a design's trajectory; Mol*'s own model stepper and animation button were a
+      // second set of controls for the same frames.
+      viewportShowAnimation: false,
+      viewportShowTrajectoryControls: false,
       viewportBackgroundColor: background === "white" ? "#ffffff" : "#000000",
       preferWebgl1: false,
     });

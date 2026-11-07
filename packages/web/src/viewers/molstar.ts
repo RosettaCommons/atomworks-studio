@@ -277,23 +277,35 @@ export class MolstarAdapter implements ViewerAdapter {
     cif: string, name: string, options: ViewerLoadOptions | undefined, preset: "auto" | "polymer-and-ligand",
   ): Promise<void> {
     if (!this.viewer) throw new Error("Mol* is not initialized");
-    this.liveDataRef = undefined;
-    this.displayComponents.clear();
-    this.comparisonColors.clear();
-    this.annotationGroups = [];
-    this.annotationComponent = undefined;
-    this.clearSelection();
-    this.viewer.plugin.managers.structure.focus.clear();
-    await this.showInteractions([]);
-    await this.viewer.plugin.clear();
-    this.context.container.dataset.renderedAtoms = "0";
-    this.context.container.dataset.renderedStructures = "0";
-    this.unpositionedAtoms = new Set(unpositionedAtomIndices(cif));
-    await this.loadPositionedStructure(cif, name, preset);
-    // The structure just loaded is what a later live update replaces in place.
-    this.liveDataRef = this.lastDataRef;
-    await this.applyHighlights();
-    if (!options?.keepCamera) this.viewer.plugin.managers.camera.reset();
+    const plugin = this.viewer.plugin;
+    // Shown once, finished: the last frame stays on screen while the structure is built, coloured, highlighted and
+    // framed. Drawn as it went, a large structure appeared in steps (part of it, Mol*'s colours, then the chain
+    // colours and highlights) and then slid to the middle as the camera reset ran.
+    const canvas = plugin.canvas3d;
+    canvas?.pause(true);
+    try {
+      this.liveDataRef = undefined;
+      this.displayComponents.clear();
+      this.comparisonColors.clear();
+      this.annotationGroups = [];
+      this.annotationComponent = undefined;
+      this.clearSelection();
+      plugin.managers.structure.focus.clear();
+      await this.showInteractions([]);
+      await plugin.clear();
+      this.context.container.dataset.renderedAtoms = "0";
+      this.context.container.dataset.renderedStructures = "0";
+      this.unpositionedAtoms = new Set(unpositionedAtomIndices(cif));
+      await this.loadPositionedStructure(cif, name, preset);
+      // The structure just loaded is what a later live update replaces in place.
+      this.liveDataRef = this.lastDataRef;
+      await this.applyHighlights();
+      if (!options?.keepCamera) plugin.managers.camera.reset(undefined, 0);
+      // The whole scene committed now, and the camera framed on it, so the first frame drawn is the finished one.
+      canvas?.commit(true);
+    } finally {
+      canvas?.animate();
+    }
   }
 
   /**

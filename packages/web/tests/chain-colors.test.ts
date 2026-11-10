@@ -31,6 +31,21 @@ test("the palette wraps and every id yields a usable six-digit css colour", () =
     assert.ok(Number.isInteger(index) && index >= 0, `${id} has an integer slot`);
     assert.match(chainColorCss(id), /^#[0-9a-f]{6}$/, `${id} renders as css`);
   }
-  // Wrapping: 12 slots, so the thirteenth letter returns to the first.
-  assert.equal(chainColorIndex("M"), chainColorIndex("A"));
+  // Wrapping. The palette size is not exported, so find the cycle from the letters themselves rather than pin a
+  // number that goes stale the next time a colour is added or removed (it said "12 slots" until the palette became
+  // thirteen cool colours): the first letter to repeat A's slot is where the palette wraps.
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const period = letters.split("").findIndex((letter, i) => i > 0 && chainColorIndex(letter) === chainColorIndex("A"));
+  assert.ok(period > 1, "the palette holds more than one colour");
+  assert.ok(period < letters.length, "the palette wraps within the alphabet");
+  for (let i = 0; i + period < letters.length; i += 1) {
+    assert.equal(chainColorIndex(letters[i + period]), chainColorIndex(letters[i]), `${letters[i + period]} wraps onto ${letters[i]}`);
+  }
+});
+
+test("the letters of an antibody job fall on three different colours", () => {
+  // The palette is sized for this: heavy (H), light (L) and a target (T) are the chains a Studio antibody job
+  // carries, and two of them sharing a colour would make the sequence bar and the viewer ambiguous.
+  const slots = new Set(["H", "L", "T"].map(chainColorIndex));
+  assert.equal(slots.size, 3);
 });

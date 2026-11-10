@@ -112,14 +112,18 @@ jobs:
       group: studio-versioned-docs
       cancel-in-progress: false
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: documentation
-          path: documentation
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      # Built again here instead of taking the `documentation` artifact, because only the hosted copy carries usage
+      # analytics (docs/conf.py). That artifact is also the guide inside the wheel and the documentation archive on the
+      # release, which people open on their own machines, and it has to stay free of third-party scripts.
+      - run: make docs
+        env:
+          STUDIO_DOCS_ANALYTICS: "1"
       - name: Publish this version without replacing older documentation
         uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: documentation
+          publish_dir: docs/_build/html
           destination_dir: ${{ github.ref_name }}
           keep_files: true

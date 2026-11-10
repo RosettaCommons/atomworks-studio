@@ -70,6 +70,13 @@ def check_archive(path: Path) -> None:
         "_static/studio.js",
     ):
         assert contents.get(guide_prefix + name), f"{path.name}: missing guide/{name}"
+    # The packaged guide is opened from a local server on the user's own machine, often beside a structure they are
+    # working on in confidence, so it must not load scripts from anywhere else. Usage analytics belong to the hosted
+    # documentation only (docs/conf.py, STUDIO_DOCS_ANALYTICS), which is built separately.
+    for name, data in contents.items():
+        if name.startswith(guide_prefix) and name.endswith(".html"):
+            external = re.findall(rb'<script[^>]*\bsrc="(https?://[^"]+)"', data)
+            assert not external, f"{path.name}: {name} loads third-party scripts: {[x.decode() for x in external]}"
     print(f"{path.name}: {len(names)} browser assets and packaged interactive guide verified")
 
 

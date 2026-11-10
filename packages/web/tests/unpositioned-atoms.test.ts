@@ -100,3 +100,49 @@ _atom_site.Cartn_z
 `;
   assert.equal(carbonIndicesByChain(cif).size, 0);
 });
+
+test("a multi-model trajectory file describes one document, not one per frame", () => {
+  // Three frames of the same two atoms. Counting every row produced six document indices, which no backend could
+  // resolve: Patinae loads this as a movie and its atom identity map covers a single frame.
+  const frame = (model: number, x: number) => [
+    `0 A C ${x} 0 0 ${model}`,
+    `1 A N ${x} 1 0 ${model}`,
+  ].join("\n");
+  const cif = `data_test
+loop_
+_atom_site.atom_array_index
+_atom_site.label_asym_id
+_atom_site.type_symbol
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.pdbx_PDB_model_num
+${frame(1, 0)}
+${frame(2, 3)}
+${frame(3, 6)}
+#
+`;
+  // One carbon, from the first model only — not one per frame.
+  assert.deepEqual(carbonIndicesByChain(cif).get("A"), [0]);
+  assert.deepEqual(unpositionedAtomIndices(cif), []);
+
+  // A frame whose atoms are unpositioned is still read from the first model alone.
+  const unresolved = cif.replace("0 A C 0 0 0 1", "0 A C nan nan nan 1");
+  assert.deepEqual(unpositionedAtomIndices(unresolved), [0]);
+});
+
+test("a single-model file is untouched by the model filter", () => {
+  const cif = `data_test
+loop_
+_atom_site.atom_array_index
+_atom_site.label_asym_id
+_atom_site.type_symbol
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+0 A C 0 0 0
+1 A C 1 0 0
+#
+`;
+  assert.deepEqual(carbonIndicesByChain(cif).get("A"), [0, 1]);
+});

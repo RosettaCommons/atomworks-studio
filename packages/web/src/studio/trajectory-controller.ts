@@ -85,12 +85,15 @@ export class TrajectoryController {
       if (this.viewer.trajectoryFrameCount < 2) throw new Error("No trajectory frames found");
       this.slider.max = String(this.viewer.trajectoryFrameCount - 1);
       await this.viewer.setTrajectoryFrame(this.viewer.trajectoryFrameCount - 1);
+      // Fitted to the last frame, the design, which the run's early frames are far smaller than. Mol* fits the camera
+      // on its next draw, so the first frame waits for it: shown straight away, the camera was fitted to it instead.
       this.viewer.camera("reset");
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       await this.showFrame(0);
       this.controls.hidden = false;
       this.toggle.textContent = "Back to design";
       this.toggle.setAttribute("aria-pressed", "true");
-      this.log("Backbone trajectory · predicted clean structures · view only");
+      this.log("Trajectory · predicted clean structures · view only");
     } catch (error) {
       if (this.active) {
         await this.restore();

@@ -76,8 +76,13 @@ try {
   await edit("#group-add", "/groups");
   assert.match(await ui.locator("#selection-count").innerText(), /^1 atom/);
   const inspected = (await (await page.request.get(`${baseUrl}api/v1/sessions/${session}/annotations/index_group`)).json()).annotation;
-  assert.equal(Number(await ui.locator("#viewer").getAttribute("data-annotation-atoms")),
-    new Set(inspected.values.flatMap((value) => value.atom_indices)).size);
+  // SAM_hbonds.cif leaves exactly one atom without coordinates — document index 65, the very atom the selection
+  // above adds — and unpositioned atoms never enter 3D geometry (`src/viewers/unpositioned-atoms.ts`, asserted
+  // directly by annotation-camera.mjs). The viewer therefore renders one fewer than the group holds, by design.
+  // Subtracting that one atom keeps what this line is for: a viewer that dropped a positioned atom still fails.
+  const annotated = new Set(inspected.values.flatMap((value) => value.atom_indices));
+  assert.ok(annotated.has(65), "the group contains the fixture's one unpositioned atom");
+  assert.equal(Number(await ui.locator("#viewer").getAttribute("data-annotation-atoms")), annotated.size - 1);
   await edit("#group-delete", "/groups");
   assert.ok(!(await summary()).condition_editors.groups.index_group.some((entry) => entry.id === group));
   await edit("#undo", "/undo");
@@ -104,9 +109,8 @@ try {
   await ui.waitForFunction(() => document.querySelector("#viewer")?.dataset.centroidMarkers === "1");
   const field = (await summary()).stored_fields.find((entry) => /centroid/i.test(entry.name));
   assert.ok(field);
-  await ui.locator("#annotation-list details > summary").click();
-  await ui.locator(".annotation-field-row").filter({ hasText: field.label }).click();
-  await ui.waitForFunction(() => document.querySelector("#annotation-detail")?.textContent?.includes("Raw field preview"));
+  // The raw-field preview UI this used to open was removed in bbe0d70. The centroid field being recorded at all
+  // is still a capability, and `assert.ok(field)` above is what covers it now.
   await edit("#undo", "/undo");
   assert.doesNotMatch(await ui.locator("#status").textContent(), /Error:/);
   assert.equal(await ui.locator("#viewer").getAttribute("data-centroid-markers"), "0");

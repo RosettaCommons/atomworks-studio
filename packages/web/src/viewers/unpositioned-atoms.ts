@@ -30,7 +30,24 @@ function parseLoops(cif: string): Map<string, Loop> {
     }
     loops.set(fields[0].split(".", 1)[0], { fields, rows });
   }
+  const atoms = loops.get("_atom_site");
+  if (atoms) atoms.rows = firstModelRows(atoms);
   return loops;
+}
+
+/**
+ * The first model's rows, for a trajectory written as several `pdbx_PDB_model_num` models in one file.
+ *
+ * A document has one atom per position; a trajectory file repeats those atoms once per frame. Counting every row
+ * as its own atom produces document indices no backend can resolve — Patinae loads such a file as a movie and its
+ * atom identity map covers a single frame, so colouring by chain asked it for indices that do not exist and threw,
+ * which took the whole trajectory down. Read one model, which is what the rest of the document model means.
+ */
+function firstModelRows(atoms: Loop): string[][] {
+  const column = atoms.fields.indexOf("_atom_site.pdbx_PDB_model_num");
+  if (column < 0 || !atoms.rows.length) return atoms.rows;
+  const first = atoms.rows[0][column];
+  return atoms.rows.filter(row => row[column] === first);
 }
 
 /** Document index of a row: the stored atom-array index where the file carries one, else the row's position. */

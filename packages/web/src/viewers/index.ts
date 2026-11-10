@@ -1,3 +1,4 @@
+import { pageBackground } from "./page-background";
 import type {
   AnnotationGroup,
   AtomPick,
@@ -21,6 +22,8 @@ import type {
   ViewerMarker,
   ViewerLoadOptions,
   ViewerOverlayOptions,
+  ViewerResidue,
+  ViewerHighlightOptions,
   AtomCharge,
 } from "./contract";
 import {
@@ -47,6 +50,8 @@ export type {
   ViewerTarget,
   ViewerLoadOptions,
   ViewerOverlayOptions,
+  ViewerResidue,
+  ViewerHighlightOptions,
 } from "./contract";
 
 const BACKEND_LABELS: Record<ViewerBackend, string> = {
@@ -143,7 +148,10 @@ export class MolecularViewer {
       throw error;
     }
     this.adapter = adapter;
+    // The background chosen (a light page's white) carries over to a new renderer.
+    adapter.setBackground?.(this.background);
     this.container.dataset.backend = backend;
+    for (const [key, { residues, options }] of this.highlights) await adapter.setHighlight?.(key, residues, options);
     const softwarePicking =
       backend === "patinae" && this.container.dataset.picking === "software-disabled";
     this.backendLabel.textContent =
@@ -211,9 +219,30 @@ export class MolecularViewer {
     this.adapter?.setLiveMode?.(on);
   }
 
+  // Highlights by key, kept here so ones set before the renderer starts (or across a renderer switch) still show.
+  private highlights = new Map<string, { residues: ViewerResidue[]; options?: ViewerHighlightOptions }>();
+
+  /** See `ViewerAdapter.setHighlight`; a no-op on backends without it. Remembered until the renderer is ready. */
+  async setHighlight(key: string, residues: ViewerResidue[] | null, options?: ViewerHighlightOptions): Promise<void> {
+    if (residues?.length) this.highlights.set(key, { residues, options });
+    else this.highlights.delete(key);
+    await this.adapter?.setHighlight?.(key, residues, options);
+  }
+
   /** See `ViewerAdapter.setOverlayCif`; a no-op on backends without overlays. */
   async setOverlayCif(key: string, cif: string | null, options?: ViewerOverlayOptions): Promise<void> {
+    if (cif) this.overlays.set(key, { cif, options });
+    else this.overlays.delete(key);
     await this.adapter?.setOverlayCif?.(key, cif, options);
+  }
+
+  // Overlays by key, as the host last set them, so a structure reloaded without the host (a design shown again after
+  // its trajectory) gets them back: loading a structure clears the scene, overlays with it.
+  private overlays = new Map<string, { cif: string; options?: ViewerOverlayOptions }>();
+
+  /** Draw the overlays the host has set again, after a load the host did not make. */
+  async restoreOverlays(): Promise<void> {
+    for (const [key, { cif, options }] of this.overlays) await this.adapter?.setOverlayCif?.(key, cif, options);
   }
 
   get trajectoryFrameCount(): number {
@@ -275,7 +304,10 @@ export class MolecularViewer {
     this.adapter.setColor(color, target);
   }
 
+  private background: "black" | "white" = pageBackground();
+
   setBackground(color: "black" | "white"): void {
+    this.background = color;
     if (!this.adapter?.setBackground) throw new Error("Background controls are unavailable.");
     this.adapter.setBackground(color);
   }
@@ -283,6 +315,11 @@ export class MolecularViewer {
   camera(action: ViewerCameraAction): void {
     if (!this.adapter?.camera) throw new Error("Camera controls are unavailable.");
     this.adapter.camera(action);
+  }
+
+  /** See `ViewerAdapter.centerOn`; a no-op on backends without it. */
+  centerOn(atomIndices: number[]): void {
+    this.adapter?.centerOn?.(atomIndices);
   }
 
   executeCommand(command: string): unknown {

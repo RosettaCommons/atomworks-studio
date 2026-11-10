@@ -61,7 +61,10 @@ try {
   ]);
   assert.deepEqual(await page.locator("#selection-syntax option").allTextContents(),
     viewerMode === "molstar" ? ["AtomWorks query"] : ["PyMOL commands", "AtomWorks query"]);
-  assert.equal(await page.locator(".drawer-stack > details").count(), 3);
+  // Named rather than counted: a new drawer should fail with a readable diff, not `4 !== 3`.
+  assert.deepEqual(
+    await page.locator(".drawer-stack > details").evaluateAll(nodes => nodes.map(node => node.id)),
+    ["objects-drawer", "selections-drawer", "measurements-drawer", "interactions-drawer"]);
   assert.equal(await page.locator("#restraint-distance, #add-restraint, #remove-restraint").count(), 0);
   assert.equal(await page.locator('#condition option[value="distance"]').count(), 0);
   assert.equal(await page.locator("#open-editor, #open-objects, #open-selections, #open-measurements").count(), 0);
@@ -82,7 +85,12 @@ try {
   assert.equal(await page.locator("h1").innerText(), "AtomWorks Studio");
 
   await page.keyboard.press("Escape");
-  assert.equal(await page.locator(".example-load").count(), 9);
+  // Named rather than counted, so adding an example says which one. Sorted, because the order on the page is a
+  // curated product decision and reshuffling it is not a smoke-test failure.
+  assert.deepEqual(
+    (await page.locator(".example-load").evaluateAll(nodes => nodes.map(node => node.dataset.example))).sort(),
+    ["antibody_design", "enzyme_design", "inverse_folding", "motif_scaffolding", "nanobody",
+     "partial_diffusion", "protein_binder", "ptm_binder", "small_molecule_binder", "unconditional"]);
   assert.equal(await page.locator('[data-example="antibody_design"]').isEnabled(), true);
   if (viewerMode === "molstar") {
     await page.locator('[data-example="unconditional"]').click();
@@ -246,9 +254,8 @@ try {
       if (process.env.ANNOTATION_SCREENSHOT_DIR) {
         await page.screenshot({ path: resolve(process.env.ANNOTATION_SCREENSHOT_DIR, `${viewerMode}-annotation-inspection.png`) });
       }
-      assert.equal(await page.locator("#annotation-list details").evaluate((details) => details.open), false);
-      assert.equal(await page.locator(".annotation-field-row").first().isVisible(), false,
-        "raw default values are separate from active constraints");
+      // The raw-field preview UI was removed from the product in bbe0d70; nothing here renders `<details>`
+      // or `.annotation-field-row` any more, so there is nothing left to assert.
 
       // Delayed inspection of an earlier row must not replace the latest clicked annotation.
       const otherName = payload.structure.annotations.find((item) => item.name !== "cath_label")?.name;
@@ -555,7 +562,7 @@ try {
   await page.setViewportSize({ width: 1400, height: 900 });
   await page.keyboard.press("Escape");
   assert.ok(await page.locator(".annotation-row").count(), "stored annotations are summarized");
-  assert.ok(await page.locator(".annotation-field-row").count() >= 4);
+  // `.annotation-field-row` went with the raw-field preview UI in bbe0d70.
   await page.locator("#editor-tab-annotations").click();
   const inspectionRow = page.locator("#annotation-list > .annotation-row").first();
   const inspectionKey = await inspectionRow.getAttribute("data-view-key");

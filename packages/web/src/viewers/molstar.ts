@@ -1,10 +1,12 @@
+import { pageBackground } from "./page-background";
 import { StateTransforms } from "molstar/lib/mol-plugin-state/transforms";
 import { Viewer as MolstarViewer } from "molstar/lib/apps/viewer/app";
 import { FocusLoci } from "molstar/lib/mol-plugin/behavior/dynamic/representation";
 import { FocusLoci as FocusCamera } from "molstar/lib/mol-plugin/behavior/dynamic/camera";
+import { StructureFocusRepresentation } from "molstar/lib/mol-plugin/behavior/dynamic/selection/structure-focus-representation";
 import { ButtonsType } from "molstar/lib/mol-util/input/input-observer";
 import { Binding } from "molstar/lib/mol-util/binding";
-import { Bond, Structure } from "molstar/lib/mol-model/structure";
+import { Bond, Structure, Unit } from "molstar/lib/mol-model/structure";
 import { PluginStateObject, PluginStateTransform } from "molstar/lib/mol-plugin-state/objects";
 import { StateObject } from "molstar/lib/mol-state";
 import { ParamDefinition } from "molstar/lib/mol-util/param-definition";
@@ -17,6 +19,10 @@ import {
   clearStructureOverpaint,
   setStructureOverpaint,
 } from "molstar/lib/mol-plugin-state/helpers/structure-overpaint";
+import {
+  clearStructureTransparency,
+  setStructureTransparency,
+} from "molstar/lib/mol-plugin-state/helpers/structure-transparency";
 import type { StructureRepresentationProps } from "molstar/lib/mol-plugin-state/helpers/structure-representation-params";
 import { Color } from "molstar/lib/mol-util/color";
 import { Shape } from "molstar/lib/mol-model/shape";
@@ -29,7 +35,9 @@ import { Mesh } from "molstar/lib/mol-geo/geometry/mesh/mesh";
 import { MeshBuilder } from "molstar/lib/mol-geo/geometry/mesh/mesh-builder";
 import { addSphere } from "molstar/lib/mol-geo/geometry/mesh/builder/sphere";
 import { Vec3 } from "molstar/lib/mol-math/linear-algebra";
+import { Loci } from "molstar/lib/mol-model/loci";
 import "molstar/lib/mol-plugin-ui/skin/dark.scss";
+import "./molstar-light.scss";
 import { FxaaParams } from "molstar/lib/mol-canvas3d/passes/fxaa";
 import { unpositionedAtomIndices } from "./unpositioned-atoms";
 import { StudioChainColorThemeProvider } from "./studio-chain-theme";
@@ -55,7 +63,9 @@ import {
   type ViewerRepresentationAction,
   type ViewerTarget,
   type ViewerLoadOptions,
+  type ViewerHighlightOptions,
   type ViewerOverlayOptions,
+  type ViewerResidue,
 } from "./contract";
 
 // Mol* types colour-theme names as a union of its built-ins, so a registered theme needs a cast. Keeping it in one
@@ -74,7 +84,7 @@ const PositionedStructure = PluginStateTransform.BuiltIn({
 })({
   apply({ a, params }) {
     const full = Structure.ofModel(a.data);
-    const excluded = StructureElement.Schema.toLoci(full, { items: { atom_index: params.excluded } });
+    const excluded = atomLoci(full, params.excluded);
     const visible = StructureElement.Loci.toStructure(
       StructureElement.Loci.subtract(StructureElement.Loci.all(full), excluded),
     );
@@ -93,6 +103,46 @@ const COMPARISON_COLORS = {
   red: 0xff3333,
   blue: 0x3388ff,
 } as const;
+
+/**
+ * The atoms of `structure` that `keep` accepts, as one Loci, in one pass over its atoms. Mol*'s schema loci
+ * (`StructureElement.Schema.toLoci` with `items`) query the structure once per item, so a few hundred residues or
+ * atoms on an antibody-sized structure took hundreds of milliseconds.
+ */
+function lociWhere(structure: Structure, keep: (l: StructureElement.Location) => boolean): StructureElement.Loci {
+  const loc = StructureElement.Location.create(structure);
+  const elements: StructureElement.Loci["elements"][number][] = [];
+  for (const unit of structure.units) {
+    if (!Unit.isAtomic(unit)) continue;
+    loc.unit = unit;
+    const indices: number[] = [];
+    for (let i = 0; i < unit.elements.length; i++) {
+      loc.element = unit.elements[i];
+      if (keep(loc)) indices.push(i);
+    }
+    if (indices.length) elements.push({ unit, indices: OrderedSet.ofSortedArray(indices as never) });
+  }
+  return StructureElement.Loci(structure, elements);
+}
+
+/** Atoms by their row in the file (`atom_index`, Mol*'s source index). */
+function atomLoci(structure: Structure, atomIndices: readonly number[]): StructureElement.Loci {
+  const wanted = new Set(atomIndices);
+  return lociWhere(structure, l => wanted.has(StructureProperties.atom.sourceIndex(l)));
+}
+
+/** Residues by chain and author number, and insertion code where one is given. */
+function residueLoci(structure: Structure, residues: readonly ViewerResidue[]): StructureElement.Loci {
+  const any = new Set<string>(), exact = new Set<string>();
+  for (const r of residues) {
+    if (r.insCode === undefined) any.add(`${r.chain}|${r.residue}`);
+    else exact.add(`${r.chain}|${r.residue}|${r.insCode}`);
+  }
+  return lociWhere(structure, (l) => {
+    const key = `${StructureProperties.chain.auth_asym_id(l)}|${StructureProperties.residue.auth_seq_id(l)}`;
+    return any.has(key) || (exact.size > 0 && exact.has(`${key}|${StructureProperties.residue.pdbx_PDB_ins_code(l)}`));
+  });
+}
 
 export class MolstarAdapter implements ViewerAdapter {
   readonly backend = "molstar" as const;
@@ -124,8 +174,12 @@ export class MolstarAdapter implements ViewerAdapter {
   // Raw-data node of the last load, and of the structure that live updates replace in place.
   private lastDataRef: string | undefined;
   private liveDataRef: string | undefined;
+  // Whether `liveDataRef` is still the document a load put there, rather than a structure a live frame started.
+  private liveIsDocument = false;
   // Display-only overlay structures by key: raw-data node plus the CIF it currently holds.
   private overlayRefs = new Map<string, { ref: string; data: string }>();
+  // Highlighted residues by key (`setHighlight`), re-applied after every load and live update.
+  private highlights = new Map<string, { residues: ViewerResidue[]; color: number; transparency?: number }>();
   // What the canvas looked like before live mode, so it can be put back exactly.
   private savedLook: { postprocessing: unknown; multiSample: unknown } | null = null;
 
@@ -135,6 +189,8 @@ export class MolstarAdapter implements ViewerAdapter {
   constructor(private readonly context: ViewerAdapterContext) {}
 
   async initialize(): Promise<void> {
+    // Start on the page's background (a host may have set light before Studio started), so nothing flashes black.
+    const background = pageBackground();
     this.context.container.dataset.renderedAtoms = "0";
     this.context.container.dataset.renderedStructures = "0";
     this.viewer = await MolstarViewer.create(this.context.container, {
@@ -146,7 +202,11 @@ export class MolstarAdapter implements ViewerAdapter {
       layoutShowLeftPanel: false,
       viewportShowControls: true,
       viewportShowSelectionMode: false,
-      viewportBackgroundColor: "#02080d",
+      // Studio's trajectory bar plays a design's trajectory; Mol*'s own model stepper and animation button were a
+      // second set of controls for the same frames.
+      viewportShowAnimation: false,
+      viewportShowTrajectoryControls: false,
+      viewportBackgroundColor: background === "white" ? "#ffffff" : "#000000",
       preferWebgl1: false,
     });
     // Mol* can resolve create() even when its canvas failed to initialize.
@@ -157,6 +217,7 @@ export class MolstarAdapter implements ViewerAdapter {
     // Chain colours shared with the sequence bar.
     this.viewer.plugin.representation.structure.themes.colorThemeRegistry.add(StudioChainColorThemeProvider);
     this.viewer.plugin.canvas3d.setProps({ camera: { manualReset: true } });
+    this.selectionLook(background);
     // Docking the inspector and toggling sequence change the canvas without
     // resizing the browser window. Keep Mol*'s drawing buffer in step.
     this.resizeObserver = new ResizeObserver(() => this.viewer?.plugin.handleResize());
@@ -180,15 +241,16 @@ export class MolstarAdapter implements ViewerAdapter {
         };
       }
     });
+    // A clicked residue is shown on its own: no 5 Å surroundings, interaction lines or labels around it.
+    await this.viewer.plugin.state.updateBehavior(StructureFocusRepresentation, (params) => {
+      params.components = ["target"];
+    });
     this.viewer.subscribe(this.viewer.plugin.behaviors.interaction.click, ({ current, button }) => {
       if (button !== ButtonsType.Flag.Primary) return;
       const loci = Bond.isLoci(current.loci) ? Bond.toFirstStructureElementLoci(current.loci) : current.loci;
       if (!StructureElement.Loci.is(loci) || loci.elements.length === 0) return;
       const scope = StructureElement.Loci.size(loci) > 1 ? "residue" : "atom";
-      if (scope === "residue") {
-        this.viewer!.plugin.managers.structure.focus.setFromLoci(loci);
-        this.viewer!.plugin.managers.camera.focusLoci(loci);
-      }
+      // The selection that follows sets (or clears) the sticks: atoms picked show their residues' sticks.
       const group = loci.elements[0];
       if (OrderedSet.size(group.indices) === 0) return;
       const elementIndex = group.unit.elements[OrderedSet.getAt(group.indices, 0)];
@@ -207,23 +269,43 @@ export class MolstarAdapter implements ViewerAdapter {
   }
 
   async loadCif(cif: string, name: string, options?: ViewerLoadOptions): Promise<void> {
+    await this.loadCifWith(cif, name, options, "auto");
+    this.liveIsDocument = true;
+  }
+
+  private async loadCifWith(
+    cif: string, name: string, options: ViewerLoadOptions | undefined, preset: "auto" | "polymer-and-ligand",
+  ): Promise<void> {
     if (!this.viewer) throw new Error("Mol* is not initialized");
-    this.liveDataRef = undefined;
-    this.displayComponents.clear();
-    this.comparisonColors.clear();
-    this.annotationGroups = [];
-    this.annotationComponent = undefined;
-    this.clearSelection();
-    this.viewer.plugin.managers.structure.focus.clear();
-    await this.showInteractions([]);
-    await this.viewer.plugin.clear();
-    this.context.container.dataset.renderedAtoms = "0";
-    this.context.container.dataset.renderedStructures = "0";
-    this.unpositionedAtoms = new Set(unpositionedAtomIndices(cif));
-    await this.loadPositionedStructure(cif, name);
-    // The structure just loaded is what a later live update replaces in place.
-    this.liveDataRef = this.lastDataRef;
-    if (!options?.keepCamera) this.viewer.plugin.managers.camera.reset();
+    const plugin = this.viewer.plugin;
+    // Shown once, finished: the last frame stays on screen while the structure is built, coloured, highlighted and
+    // framed. Drawn as it went, a large structure appeared in steps (part of it, Mol*'s colours, then the chain
+    // colours and highlights) and then slid to the middle as the camera reset ran.
+    const canvas = plugin.canvas3d;
+    canvas?.pause(true);
+    try {
+      this.liveDataRef = undefined;
+      this.displayComponents.clear();
+      this.comparisonColors.clear();
+      this.annotationGroups = [];
+      this.annotationComponent = undefined;
+      this.clearSelection();
+      plugin.managers.structure.focus.clear();
+      await this.showInteractions([]);
+      await plugin.clear();
+      this.context.container.dataset.renderedAtoms = "0";
+      this.context.container.dataset.renderedStructures = "0";
+      this.unpositionedAtoms = new Set(unpositionedAtomIndices(cif));
+      await this.loadPositionedStructure(cif, name, preset);
+      // The structure just loaded is what a later live update replaces in place.
+      this.liveDataRef = this.lastDataRef;
+      await this.applyHighlights();
+      if (!options?.keepCamera) plugin.managers.camera.reset(undefined, 0);
+      // The whole scene committed now, and the camera framed on it, so the first frame drawn is the finished one.
+      canvas?.commit(true);
+    } finally {
+      canvas?.animate();
+    }
   }
 
   /**
@@ -234,8 +316,18 @@ export class MolstarAdapter implements ViewerAdapter {
     if (!this.viewer) throw new Error("Mol* is not initialized");
     const plugin = this.viewer.plugin;
     const ref = this.liveDataRef;
-    if (!ref || !plugin.state.data.cells.has(ref)) {
-      await this.loadCif(cif, name, options);
+    const dataset = this.context.container.dataset;
+    // The first frame of a run gets a structure of its own, drawn as cartoon plus ligands. Updated in place, the
+    // document's representations would carry over, and "auto" judged on the document (whose designed residues often
+    // have no coordinates yet) or on an early, broken-up frame picks atomic detail, which then holds for every frame.
+    if (!ref || !plugin.state.data.cells.has(ref) || this.liveIsDocument) {
+      await this.loadCifWith(cif, name, options, "polymer-and-ligand");
+      this.liveIsDocument = false;
+      // Still a frame served by the live path, as a rebuild rather than an in-place update — which is exactly what
+      // Patinae counts here, every one of its frames being a rebuild. One key, one meaning across both backends:
+      // `liveRebuilds` carries the in-place-vs-rebuild distinction this counter used to carry on its own.
+      dataset.liveUpdates = String(Number(dataset.liveUpdates ?? 0) + 1);
+      dataset.liveRebuilds = String(Number(dataset.liveRebuilds ?? 0) + 1);
       return;
     }
     const excluded = unpositionedAtomIndices(cif);
@@ -247,8 +339,11 @@ export class MolstarAdapter implements ViewerAdapter {
     }
     await update.commit();
     this.unpositionedAtoms = new Set(excluded);
-    // Count of in-place updates, so tests can tell them from a scene rebuild.
-    const dataset = this.context.container.dataset;
+    // Repainted from scratch: Mol* keeps a highlight's paint as atom positions in the structure it was made on, and a
+    // live frame's designed residues change type (and atom count) from step to step, so paint carried over from the
+    // last frame lands on whichever residues now sit at those positions.
+    await this.applyHighlights(true);
+    // Frames served by the live path; `liveRebuilds` counts the subset that rebuilt the scene instead.
     dataset.liveUpdates = String(Number(dataset.liveUpdates ?? 0) + 1);
     dataset.renderedAtoms = String(
       plugin.managers.structure.hierarchy.current.structures.reduce((count, entry) => count + (entry.cell.obj?.data.elementCount ?? 0), 0),
@@ -277,6 +372,63 @@ export class MolstarAdapter implements ViewerAdapter {
       canvas.setProps(this.savedLook as never);
       this.savedLook = null;
     }
+  }
+
+  /** See `ViewerAdapter.setHighlight`. */
+  async setHighlight(key: string, residues: ViewerResidue[] | null, options?: ViewerHighlightOptions): Promise<void> {
+    const had = this.highlights.size > 0;
+    if (residues?.length) this.highlights.set(key, { residues, color: options?.color ?? 0xf59e0b, transparency: options?.transparency });
+    else this.highlights.delete(key);
+    if (had || this.highlights.size) await this.applyHighlights(true);
+  }
+
+  /** Overpaint every highlight on the main structure; with `reset`, first clear what earlier calls painted. */
+  private async applyHighlights(reset = false): Promise<void> {
+    if (!this.viewer) return;
+    const plugin = this.viewer.plugin;
+    const reference = plugin.managers.structure.hierarchy.current.structures[0];
+    const structure = reference?.cell.obj?.data;
+    const dataset = this.context.container.dataset;
+    if (!reference || !structure) return;
+    if (reset) {
+      await clearStructureOverpaint(plugin, reference.components);
+      await clearStructureTransparency(plugin, reference.components);
+    }
+    for (const [key, { residues, color, transparency }] of this.highlights) {
+      const loci = residueLoci(structure, residues);
+      if (transparency !== undefined) {
+        await setStructureTransparency(plugin, reference.components, Math.max(0, Math.min(1, transparency)),
+          async s => residueLoci(s, residues));
+      } else {
+        await setStructureOverpaint(plugin, reference.components, Color(color),
+          async s => residueLoci(s, residues));
+      }
+      // Atom count painted per highlight, for tests.
+      dataset[`highlight_${key}`] = String(StructureElement.Loci.size(loci));
+    }
+    for (const name of Object.keys(dataset)) {
+      if (name.startsWith("highlight_") && !this.highlights.has(name.slice(10))) delete dataset[name];
+    }
+    // Paint layers in the scene, for tests: one per highlight and representation, never growing frame by frame.
+    // And which residues the colour layers actually cover in the structure shown now ("A27 A35 H82A"), read back from them.
+    let layers = 0;
+    const painted = new Set<string>();
+    for (const cell of plugin.state.data.cells.values()) {
+      const values = cell.params?.values as { layers?: { bundle?: StructureElement.Bundle }[] } | undefined;
+      const id = cell.transform.transformer.id;
+      if (!/overpaint|transparency/i.test(id) || !Array.isArray(values?.layers)) continue;
+      layers += values.layers.length;
+      if (!/overpaint/i.test(id)) continue;
+      for (const layer of values.layers) {
+        if (!layer.bundle) continue;
+        const loci = StructureElement.Bundle.toLoci(layer.bundle, structure);
+        StructureElement.Loci.forEachLocation(loci, (l) => {
+          painted.add(`${StructureProperties.chain.auth_asym_id(l)}${StructureProperties.residue.auth_seq_id(l)}${StructureProperties.residue.pdbx_PDB_ins_code(l)}`);
+        });
+      }
+    }
+    dataset.highlightLayers = String(layers);
+    dataset.highlightResidues = [...painted].sort().join(" ");
   }
 
   /** See `ViewerAdapter.setOverlayCif`. Overlays are separate structures, so Mol* never bonds across them. */
@@ -308,22 +460,32 @@ export class MolstarAdapter implements ViewerAdapter {
     const structure = await plugin.state.data.build().to(model).apply(PositionedStructure, { excluded: [] }).commit();
     const component = await plugin.builders.structure.tryCreateComponentStatic(structure, "all", { label });
     if (component) {
-      await plugin.builders.structure.representation.addRepresentation(component, {
-        type: "ball-and-stick",
-        ...(options?.color != null
-          ? { color: "uniform" as const, colorParams: { value: Color(options.color) } }
-          : { color: CHAIN_COLOR_THEME, colorParams: CHAIN_COLOR_THEME_PARAMS }),
-        typeParams: {
-          sizeAspectRatio: options?.sizeAspectRatio ?? 1,
-          ...(options?.alpha != null ? { alpha: options.alpha } : {}),
-        },
-      });
+      const coloring = options?.color != null
+        ? { color: "uniform" as const, colorParams: { value: Color(options.color) } }
+        : { color: CHAIN_COLOR_THEME, colorParams: CHAIN_COLOR_THEME_PARAMS };
+      const alpha = options?.alpha != null ? { alpha: options.alpha } : {};
+      if (options?.representation === "cartoon") {
+        await plugin.builders.structure.representation.addRepresentation(component, {
+          type: "cartoon",
+          ...coloring,
+          // A thinner copy behind another hides inside it where they overlap (a host draws a chain as loaded faint so).
+          typeParams: { ...alpha, ...(options?.sizeFactor ? { sizeFactor: options.sizeFactor } : {}) },
+        });
+      } else {
+        await plugin.builders.structure.representation.addRepresentation(component, {
+          type: "ball-and-stick",
+          ...coloring,
+          typeParams: { sizeAspectRatio: options?.sizeAspectRatio ?? 1, ...alpha },
+        });
+      }
     }
     // Atom count drawn per overlay, for tests.
     dataset[`overlay_${key}`] = String(component ? structure.obj?.data.elementCount ?? 0 : 0);
   }
 
-  private async loadPositionedStructure(cif: string, name: string): Promise<string> {
+  private async loadPositionedStructure(
+    cif: string, name: string, preset: "auto" | "polymer-and-ligand" = "auto",
+  ): Promise<string> {
     const plugin = this.viewer!.plugin;
     const data = await plugin.builders.data.rawData({ data: cif, label: name });
     this.lastDataRef = data.ref;
@@ -333,7 +495,7 @@ export class MolstarAdapter implements ViewerAdapter {
       excluded: unpositionedAtomIndices(cif),
     }).commit();
     if (structure.obj?.data.elementCount) {
-      await plugin.builders.structure.representation.applyPreset(structure, "auto");
+      await plugin.builders.structure.representation.applyPreset(structure, preset);
       // The preset colours by Mol*'s order-based chain palette, which drifts from the sequence bar as chains are
       // added or removed. Use the shared id-keyed one instead; the Style menu can still override it.
       const components = plugin.managers.structure.hierarchy.current.structures
@@ -411,7 +573,7 @@ export class MolstarAdapter implements ViewerAdapter {
 
   private lociFor(atomIndices: number[]) {
     const { structure } = this.currentStructure();
-    return StructureElement.Schema.toLoci(structure, { items: { atom_index: atomIndices } });
+    return atomLoci(structure, atomIndices);
   }
 
   async showAnnotation(groups: AnnotationGroup[]): Promise<AnnotationRenderResult> {
@@ -471,11 +633,21 @@ export class MolstarAdapter implements ViewerAdapter {
   setSelection(atomIndices: number[]): void {
     if (!this.viewer) return;
     this.clearSelection();
-    if (!atomIndices.length) return;
+    // Whole residues selected are outlined on the cartoon, no sticks; atoms picked show their residues in sticks
+    // (Mol*'s focus), to pick more from. Nothing selected, nothing left behind.
+    const focus = this.viewer.plugin.managers.structure.focus;
+    if (!atomIndices.length) {
+      focus.clear();
+      return;
+    }
     this.selectedAtomIndices = [...new Set(atomIndices)];
     if (!this.viewer.plugin.managers.structure.hierarchy.current.structures.length) return;
     const loci = this.lociFor(this.selectedAtomIndices);
     this.viewer.plugin.managers.interactivity.lociSelects.select({ loci });
+    const residues = StructureElement.Loci.extendToWholeResidues(loci);
+    const atomsPicked = StructureElement.Loci.size(residues) > StructureElement.Loci.size(loci);
+    if (atomsPicked && this.selectedAtomIndices.length <= 600) focus.setFromLoci(residues);
+    else focus.clear();
   }
 
   clearSelection(): void {
@@ -503,7 +675,7 @@ export class MolstarAdapter implements ViewerAdapter {
       const structure = reference.cell.obj?.data;
       if (!structure) continue;
       const selected = target === "all" ? StructureElement.Loci.all(structure) :
-        StructureElement.Schema.toLoci(structure, { items: { atom_index: this.selectedAtomIndices } });
+        atomLoci(structure, this.selectedAtomIndices);
       const root = reference.cell.transform.ref;
       let components = this.displayComponents.get(root);
       if (!components) {
@@ -594,9 +766,7 @@ export class MolstarAdapter implements ViewerAdapter {
         reference.components,
         Color(color.value),
         async (structure) =>
-          StructureElement.Schema.toLoci(structure, {
-            items: { atom_index: group.atomIndices },
-          }),
+          atomLoci(structure, group.atomIndices),
       );
     }
   }
@@ -605,6 +775,19 @@ export class MolstarAdapter implements ViewerAdapter {
     this.viewer?.plugin.canvas3d?.setProps({
       renderer: { backgroundColor: Color(color === "black" ? 0x000000 : 0xffffff) },
     });
+    this.selectionLook(color);
+  }
+
+  /**
+   * Selection is an outline in the foreground colour (white on black, near-black on white), as in the sequence bar,
+   * with no tint, so chain colours, highlights and transparency still show; hovering draws the same outline, fainter.
+   */
+  private selectionLook(background: "black" | "white"): void {
+    const ink = Color(background === "white" ? 0x1f2328 : 0xffffff);
+    this.viewer?.plugin.canvas3d?.setProps({
+      renderer: { selectColor: ink, selectStrength: 0, highlightColor: ink, highlightStrength: 0 },
+      marking: { enabled: true, selectEdgeColor: ink, highlightEdgeColor: ink, selectEdgeStrength: 1, highlightEdgeStrength: 0.5 },
+    } as never);
   }
 
   camera(action: ViewerCameraAction): void {
@@ -614,6 +797,18 @@ export class MolstarAdapter implements ViewerAdapter {
       return;
     }
     this.viewer.plugin.managers.camera.reset();
+  }
+
+  /** See `ViewerAdapter.centerOn`: the camera slides sideways, at the distance it was. */
+  centerOn(atomIndices: number[]): void {
+    const canvas = this.viewer?.plugin.canvas3d;
+    const indices = atomIndices.filter(index => !this.unpositionedAtoms.has(index));
+    if (!canvas || !indices.length || !this.viewer?.plugin.managers.structure.hierarchy.current.structures.length) return;
+    const sphere = Loci.getBoundingSphere(this.lociFor(indices));
+    if (!sphere) return;
+    const { position, target } = canvas.camera.getSnapshot();
+    const shift = Vec3.sub(Vec3(), sphere.center, target);
+    canvas.camera.setState({ target: Vec3.clone(sphere.center), position: Vec3.add(Vec3(), position, shift) }, 300);
   }
 
   listMeasurements(): ViewerMeasurement[] {
@@ -762,3 +957,4 @@ export class MolstarAdapter implements ViewerAdapter {
 export function createMolstarAdapter(context: ViewerAdapterContext): ViewerAdapter {
   return new MolstarAdapter(context);
 }
+

@@ -1,6 +1,6 @@
 {
   "name": "@rosettacommons/atomworks-studio-web",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,6 +10,8 @@
     "preview": "vite preview",
     "test:unit": "node --experimental-strip-types --test tests/*.test.ts",
     "test:e2e": "node tests/smoke.mjs",
+    "test:overlay-representation": "node tests/overlay-representation.mjs",
+    "test:embed-api": "node tests/embed-api.mjs",
     "test:workbench": "node tests/workbench.mjs",
     "test:menus": "node tests/menu-layout.mjs",
     "test:editor": "node tests/editor-qol.mjs",
@@ -23,6 +25,7 @@
     "test:examples": "node tests/example-imports.mjs",
     "test:example-actions": "node tests/example-actions.mjs",
     "test:annotation-camera": "node tests/annotation-camera.mjs",
+    "test:live-frames": "node tests/live-frames.mjs",
     "test:interactions": "node tests/interactions.mjs",
     "test:condition-presentation": "node tests/condition-presentation.mjs"
   },

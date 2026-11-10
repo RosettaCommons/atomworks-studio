@@ -162,8 +162,8 @@
             <div class="picking-toolbar" role="group" aria-label="Selection controls">
               <label class="pick-mode" data-capability="picking">Pick
                 <select id="pick-scope" aria-label="Picking mode">
-                  <option value="atom" selected>Atoms</option>
-                  <option value="residue">Residues</option>
+                  <option value="atom">Atoms</option>
+                  <option value="residue" selected>Residues</option>
                   <option value="chain">Chains</option>
                 </select>
               </label>
@@ -171,20 +171,14 @@
               <span id="picking-help" class="selection-help">Click to add · Click again to remove</span>
               <div class="selection-actions">
                 <button id="clear-selection" class="secondary compact" type="button">Clear selection</button>
-              </div>
-            </div>
-          </div>
-          <div id="sequence-dock" class="sequence-dock">
-            <div class="sequence-dock-heading">
-              <strong>Sequence</strong>
-              <span class="sequence-help">Click to toggle · Drag · Shift range</span>
-              <div class="button-row">
-                <button id="sequence-toggle" class="secondary compact" type="button" aria-expanded="true">
+                <button id="sequence-toggle" class="secondary compact" type="button" aria-expanded="true" aria-controls="sequence-dock">
                   Hide sequence
                 </button>
               </div>
             </div>
-            <div id="sequence-view" class="sequence-view muted">
+          </div>
+          <div id="sequence-dock" class="sequence-dock">
+            <div id="sequence-view" class="sequence-view muted" title="Click a residue to select it · drag or Shift-click for a range">
               Open a structure to select residues.
             </div>
           </div>
@@ -223,7 +217,7 @@
               <button id="trajectory-play" class="secondary compact">Play</button>
               <input id="trajectory-frame" type="range" min="0" max="0" value="0" step="1" aria-label="Trajectory frame" />
               <output id="trajectory-position" aria-live="off"></output>
-              <span class="muted">Backbone · view only</span>
+              <span class="muted">View only</span>
             </div>
           </div>
           <form id="viewer-command-form" class="viewer-command-bar">

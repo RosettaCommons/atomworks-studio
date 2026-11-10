@@ -138,10 +138,13 @@ jobs:
             target/release/libpatinae_annotation_studio.so
 
   integration:
-    # `inputs` is empty for `pull_request` and `push`, so `inputs.acceptance` is '' there and the old
-    # `inputs.acceptance != false` coerced to `false != false` — the suite skipped on exactly the events it
-    # should gate, and ran only for a `workflow_call`. Name the events, and still let a caller opt out.
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || inputs.acceptance }}
+    # Three cases, and a comparison of coerced values gets two of them wrong. On `pull_request` and `push` there is no
+    # `inputs.acceptance` (null); a caller of this workflow passes true or false. GitHub coerces null, '' and false
+    # all to 0, so `inputs.acceptance != false` skipped the suite on exactly the events it should gate, and testing
+    # `github.event_name` instead ignores the caller's opt-out, because in a reusable workflow that is the CALLER's
+    # event: release.yaml is a tag push and passes `acceptance: false`. Compare the JSON text, which keeps them apart:
+    # 'null' (direct event) and 'true' run the suite, 'false' skips it.
+    if: ${{ toJSON(inputs.acceptance) != 'false' }}
     # Deliberately non-blocking, and deliberately temporary. The suite has never gated anything, so its first real
     # runs surface a backlog of questions about intended behaviour that are not this job's to answer. Running it
     # visibly on every pull request is worth more right now than turning `main` red while that backlog is open.

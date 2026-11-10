@@ -254,9 +254,8 @@ try {
       if (process.env.ANNOTATION_SCREENSHOT_DIR) {
         await page.screenshot({ path: resolve(process.env.ANNOTATION_SCREENSHOT_DIR, `${viewerMode}-annotation-inspection.png`) });
       }
-      assert.equal(await page.locator("#annotation-list details").evaluate((details) => details.open), false);
-      assert.equal(await page.locator(".annotation-field-row").first().isVisible(), false,
-        "raw default values are separate from active constraints");
+      // The raw-field preview UI was removed from the product in bbe0d70; nothing here renders `<details>`
+      // or `.annotation-field-row` any more, so there is nothing left to assert.
 
       // Delayed inspection of an earlier row must not replace the latest clicked annotation.
       const otherName = payload.structure.annotations.find((item) => item.name !== "cath_label")?.name;
@@ -563,7 +562,7 @@ try {
   await page.setViewportSize({ width: 1400, height: 900 });
   await page.keyboard.press("Escape");
   assert.ok(await page.locator(".annotation-row").count(), "stored annotations are summarized");
-  assert.ok(await page.locator(".annotation-field-row").count() >= 4);
+  // `.annotation-field-row` went with the raw-field preview UI in bbe0d70.
   await page.locator("#editor-tab-annotations").click();
   const inspectionRow = page.locator("#annotation-list > .annotation-row").first();
   const inspectionKey = await inspectionRow.getAttribute("data-view-key");

@@ -109,9 +109,8 @@ try {
   await ui.waitForFunction(() => document.querySelector("#viewer")?.dataset.centroidMarkers === "1");
   const field = (await summary()).stored_fields.find((entry) => /centroid/i.test(entry.name));
   assert.ok(field);
-  await ui.locator("#annotation-list details > summary").click();
-  await ui.locator(".annotation-field-row").filter({ hasText: field.label }).click();
-  await ui.waitForFunction(() => document.querySelector("#annotation-detail")?.textContent?.includes("Raw field preview"));
+  // The raw-field preview UI this used to open was removed in bbe0d70. The centroid field being recorded at all
+  // is still a capability, and `assert.ok(field)` above is what covers it now.
   await edit("#undo", "/undo");
   assert.doesNotMatch(await ui.locator("#status").textContent(), /Error:/);
   assert.equal(await ui.locator("#viewer").getAttribute("data-centroid-markers"), "0");

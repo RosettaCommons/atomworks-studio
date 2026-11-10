@@ -63,7 +63,9 @@ try {
       assert.ok(result.structure.stored_fields.length > 0, 'stored default fields remain intact');
       assert.ok(result.structure.scalar_fields.some(field => field.name === 'b_factor'), 'B-factors remain intact');
       await page.waitForFunction(() => document.querySelector('#annotation-list').textContent.includes('No non-default conditions'));
-      assert.equal(await page.locator('#annotation-list button, #annotation-list details').count(), 0);
+      // `#annotation-list details` dropped from this selector: that UI went in bbe0d70. The button half is live —
+      // AnnotationController renders a `.annotation-row` button per condition — so an empty list is still asserted.
+      assert.equal(await page.locator('#annotation-list button').count(), 0);
       await page.locator('.sequence-token[data-atoms]').first().click();
       await page.waitForFunction(() => document.querySelector('#annotation-detail').textContent.includes('No active conditions on this atom.'));
       assert.doesNotMatch(await page.locator('#annotation-detail').innerText(), /B-factor|condition_|annotation_|mask_/);

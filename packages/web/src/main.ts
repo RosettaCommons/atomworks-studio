@@ -2,6 +2,7 @@ import { unpositionedAtomIndices } from "./viewers/unpositioned-atoms";
 import { TrajectoryController } from "./studio/trajectory-controller";
 import { chainColorCss } from "./chain-colors";
 import { chainKindLabel, designSummary, ROLE_LABELS } from "./studio/design-summary";
+import { mountRefoldPanel } from "./refold";
 import { HOST_MESSAGE_SOURCE, installEmbedApi, notifyEmbedder } from "./studio/embed-api";
 import type { ChainRole, ChainSummary } from "./studio/design-summary";
 import initCifCore, { inspect_cif } from "./wasm/annotation_studio_core.js";
@@ -742,6 +743,7 @@ async function initialize(): Promise<void> {
     getSelection: () => [...selectionController.values].sort((first, second) => first - second),
     setSelection: (atomIndices) => selectionController.replace(atomIndices.filter((index) => Number.isInteger(index) && index >= 0)),
     chainColor: chainColorCss,
+    mountRefoldPanel,
     setTheme: (theme) => {
       const light = theme === "light";
       document.body.dataset.hostTheme = light ? "light" : "dark";

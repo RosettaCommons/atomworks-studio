@@ -46,6 +46,8 @@ node "${root}/packages/web/tests/live-frames.mjs" | tee "${artifact_dir}/live-fr
 
 node "${root}/packages/web/tests/overlay-representation.mjs" | tee "${artifact_dir}/overlay-representation.log"
 
+node "${root}/packages/web/tests/refold-panel.mjs" | tee "${artifact_dir}/refold-panel.log"
+
 ANNOTATION_STUDIO_URL="${accept_url}/" node "${root}/packages/web/tests/embed-api.mjs" \
   | tee "${artifact_dir}/embed-api.log"
 

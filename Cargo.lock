@@ -39,7 +39,7 @@ dependencies = [
 
 [[package]]
 name = "annotation-studio-core"
-version = "0.0.7"
+version = "0.0.8"
 dependencies = [
  "serde",
  "serde-wasm-bindgen",
@@ -1015,7 +1015,7 @@ dependencies = [
 
 [[package]]
 name = "patinae-annotation-studio"
-version = "0.0.7"
+version = "0.0.8"
 dependencies = [
  "patinae-plugin",
  "webbrowser",

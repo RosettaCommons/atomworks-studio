@@ -50,7 +50,7 @@ def check_archive(path: Path) -> None:
         assert init in contents, f"{path.name}: missing {init}"
     prefix = "annotation_studio/web/" if path.suffix == ".whl" else "packages/api/annotation_studio/web/"
     names = {name.removeprefix(prefix) for name in contents if name.startswith(prefix)}
-    required = {"index.html", "manifest.webmanifest", "sw.js", "assets/patinae_web_bg.wasm"}
+    required = {"index.html", "manifest.webmanifest", "sw.js", "refold-panel.js", "assets/patinae_web_bg.wasm"}
     assert required <= names, f"{path.name}: missing {sorted(required - names)}"
     assert any(name.startswith("assets/annotation_studio_core_bg-") and name.endswith(".wasm") for name in names), (
         f"{path.name}: CIF WASM is missing"

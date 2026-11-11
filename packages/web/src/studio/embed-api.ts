@@ -11,6 +11,7 @@
  * and the "changed" notification behave exactly as they do for a click. The document on the server stays the source
  * of truth; nothing here writes to the viewer behind its back.
  */
+import type { RefoldPanelHandle, RefoldPanelOptions, RefoldProvider } from "../refold";
 import type { ViewerHighlightOptions, ViewerLoadOptions, ViewerOverlayOptions, ViewerResidue } from "../viewers";
 
 export type StudioEmbedApi = {
@@ -86,6 +87,14 @@ export type StudioEmbedApi = {
 
   /** The colour Studio draws a chain in, so a host's own UI can match it. */
   chainColor(chainId: string): string;
+
+  /**
+   * Mount Studio's Refold panel in `container`: the Designs table with each design's refold numbers, and the Refold
+   * box (model, seed, recycles, steps, Refold all / Stop) with the terms dialog a licence-gated model asks for. The
+   * host supplies a `RefoldProvider` that does the folding and gives the panel the designs; the panel draws each
+   * refold over the shown design through `setOverlay`. See docs/INTEGRATIONS.md, "Refold panel".
+   */
+  mountRefoldPanel(container: HTMLElement, provider: RefoldProvider, options?: RefoldPanelOptions): RefoldPanelHandle;
 };
 
 declare global {

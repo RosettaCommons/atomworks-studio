@@ -88,6 +88,7 @@ is one Undo step and the document on the server stays the source of truth.
 | `applyEdit(path, body)` | Apply a document mutation by API path, e.g. `/conditions/batch`. |
 | `getSelection()` | The selection, as document atom indices. |
 | `chainColor(chainId)` | The colour Studio draws a chain in, so your own UI can match. |
+| `mountRefoldPanel(container, provider, options)` | Mount Studio's Refold panel and give it a folding backend. See [Refold panel](#refold-panel). |
 | `version` | The Studio release the page was built from. |
 
 A host that serves the bundle itself usually does not want Studio's offline cache
@@ -174,8 +175,8 @@ RFD4 partial diffusion is controlled by `partial_diffusion`, off by default. Wit
 defaults to 70; the deployment maps it to
 `generation.args.partial_trajectory_fraction_steps` by dividing by 100.
 
-A provider may implement three optional members, each read with a default so
-providers written against earlier releases keep working: `default_example`, an
+A provider may implement optional members, each read with a default so
+providers written against earlier releases keep working. Three are about generation: `default_example`, an
 example id Studio opens on instead of an empty editor; `css`, appended to
 Studio's own so provider element ids stay out of the host; and
 `validate_input(snapshot, options)`, which rejects an input the chosen options
@@ -183,7 +184,9 @@ cannot run on before any GPU time is spent. The RFD4 provider uses the last of
 these to refuse partial diffusion on expandable segments, reading
 `has_expandable_segments` from the same exported snapshot — this includes
 realized segments whose residues are still undefined. Generate a fully defined
-input first, or use the partial diffusion example.
+input first, or use the partial diffusion example. The refold members
+(`refold_models`, `refold_limits`, `validate_refold`) are described under
+[Refold panel](#refold-panel).
 
 Run `python scripts/preview_generation.py` to see this UI locally with a
 simulated model, including the generation and failure states.
@@ -219,6 +222,159 @@ The Studio adapter hands annotated CIFs to the model deployment and imports its
 result CIFs. The deployment owns eager or compiled execution, progress,
 trajectories, and refolding metrics. Test generation on the intended GPU;
 editor handoff tests use a test callback.
+
+## Refold panel
+
+Folding a design again with an independent model and scoring how it comes back
+is the usual next step after generating one. Studio owns the interface for it,
+once, so every host shows the same panel: the Designs table with one row of
+numbers per design (RMSD, pLDDT, and for an interface ipTM and iPAE, sortable,
+✓ where upstream's pass criteria hold, greyed where they fail), and under it the
+Refold box with **Model**, **Seed** (0 to 4294967295, default 0), **Recycles**
+(0, 1, 2, 3, 5, 10; default 3) and **Steps** (25, 50, 100, 200; default 25), a
+**Refold all** button that becomes **Stop** while it runs and fills with the
+run's progress, and a line for a failure. The refold of the design on show is
+drawn over it as a magenta cartoon, its ligands as sticks, through `setOverlay`.
+
+A host supplies what folds. Two are in use: the
+[RFD4-Proteina page](https://github.com/sokrypton/rfd4-proteina-webgpu) folds in
+the browser with LocalFold on WebGPU, and the Gradio host calls a callback on the
+server. Neither keeps its own copy of the interface.
+
+### Licence-gated models
+
+AlphaFold 3's parameters are Google DeepMind's, not available for commercial use
+and under a prohibited-use policy. Studio therefore knows `af3` as a gated model:
+choosing it and pressing Refold opens the **AlphaFold 3 model parameters** dialog
+with the terms, links to DeepMind's `WEIGHTS_TERMS_OF_USE.md` and
+`WEIGHTS_PROHIBITED_USE_POLICY.md`, and three buttons: **Use OpenBind-0** (the same
+architecture under Apache 2.0, a different model), **I agree, use AlphaFold 3**
+and **Cancel**. Agreement is remembered once per browser (`localStorage`, key
+`atomworks-studio.refoldTerms.af3`) and the panel never calls `prepare` for the
+model, so nothing is downloaded on the person's behalf before they decide. The
+wording lives in Studio (`ALPHAFOLD3_TERMS`), not in each host. A host that is
+licensed to serve the weights itself lists the model with `terms: null`; whether
+that is permitted is the host's decision, not a default.
+
+OpenBind-0 is listed as `{id: "openbind0"}` and has no dialog.
+
+### The browser contract
+
+Same page as Studio: `window.atomworksStudio.mountRefoldPanel(container, provider,
+options)`. Any other page (the Gradio host mounts it above an iframe of the
+editor) imports the same code from `refold-panel.js`, served next to Studio's
+bundle: `import { mountRefoldPanel } from "/refold-panel.js"`. Both run one
+implementation. The panel injects its own styles; mount it in a shadow root to
+keep a host's global CSS out.
+
+```ts
+const panel = window.atomworksStudio.mountRefoldPanel(container, {
+  // In menu order. A known id ("af3", "openbind0") needs nothing else.
+  models: [{ id: "af3" }, { id: "openbind0" }],
+  // Optional. Anything left out keeps the values above.
+  limits: { steps: { options: [25, 50, 100, 200], default: 25 }, recycles: { options: [0, 1, 2, 3, 5, 10], default: 3 } },
+  // Fold one design. Reject on failure, and as soon as `signal` aborts (Stop).
+  async refold(design, { model, seed, recycles, steps }, { signal, onStatus }) {
+    onStatus({ text: "trunk", fraction: 0.4 });          // the button fills with `fraction`
+    return {
+      cif,                       // the refold's polymer chains, in the design's frame: drawn as a cartoon
+      ligandCif,                 // optional: its ligands, drawn as sticks
+      metrics: { rmsd, placedRmsd, plddt, ptm, iptm, chainPtm, minIpae },   // a number that does not apply: NaN or null
+      text: "AlphaFold 3 refold: 1.2 Å RMSD · pLDDT 91",    // optional, kept with the record
+      pass: true,                // optional: a verdict of your own; otherwise judged from `design.kind`
+      data: { pdb },             // optional: yours, handed back by `panel.records(id)`
+    };
+  },
+  prepare: async (model, onProgress) => {},  // optional: fetch parameters ahead of the click (never for a model whose terms are not agreed)
+  available: () => true,                     // optional: false hides the Refold box and the rows' ↻
+}, {
+  nameHeader: { label: "Seed", title: "Each design is named by its seed" },
+  describe: (design) => `seed ${design.name}`,   // how the progress line names a design
+  onSelect: async (id) => {},                    // a row was chosen: show that design, resolve once it is on screen
+  overlay: (key, cif, options) => {},            // default: Studio's own setOverlay
+  onDownload: (design) => {},                    // default: save design.cif
+});
+
+panel.setDesigns([{ id: "s1", name: "163509", cif, kind: "binder", data: anything }]);  // refolds of a design that stays are kept
+await panel.setSelected("s1");     // the host showed that design: its refold is drawn over it
+panel.refold();                    // Refold all; panel.refold(["s1"]) for one
+panel.prefetch();                  // optional: call `prepare` for the selected model while the machine is idle
+panel.records("s1");               // every refold made of it, with the settings: for a results .zip
+```
+
+- **Designs** are folded one after another, never two at once. **Refold all** skips
+  a design already refolded with the settings in the box and shows that refold
+  instead, so going back to earlier settings brings their numbers back.
+- `design.kind` (`"monomer"`, `"binder"`, `"antibody"`, or none) picks the pass
+  criteria: monomer RMSD ≤ 1.5 Å; binder chain pTM ≥ 0.8, min iPAE ≤ 1.5 Å, placed
+  RMSD ≤ 2.5 Å; antibody min iPAE ≤ 2.0 Å, placed RMSD ≤ 2.0 Å. Other jobs show
+  numbers and no verdict, unless `refold` returns `pass`.
+- The metrics are the names of upstream's criteria: `rmsd` (designed chains fitted
+  on themselves), `placedRmsd` (fitted on everything else, so where a binder sits
+  counts), `chainPtm`, `minIpae`, and the refold model's `plddt`, `ptm`, `iptm`.
+- Model options are only offered; the panel does not enforce a licence on the
+  server. A host that serves restricted weights checks its own terms.
+
+### The Gradio host
+
+A Python deployment opts in with three optional provider members and one callback,
+following the optional members above. A provider without `refold_models`, or a
+deployment without `refold_fn`, behaves exactly as before: no panel, no route, the
+same handler outputs.
+
+```python
+class MyProvider:
+    ...
+    def refold_models(self) -> list[dict]:           # required to enable refolding
+        return [{"id": "af3"}, {"id": "openbind0"}]  # or "terms": None, "label": "...", for models of your own
+    def refold_limits(self) -> dict:                 # optional, over Studio's defaults
+        return {"steps": {"options": [25, 50], "default": 25}}
+    def validate_refold(self, options: dict) -> dict:  # optional, replaces the default check
+        ...
+
+def refold(design_cif: str, options: dict) -> dict:
+    """options: {"model", "seed", "recycles", "steps"}, already validated."""
+    ...
+    return {
+        "cif": refolded_polymers_cif,      # required: in the design's frame
+        "ligand_cif": ligands_cif,         # optional
+        "metrics": {"rmsd": 1.2, "placed_rmsd": None, "plddt": 91.0, "ptm": 0.9, "iptm": None,
+                    "chain_ptm": None, "min_ipae": None},      # None or NaN where a number does not apply
+        "text": "AlphaFold 3 refold: 1.2 Å RMSD",              # optional
+        "passed": True,                                         # optional verdict
+    }
+
+app = create_app(provider=MyProvider(), generate_fn=generate, refold_fn=refold)
+```
+
+`refold` runs off the API loop, one at a time. On ZeroGPU, wrap it in
+`spaces.GPU` as for `generate`: both go through Gradio's queue, the panel's
+requests included, so quota and queueing behave as for any other click. The
+model runtime stays in the deployment; Studio adds none.
+
+The default validation accepts `model` among those offered, `seed` as a whole
+number in range, and `recycles` and `steps` among the options, and fills what is
+left out with the defaults. Errors reach scripts as a `ValueError` and the panel
+as a message on the failed row's line.
+
+Under the generation controls the host then shows the panel, filled with the
+designs each run produces. Choosing a row opens that design in the editor, as the
+View selector does, and the refold is drawn over it. The same refold is reachable
+for scripts:
+
+```python
+result = client.predict(
+    Path("design.cif").read_text(),
+    {"model": "openbind0", "seed": 0, "recycles": 3, "steps": 25},
+    api_name="/refold_cif",
+)
+# result["cif"], result["ligand_cif"], result["metrics"], result["text"], result["passed"]
+```
+
+Stop in the panel abandons the wait; a fold the server has already started runs to
+the end, since the queue does not cancel running jobs. `python
+scripts/preview_generation.py --refold` shows the panel locally with a simulated
+fold.
 
 ## NIM and other inference services
 

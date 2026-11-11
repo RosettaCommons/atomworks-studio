@@ -1,0 +1,123 @@
+/*
+ * The Refold panel (panel.ts). Self-contained: inside Studio it takes Studio's colour variables (--text, --border, ...),
+ * so it follows Studio's light and dark; mounted in a page without them it falls back to the same dark palette, and
+ * `theme: "light"` swaps in the light one. A host may set --refold-sunk and --refold-hover to match its own surfaces.
+ */
+.refold-panel {
+  --rp-text: var(--text, #ededef);
+  --rp-text-2: var(--text-secondary, #d1d2d5);
+  --rp-muted: var(--text-muted, #b1b3b9);
+  --rp-border: var(--border, #383a3f);
+  --rp-border-strong: var(--border-strong, #50535a);
+  --rp-surface: var(--surface-panel, #222326);
+  --rp-raised: var(--surface-raised, #2d2f33);
+  --rp-field: var(--surface-recessed, #191a1c);
+  --rp-accent: var(--accent, #82aaff);
+  --rp-accent-hover: var(--accent-hover, #a9c4ff);
+  --rp-accent-soft: var(--accent-soft, #26354c);
+  --rp-accent-ink: var(--accent-ink, #142038);
+  --rp-danger: var(--danger, #d55e5e);
+  --rp-pass: var(--success, #45b99a);
+  --rp-sunk: var(--refold-sunk, #1a1b1e);
+  --rp-hover: var(--refold-hover, rgba(255, 255, 255, 0.05));
+  display: grid;
+  gap: 8px;
+  color: var(--rp-text);
+  font: 400 12px/1.4 var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+}
+.refold-panel[data-refold-theme="light"] {
+  --rp-text: #1f2328; --rp-text-2: #3f464e; --rp-muted: #59626d; --rp-border: #d6dae0; --rp-border-strong: #aeb5bd;
+  --rp-surface: #ffffff; --rp-raised: #e5e7ea; --rp-field: #ffffff; --rp-accent: #4462c3; --rp-accent-hover: #31499c;
+  --rp-accent-soft: #e8eefb; --rp-accent-ink: #ffffff; --rp-danger: #b3261e; --rp-pass: #1d7a63;
+  --rp-sunk: var(--refold-sunk, #f4f5f7); --rp-hover: var(--refold-hover, rgba(0, 0, 0, 0.04));
+}
+.refold-panel[data-refold-theme="dark"] {
+  --rp-text: #ededef; --rp-text-2: #d1d2d5; --rp-muted: #b1b3b9; --rp-border: #383a3f; --rp-border-strong: #50535a;
+  --rp-surface: #222326; --rp-raised: #2d2f33; --rp-field: #191a1c; --rp-accent: #82aaff; --rp-accent-hover: #a9c4ff;
+  --rp-accent-soft: #26354c; --rp-accent-ink: #142038; --rp-danger: #d55e5e; --rp-pass: #45b99a;
+  --rp-sunk: var(--refold-sunk, #1a1b1e); --rp-hover: var(--refold-hover, rgba(255, 255, 255, 0.05));
+}
+.refold-panel [hidden] { display: none !important; }
+.refold-panel *, .refold-panel *::before, .refold-panel *::after { box-sizing: border-box; }
+
+/* Controls, restated so the panel looks the same with or without Studio's own sheet around it. */
+.refold-panel button, .refold-panel input, .refold-panel select { font: inherit; }
+.refold-panel button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin: 0; padding: 5px 10px;
+  min-height: 28px; border: 1px solid var(--rp-border-strong); border-radius: 4px; color: var(--rp-text-2);
+  background: var(--rp-raised); font-weight: 500; line-height: 16px; cursor: pointer;
+}
+.refold-panel button:hover:not(:disabled) { color: var(--rp-text); border-color: var(--rp-muted); }
+.refold-panel button.secondary { background: transparent; }
+.refold-panel button.secondary:hover:not(:disabled) { color: var(--rp-text); background: var(--rp-raised); border-color: var(--rp-accent-hover); }
+.refold-panel button.primary { color: var(--rp-accent-ink); background: var(--rp-accent); border-color: var(--rp-accent); }
+.refold-panel button.primary:hover:not(:disabled) { color: var(--rp-accent-ink); background: var(--rp-accent-hover); }
+.refold-panel button:disabled { cursor: not-allowed; opacity: 0.38; }
+.refold-panel input, .refold-panel select {
+  min-width: 0; padding: 8px 9px; color: var(--rp-text); background: var(--rp-field);
+  border: 1px solid var(--rp-border-strong); border-radius: 4px;
+}
+.refold-panel :focus-visible { outline: 2px solid var(--rp-accent); outline-offset: 2px; }
+
+/* The Designs table: one row a design, its refold's numbers, sortable by column. */
+.refold-designs { display: grid; gap: 4px; font-size: 11.5px; }
+.refold-dtable {
+  width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid var(--rp-border); border-radius: 5px;
+  background: var(--rp-sunk);
+}
+.refold-dtable th { padding: 4px; font-size: 10.5px; font-weight: 500; color: var(--rp-muted); text-align: right; white-space: nowrap; box-shadow: inset 0 -1px 0 var(--rp-border); }
+.refold-dtable td { padding: 4px; white-space: nowrap; border-top: 1px solid transparent; border-bottom: 1px solid transparent; }
+.refold-dtable td:first-child { border-left: 1px solid transparent; }
+.refold-dtable td:last-child { border-right: 1px solid transparent; }
+.refold-dtable .refold-dt-name { width: 100%; text-align: left; }
+.refold-dtable .refold-dt-name label { display: block; margin: 0; cursor: pointer; }
+.refold-dtable .refold-dt-name input { position: absolute; opacity: 0; width: 1px; height: 1px; padding: 0; }
+.refold-dtable .refold-dt-num { text-align: right; font: 11px var(--font-mono, "SFMono-Regular", Consolas, "Liberation Mono", monospace); font-variant-numeric: tabular-nums; }
+.refold-dtable th.refold-dt-num { font-family: inherit; font-size: 10.5px; }
+.refold-dtable .refold-dt-state { text-align: right; color: var(--rp-muted); font-style: italic; }
+.refold-dtable .refold-dt-act { text-align: right; }
+.refold-dtable tbody tr { cursor: pointer; }
+.refold-dtable tbody tr:hover td { background: var(--rp-hover); }
+.refold-dtable tbody tr + tr td { box-shadow: inset 0 1px 0 var(--rp-border); }
+/* Selected: the outline every view uses for a selection. */
+.refold-dtable tbody tr:has(input:checked) td { border-color: var(--rp-text); }
+.refold-dtable tbody tr:has(input:checked) td, .refold-dtable tbody tr:has(input:checked) + tr td { box-shadow: none; }
+/* A design that misses upstream's pass criteria is greyed; one that meets them carries a tick. */
+.refold-dtable tbody tr.refold-fail .refold-dt-name, .refold-dtable tbody tr.refold-fail .refold-dt-num { opacity: 0.55; }
+.refold-pass { color: var(--rp-pass); font-weight: 700; }
+.refold-panel .refold-sort {
+  min-height: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: inherit; cursor: pointer; white-space: nowrap;
+}
+.refold-panel .refold-sort.is-sorted { color: var(--rp-text); }
+.refold-panel .refold-act {
+  min-height: 0; padding: 0 3px; border: 0; background: none; color: var(--rp-muted); font-size: 15px; line-height: 1; cursor: pointer;
+}
+.refold-panel .refold-act:hover:not(:disabled) { color: var(--rp-text); background: none; }
+.refold-panel .refold-design-refold { font-size: 17px; }
+.refold-designs-busy .refold-dtable tbody tr, .refold-designs-busy .refold-sort { pointer-events: none; opacity: 0.6; }
+
+/* The Refold box: tinted rather than bordered, part of Designs. */
+.refold-box { display: grid; gap: 6px; padding: 8px; border-radius: 6px; background: var(--rp-sunk); }
+.refold-box > strong { font-size: 12px; }
+.refold-grid { display: grid; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); gap: 6px; }
+.refold-grid label { display: grid; gap: 2px; margin: 0; font-size: 10.5px; color: var(--rp-muted); }
+.refold-grid select, .refold-grid input { width: 100%; min-width: 0; height: 26px; padding: 2px 4px; font-size: 11.5px; }
+/* Refold all is also the refolds' progress (and the parameters' download): one line, cut with an ellipsis. */
+.refold-panel #refold-btn { display: block; width: 100%; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; justify-self: stretch; }
+.refold-panel #refold-btn.refold-running {
+  background: linear-gradient(90deg, var(--rp-accent-soft) var(--refold-progress, 0%), var(--rp-field) var(--refold-progress, 0%));
+  font-variant-numeric: tabular-nums;
+}
+.refold-result { margin: 0; font-size: 11.5px; line-height: 1.35; }
+.refold-result.error { color: var(--rp-danger); }
+
+/* AlphaFold 3's terms (a licence-gated model's dialog). */
+.refold-terms {
+  max-width: min(440px, calc(100vw - 32px)); border: 1px solid var(--rp-border); border-radius: 8px;
+  background: var(--rp-surface); color: inherit; padding: 16px;
+}
+.refold-terms::backdrop { background: rgb(0 0 0 / 0.5); }
+.refold-terms h2 { margin: 0 0 8px; font-size: 15px; }
+.refold-terms p { margin: 0 0 8px; font-size: 12.5px; line-height: 1.45; }
+.refold-terms a { color: var(--rp-accent); }
+.refold-terms .button-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; margin-top: 12px; }

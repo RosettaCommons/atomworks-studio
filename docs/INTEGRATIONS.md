@@ -298,6 +298,7 @@ const panel = window.atomworksStudio.mountRefoldPanel(container, {
 panel.setDesigns([{ id: "s1", name: "163509", cif, kind: "binder", data: anything }]);  // refolds of a design that stays are kept
 await panel.setSelected("s1");     // the host showed that design: its refold is drawn over it
 panel.refold();                    // Refold all; panel.refold(["s1"]) for one
+panel.prefetch();                  // optional: call `prepare` for the selected model while the machine is idle
 panel.records("s1");               // every refold made of it, with the settings: for a results .zip
 ```
 

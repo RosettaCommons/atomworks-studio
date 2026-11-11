@@ -49,6 +49,11 @@ export type RefoldPanelHandle = {
   /** Refold `ids`, or every design not yet refolded with the settings in the box. Resolves when the run ends. */
   refold(ids?: string[] | null): Promise<void>;
   stop(): void;
+  /**
+   * Get the selected model ready ahead of the click (`provider.prepare`), as the button reports. A host calls it when
+   * there is something to refold and the machine is idle; never for a licence-gated model whose terms were not agreed.
+   */
+  prefetch(): void;
   settings(): RefoldSettings;
   /** Every refold made of a design, oldest first. */
   records(id: string): RefoldRecord[];
@@ -214,12 +219,10 @@ export function mountRefoldPanel(container: HTMLElement, provider: RefoldProvide
   });
 
   const settingsChanged = async (): Promise<void> => {
-    const modelBefore = session.settings.model;
     const changed = session.setSettings(readFields());
     // The fields show what was kept (a seed out of range comes back clamped).
     seedInput.value = String(session.settings.seed);
     modelSelect.value = session.settings.model;
-    if (session.settings.model !== modelBefore) session.prefetch();
     if (session.selectedId && changed.includes(session.selectedId)) await applyOverlays();
     options.onChange?.();
   };
@@ -233,7 +236,6 @@ export function mountRefoldPanel(container: HTMLElement, provider: RefoldProvide
   let sort: { key: string; dir: 1 | -1 } | null = null;
   let busy = false;
   let tableKey = "";
-  let sawDesigns = false;
 
   function renderBox(syncModel = false): void {
     // The session can change the model itself (the terms dialog's "Use OpenBind-0"). Not on a field's own `input`
@@ -359,12 +361,6 @@ export function mountRefoldPanel(container: HTMLElement, provider: RefoldProvide
     session,
     setDesigns(designs) {
       session.setDesigns(designs);
-      if (designs.length && !sawDesigns) {
-        // There is now something to refold: start pulling the model's parameters while the person reads the designs.
-        sawDesigns = true;
-        session.prefetch();
-      }
-      if (!designs.length) sawDesigns = false;
       if (session.selectedId && !designs.some((d) => d.id === session.selectedId)) void applyOverlays();
     },
     async setSelected(id) {
@@ -373,6 +369,7 @@ export function mountRefoldPanel(container: HTMLElement, provider: RefoldProvide
       await applyOverlays();
     },
     refold: (ids = null) => session.run(ids ?? null),
+    prefetch: () => session.prefetch(),
     stop: () => session.stop(),
     settings: () => ({ ...session.settings }),
     records: (id) => session.records(id),

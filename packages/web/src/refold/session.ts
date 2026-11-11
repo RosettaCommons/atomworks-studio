@@ -75,6 +75,8 @@ export type SessionOptions = {
    * refolded, and when a run finds every design already refolded with the settings.
    */
   reveal: (id: string) => Promise<void> | void;
+  /** How a design reads in the progress line ("seed 163509"); its name by default. */
+  describe?: (design: RefoldDesign) => string;
   /** How long "All refolded with these settings" stays on the idle button, ms. */
   noteMs?: number;
 };
@@ -123,6 +125,11 @@ export class RefoldSession {
     this.settings = {
       model, seed: this.limits.seed.default, recycles: this.limits.recycles.default, steps: this.limits.steps.default,
     };
+  }
+
+  /** A design as the progress line and the buttons' labels name it. */
+  describe(design: RefoldDesign): string {
+    return this.options.describe ? this.options.describe(design) : design.name;
   }
 
   // --- Observers -----------------------------------------------------------------------------------------------
@@ -421,7 +428,7 @@ export class RefoldSession {
         running.current = id;
         this.emit();
         const tag = todo.length > 1 ? ` (${k + 1} of ${todo.length})` : "";
-        const what = `seed ${state.design.name}${tag}`;
+        const what = `${this.describe(state.design)}${tag}`;
         this.setStatus(null, false, { label: what, fraction: k / todo.length });
         const ok = await this.foldOne(state, settings, abort, (status) => {
           const fraction = status.fraction == null ? 0 : Math.min(1, Math.max(0, status.fraction));

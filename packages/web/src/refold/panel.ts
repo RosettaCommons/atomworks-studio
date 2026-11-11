@@ -27,6 +27,8 @@ export type RefoldPanelOptions = {
   overlay?: (key: string, cif: string | null, options: RefoldOverlayOptions) => Promise<void> | void;
   /** The first column's head: what a design is called ("Seed"). */
   nameHeader?: RefoldColumnHeader;
+  /** How a design reads in the progress line and the row buttons' labels ("seed 163509"); its name by default. */
+  describe?: (design: RefoldDesign) => string;
   /** A row's download button; by default saves the design's `cif`. */
   onDownload?: (design: RefoldDesign) => void;
   /** Where agreement to a model's terms is remembered; localStorage by default. */
@@ -179,6 +181,7 @@ export function mountRefoldPanel(container: HTMLElement, provider: RefoldProvide
   const session = new RefoldSession({
     provider,
     storage: options.storage,
+    describe: options.describe,
     askTerms,
     reveal: async (id) => {
       // The design just refolded is shown, its refold over it.
@@ -318,12 +321,12 @@ export function mountRefoldPanel(container: HTMLElement, provider: RefoldProvide
         refoldable ? h("button", {
           type: "button", class: "refold-act refold-design-refold", text: "↻", disabled: running || done,
           title: done ? "Refolded with the settings below" : "Refold this design with the settings below",
-          "aria-label": `Refold seed ${design.name}`,
+          "aria-label": `Refold ${session.describe(design)}`,
           onclick: stop(() => { void session.run([id]); }),
         }) : null,
         design.cif || options.onDownload ? h("button", {
           type: "button", class: "refold-act", text: "⤓", title: "Download this structure (CIF)",
-          "aria-label": `Download seed ${design.name}`,
+          "aria-label": `Download ${session.describe(design)}`,
           onclick: stop(() => (options.onDownload ?? defaultDownload)(design)),
         }) : null));
       // Anywhere on the row shows it.

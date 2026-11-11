@@ -141,7 +141,7 @@ test("Stop ends the queue and the current fold sees its signal abort", async () 
   assert.equal(h.session.isRunning, true);
   assert.equal(h.session.runningId, "s1");
   assert.ok(h.session.isQueued("s2"));
-  assert.match(h.session.button().label, /^Stop · seed 100 \(1 of 3\)/);
+  assert.match(h.session.button().label, /^Stop · 100 \(1 of 3\)/);
   await h.session.run(null); // pressed again: Stop
   await finished;
   assert.equal(signal?.aborted, true);
@@ -164,8 +164,8 @@ test("progress fills the button within each design's share", async () => {
   }, designs(2));
   h.storage.set(ALPHAFOLD3_TERMS.storageKey, "accepted");
   await h.session.run(null);
-  assert.deepEqual(labels, ["Stop · seed 100 (1 of 2) · 40%|0.2", "Stop · seed 100 (1 of 2) · 80%|0.4",
-    "Stop · seed 101 (2 of 2) · 40%|0.7", "Stop · seed 101 (2 of 2) · 80%|0.9"]);
+  assert.deepEqual(labels, ["Stop · 100 (1 of 2) · 40%|0.2", "Stop · 100 (1 of 2) · 80%|0.4",
+    "Stop · 101 (2 of 2) · 40%|0.7", "Stop · 101 (2 of 2) · 80%|0.9"]);
 });
 
 test("a failed fold is counted, named in the line, and does not stop the others", async () => {

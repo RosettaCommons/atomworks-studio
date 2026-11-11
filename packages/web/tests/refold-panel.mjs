@@ -46,6 +46,7 @@ try {
     };
     window.__panel = mountRefoldPanel(document.querySelector('#host'), provider, {
       nameHeader: { label: 'Seed', title: 'Each design is named by its seed' },
+      describe: (design) => `seed ${design.name}`,
       overlay: async (key, cif, options) => { state.overlays.push({ key, cif, options }); },
       onSelect: async (id) => { state.selected.push(id); window.__panel.setSelected(id); },
     });

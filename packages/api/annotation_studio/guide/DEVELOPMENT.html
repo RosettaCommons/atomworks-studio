@@ -150,6 +150,15 @@ use an echo runner locally or explicitly enable it against a model deployment.
 For private Spaces, supply <code class="docutils literal notranslate"><span class="pre">HF_TOKEN</span></code> through the environment and set
 <code class="docutils literal notranslate"><span class="pre">STUDIO_PARENT_ORIGIN=https://huggingface.co</span></code> to reproduce the Hub’s nested iframe.
 The test sends authentication only to the configured Studio origin.</p>
+<p>The Refold panel has two checks of its own. <code class="docutils literal notranslate"><span class="pre">packages/web/tests/refold-panel.mjs</span></code>
+runs the panel against a fake provider without any server (terms dialog, Refold
+all, Stop, rows, overlays); <code class="docutils literal notranslate"><span class="pre">packages/web/tests/embed-api.mjs</span></code> mounts it through
+<code class="docutils literal notranslate"><span class="pre">window.atomworksStudio</span></code>. For the Gradio host, start the simulated deployment and
+drive it end to end:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>scripts/preview_generation.py<span class="w"> </span>--delay<span class="w"> </span><span class="m">1</span><span class="w"> </span>--refold<span class="w"> </span>--port<span class="w"> </span><span class="m">8792</span><span class="w"> </span><span class="p">&amp;</span>
+<span class="nv">GRADIO_URL</span><span class="o">=</span>http://127.0.0.1:8792/design/<span class="w"> </span>node<span class="w"> </span>packages/web/tests/gradio-refold.mjs
+</pre></div>
+</div>
 </section>
 <section id="selection-invariants">
 <h2>Selection invariants<a class="headerlink" href="#selection-invariants" title="Link to this heading">¶</a></h2>

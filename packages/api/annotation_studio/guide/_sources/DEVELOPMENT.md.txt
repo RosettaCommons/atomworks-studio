@@ -136,6 +136,17 @@ For private Spaces, supply `HF_TOKEN` through the environment and set
 `STUDIO_PARENT_ORIGIN=https://huggingface.co` to reproduce the Hub's nested iframe.
 The test sends authentication only to the configured Studio origin.
 
+The Refold panel has two checks of its own. `packages/web/tests/refold-panel.mjs`
+runs the panel against a fake provider without any server (terms dialog, Refold
+all, Stop, rows, overlays); `packages/web/tests/embed-api.mjs` mounts it through
+`window.atomworksStudio`. For the Gradio host, start the simulated deployment and
+drive it end to end:
+
+```bash
+python scripts/preview_generation.py --delay 1 --refold --port 8792 &
+GRADIO_URL=http://127.0.0.1:8792/design/ node packages/web/tests/gradio-refold.mjs
+```
+
 ## Selection invariants
 
 `SelectionController` owns the selected atom set. A toggle changes only its target:

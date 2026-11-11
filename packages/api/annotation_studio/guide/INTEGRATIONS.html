@@ -52,13 +52,13 @@ definitions that the full Studio installation uses.</p>
 
 <span class="n">providers</span> <span class="o">=</span> <span class="n">load_providers</span><span class="p">()</span>
 <span class="n">document</span> <span class="o">=</span> <span class="n">StudioDocument</span><span class="o">.</span><span class="n">from_cif</span><span class="p">(</span>
-    <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;input.cif&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(),</span>
+    <span class="n">Path</span><span class="p">(</span><span class="s2">"input.cif"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(),</span>
     <span class="n">condition_provider</span><span class="o">=</span><span class="n">providers</span><span class="o">.</span><span class="n">condition_provider</span><span class="p">,</span>
     <span class="n">validation_provider</span><span class="o">=</span><span class="n">providers</span><span class="o">.</span><span class="n">validation_provider</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="n">indices</span> <span class="o">=</span> <span class="n">document</span><span class="o">.</span><span class="n">query_indices</span><span class="p">(</span><span class="s2">&quot;sel(&#39;*/*/*/CA&#39;)&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-<span class="n">document</span><span class="o">.</span><span class="n">set_condition</span><span class="p">(</span><span class="s2">&quot;sequence&quot;</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span>
-<span class="n">Path</span><span class="p">(</span><span class="s2">&quot;annotated.cif&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">document</span><span class="o">.</span><span class="n">to_cif</span><span class="p">())</span>
+<span class="n">indices</span> <span class="o">=</span> <span class="n">document</span><span class="o">.</span><span class="n">query_indices</span><span class="p">(</span><span class="s2">"sel('*/*/*/CA')"</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<span class="n">document</span><span class="o">.</span><span class="n">set_condition</span><span class="p">(</span><span class="s2">"sequence"</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span>
+<span class="n">Path</span><span class="p">(</span><span class="s2">"annotated.cif"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">document</span><span class="o">.</span><span class="n">to_cif</span><span class="p">())</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">StudioDocument(array,</span> <span class="pre">...)</span></code> also accepts an AtomWorks <code class="docutils literal notranslate"><span class="pre">AtomArrayPlus</span></code> directly.
@@ -70,7 +70,7 @@ when preparing model inputs; serialization alone is not a validation check.</p>
 <p>The executable <a class="reference external" href="https://github.com/RosettaCommons/atomworks-studio/blob/main/examples/annotate.py">annotation example</a>
 uses these same calls. From the repository:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>examples/annotate.py<span class="w"> </span>packages/api/annotation_studio/examples/protein_binder.cif<span class="w"> </span>annotated.cif<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--query<span class="w"> </span><span class="s2">&quot;sel(&#39;*/*/*/CA&#39;)&quot;</span><span class="w"> </span>--condition<span class="w"> </span>hotspot
+<span class="w">  </span>--query<span class="w"> </span><span class="s2">"sel('*/*/*/CA')"</span><span class="w"> </span>--condition<span class="w"> </span>hotspot
 </pre></div>
 </div>
 </section>
@@ -157,25 +157,28 @@ is one Undo step and the document on the server stays the source of truth.</p>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">chainColor(chainId)</span></code></p></td>
 <td><p>The colour Studio draws a chain in, so your own UI can match.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">version</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">mountRefoldPanel(container,</span> <span class="pre">provider,</span> <span class="pre">options)</span></code></p></td>
+<td><p>Mount Studio’s Refold panel and give it a folding backend. See <a class="reference internal" href="#refold-panel">Refold panel</a>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">version</span></code></p></td>
 <td><p>The Studio release the page was built from.</p></td>
 </tr>
 </tbody>
 </table>
 <p>A host that serves the bundle itself usually does not want Studio’s offline cache
 pinning its assets. Turn it off in the composed page:</p>
-<div class="highlight-html notranslate"><div class="highlight"><pre><span></span><span class="p">&lt;</span><span class="nt">meta</span> <span class="na">name</span><span class="o">=</span><span class="s">&quot;atomworks-studio-service-worker&quot;</span> <span class="na">content</span><span class="o">=</span><span class="s">&quot;off&quot;</span> <span class="p">/&gt;</span>
+<div class="highlight-html notranslate"><div class="highlight"><pre><span></span><span class="p">&lt;</span><span class="nt">meta</span> <span class="na">name</span><span class="o">=</span><span class="s">"atomworks-studio-service-worker"</span> <span class="na">content</span><span class="o">=</span><span class="s">"off"</span> <span class="p">/&gt;</span>
 </pre></div>
 </div>
 <p>Same-page hosts receive the <code class="docutils literal notranslate"><span class="pre">ready</span></code>, <code class="docutils literal notranslate"><span class="pre">changed</span></code> and <code class="docutils literal notranslate"><span class="pre">example</span></code> notifications an iframe
 host gets over <code class="docutils literal notranslate"><span class="pre">postMessage</span></code>, as an <code class="docutils literal notranslate"><span class="pre">atomworks-studio</span></code> window event carrying the same
 payload (<code class="docutils literal notranslate"><span class="pre">source</span></code>, <code class="docutils literal notranslate"><span class="pre">type</span></code>, <code class="docutils literal notranslate"><span class="pre">session_id</span></code>), plus <code class="docutils literal notranslate"><span class="pre">selection</span></code> with a <code class="docutils literal notranslate"><span class="pre">count</span></code> whenever the
 selection changes.</p>
-<div class="highlight-js notranslate"><div class="highlight"><pre><span></span><span class="nb">window</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="s2">&quot;atomworks-studio&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">detail</span><span class="p">.</span><span class="nx">type</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s2">&quot;changed&quot;</span><span class="p">)</span><span class="w"> </span><span class="nx">refreshMyPanel</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">detail</span><span class="p">.</span><span class="nx">sessionId</span><span class="p">);</span>
+<div class="highlight-js notranslate"><div class="highlight"><pre><span></span><span class="nb">window</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="s2">"atomworks-studio"</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">detail</span><span class="p">.</span><span class="nx">type</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s2">"changed"</span><span class="p">)</span><span class="w"> </span><span class="nx">refreshMyPanel</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">detail</span><span class="p">.</span><span class="nx">sessionId</span><span class="p">);</span>
 <span class="p">});</span>
-<span class="k">await</span><span class="w"> </span><span class="nb">window</span><span class="p">.</span><span class="nx">atomworksStudio</span><span class="p">.</span><span class="nx">openExample</span><span class="p">(</span><span class="s2">&quot;motif_scaffolding&quot;</span><span class="p">);</span>
-<span class="k">await</span><span class="w"> </span><span class="nb">window</span><span class="p">.</span><span class="nx">atomworksStudio</span><span class="p">.</span><span class="nx">renderFrame</span><span class="p">(</span><span class="nx">cif</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;step 12&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">keepCamera</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">});</span>
+<span class="k">await</span><span class="w"> </span><span class="nb">window</span><span class="p">.</span><span class="nx">atomworksStudio</span><span class="p">.</span><span class="nx">openExample</span><span class="p">(</span><span class="s2">"motif_scaffolding"</span><span class="p">);</span>
+<span class="k">await</span><span class="w"> </span><span class="nb">window</span><span class="p">.</span><span class="nx">atomworksStudio</span><span class="p">.</span><span class="nx">renderFrame</span><span class="p">(</span><span class="nx">cif</span><span class="p">,</span><span class="w"> </span><span class="s2">"step 12"</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">keepCamera</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">});</span>
 </pre></div>
 </div>
 </section>
@@ -218,13 +221,13 @@ returns <code class="docutils literal notranslate"><span class="pre">designs</sp
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">gradio_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
 
-<span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;https://&lt;space&gt;.hf.space/design/&quot;</span><span class="p">,</span> <span class="n">token</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;HF_TOKEN&quot;</span><span class="p">])</span>
+<span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">"https://&lt;space&gt;.hf.space/design/"</span><span class="p">,</span> <span class="n">token</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"HF_TOKEN"</span><span class="p">])</span>
 <span class="n">result</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
-    <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;input.cif&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(),</span>
-    <span class="p">{</span><span class="s2">&quot;thinking&quot;</span><span class="p">:</span> <span class="s2">&quot;medium&quot;</span><span class="p">,</span> <span class="s2">&quot;samples&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;seed&quot;</span><span class="p">:</span> <span class="mi">42</span><span class="p">},</span>
-    <span class="n">api_name</span><span class="o">=</span><span class="s2">&quot;/generate_cif&quot;</span><span class="p">,</span>
+    <span class="n">Path</span><span class="p">(</span><span class="s2">"input.cif"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(),</span>
+    <span class="p">{</span><span class="s2">"thinking"</span><span class="p">:</span> <span class="s2">"medium"</span><span class="p">,</span> <span class="s2">"samples"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"seed"</span><span class="p">:</span> <span class="mi">42</span><span class="p">},</span>
+    <span class="n">api_name</span><span class="o">=</span><span class="s2">"/generate_cif"</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="n">Path</span><span class="p">(</span><span class="s2">&quot;design.cif&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;designs&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+<span class="n">Path</span><span class="p">(</span><span class="s2">"design.cif"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">"designs"</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
 </pre></div>
 </div>
 <p>The editor button and this endpoint call the same validated model callback.</p>
@@ -235,8 +238,8 @@ RFD4 partial diffusion is controlled by <code class="docutils literal notranslat
 <code class="docutils literal notranslate"><span class="pre">partial_diffusion:</span> <span class="pre">true</span></code>, <code class="docutils literal notranslate"><span class="pre">partial_diffusion_percent</span></code> ranges from 1 to 100 and
 defaults to 70; the deployment maps it to
 <code class="docutils literal notranslate"><span class="pre">generation.args.partial_trajectory_fraction_steps</span></code> by dividing by 100.</p>
-<p>A provider may implement three optional members, each read with a default so
-providers written against earlier releases keep working: <code class="docutils literal notranslate"><span class="pre">default_example</span></code>, an
+<p>A provider may implement optional members, each read with a default so
+providers written against earlier releases keep working. Three are about generation: <code class="docutils literal notranslate"><span class="pre">default_example</span></code>, an
 example id Studio opens on instead of an empty editor; <code class="docutils literal notranslate"><span class="pre">css</span></code>, appended to
 Studio’s own so provider element ids stay out of the host; and
 <code class="docutils literal notranslate"><span class="pre">validate_input(snapshot,</span> <span class="pre">options)</span></code>, which rejects an input the chosen options
@@ -244,7 +247,9 @@ cannot run on before any GPU time is spent. The RFD4 provider uses the last of
 these to refuse partial diffusion on expandable segments, reading
 <code class="docutils literal notranslate"><span class="pre">has_expandable_segments</span></code> from the same exported snapshot — this includes
 realized segments whose residues are still undefined. Generate a fully defined
-input first, or use the partial diffusion example.</p>
+input first, or use the partial diffusion example. The refold members
+(<code class="docutils literal notranslate"><span class="pre">refold_models</span></code>, <code class="docutils literal notranslate"><span class="pre">refold_limits</span></code>, <code class="docutils literal notranslate"><span class="pre">validate_refold</span></code>) are described under
+<a class="reference internal" href="#refold-panel">Refold panel</a>.</p>
 <p>Run <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">scripts/preview_generation.py</span></code> to see this UI locally with a
 simulated model, including the generation and failure states.</p>
 <p>The deployment owns model weights, CUDA dependencies and execution. Pass native
@@ -274,6 +279,149 @@ and launch instructions.</p>
 result CIFs. The deployment owns eager or compiled execution, progress,
 trajectories, and refolding metrics. Test generation on the intended GPU;
 editor handoff tests use a test callback.</p>
+</section>
+</section>
+<section id="refold-panel">
+<h2>Refold panel<a class="headerlink" href="#refold-panel" title="Link to this heading">¶</a></h2>
+<p>Folding a design again with an independent model and scoring how it comes back
+is the usual next step after generating one. Studio owns the interface for it,
+once, so every host shows the same panel: the Designs table with one row of
+numbers per design (RMSD, pLDDT, and for an interface ipTM and iPAE, sortable,
+✓ where upstream’s pass criteria hold, greyed where they fail), and under it the
+Refold box with <strong>Model</strong>, <strong>Seed</strong> (0 to 4294967295, default 0), <strong>Recycles</strong>
+(0, 1, 2, 3, 5, 10; default 3) and <strong>Steps</strong> (25, 50, 100, 200; default 25), a
+<strong>Refold all</strong> button that becomes <strong>Stop</strong> while it runs and fills with the
+run’s progress, and a line for a failure. The refold of the design on show is
+drawn over it as a magenta cartoon, its ligands as sticks, through <code class="docutils literal notranslate"><span class="pre">setOverlay</span></code>.</p>
+<p>A host supplies what folds. Two are in use: the
+<a class="reference external" href="https://github.com/sokrypton/rfd4-proteina-webgpu">RFD4-Proteina page</a> folds in
+the browser with LocalFold on WebGPU, and the Gradio host calls a callback on the
+server. Neither keeps its own copy of the interface.</p>
+<section id="licence-gated-models">
+<h3>Licence-gated models<a class="headerlink" href="#licence-gated-models" title="Link to this heading">¶</a></h3>
+<p>AlphaFold 3’s parameters are Google DeepMind’s, not available for commercial use
+and under a prohibited-use policy. Studio therefore knows <code class="docutils literal notranslate"><span class="pre">af3</span></code> as a gated model:
+choosing it and pressing Refold opens the <strong>AlphaFold 3 model parameters</strong> dialog
+with the terms, links to DeepMind’s <code class="docutils literal notranslate"><span class="pre">WEIGHTS_TERMS_OF_USE.md</span></code> and
+<code class="docutils literal notranslate"><span class="pre">WEIGHTS_PROHIBITED_USE_POLICY.md</span></code>, and three buttons: <strong>Use OpenBind-0</strong> (the same
+architecture under Apache 2.0, a different model), <strong>I agree, use AlphaFold 3</strong>
+and <strong>Cancel</strong>. Agreement is remembered once per browser (<code class="docutils literal notranslate"><span class="pre">localStorage</span></code>, key
+<code class="docutils literal notranslate"><span class="pre">atomworks-studio.refoldTerms.af3</span></code>) and the panel never calls <code class="docutils literal notranslate"><span class="pre">prepare</span></code> for the
+model, so nothing is downloaded on the person’s behalf before they decide. The
+wording lives in Studio (<code class="docutils literal notranslate"><span class="pre">ALPHAFOLD3_TERMS</span></code>), not in each host. A host that is
+licensed to serve the weights itself lists the model with <code class="docutils literal notranslate"><span class="pre">terms:</span> <span class="pre">null</span></code>; whether
+that is permitted is the host’s decision, not a default.</p>
+<p>OpenBind-0 is listed as <code class="docutils literal notranslate"><span class="pre">{id:</span> <span class="pre">&quot;openbind0&quot;}</span></code> and has no dialog.</p>
+</section>
+<section id="the-browser-contract">
+<h3>The browser contract<a class="headerlink" href="#the-browser-contract" title="Link to this heading">¶</a></h3>
+<p>Same page as Studio: <code class="docutils literal notranslate"><span class="pre">window.atomworksStudio.mountRefoldPanel(container,</span> <span class="pre">provider,</span> <span class="pre">options)</span></code>. Any other page (the Gradio host mounts it above an iframe of the
+editor) imports the same code from <code class="docutils literal notranslate"><span class="pre">refold-panel.js</span></code>, served next to Studio’s
+bundle: <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">{</span> <span class="pre">mountRefoldPanel</span> <span class="pre">}</span> <span class="pre">from</span> <span class="pre">&quot;/refold-panel.js&quot;</span></code>. Both run one
+implementation. The panel injects its own styles; mount it in a shadow root to
+keep a host’s global CSS out.</p>
+<div class="highlight-ts notranslate"><div class="highlight"><pre><span></span><span class="kd">const</span><span class="w"> </span><span class="nx">panel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">window</span><span class="p">.</span><span class="nx">atomworksStudio</span><span class="p">.</span><span class="nx">mountRefoldPanel</span><span class="p">(</span><span class="nx">container</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// In menu order. A known id ("af3", "openbind0") needs nothing else.</span>
+<span class="w">  </span><span class="nx">models</span><span class="o">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="s2">"af3"</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="s2">"openbind0"</span><span class="w"> </span><span class="p">}],</span>
+<span class="w">  </span><span class="c1">// Optional. Anything left out keeps the values above.</span>
+<span class="w">  </span><span class="nx">limits</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">steps</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">options</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="mf">25</span><span class="p">,</span><span class="w"> </span><span class="mf">50</span><span class="p">,</span><span class="w"> </span><span class="mf">100</span><span class="p">,</span><span class="w"> </span><span class="mf">200</span><span class="p">],</span><span class="w"> </span><span class="nx">default</span><span class="o">:</span><span class="w"> </span><span class="kt">25</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="nx">recycles</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">options</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="mf">2</span><span class="p">,</span><span class="w"> </span><span class="mf">3</span><span class="p">,</span><span class="w"> </span><span class="mf">5</span><span class="p">,</span><span class="w"> </span><span class="mf">10</span><span class="p">],</span><span class="w"> </span><span class="nx">default</span><span class="o">:</span><span class="w"> </span><span class="kt">3</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="c1">// Fold one design. Reject on failure, and as soon as `signal` aborts (Stop).</span>
+<span class="w">  </span><span class="k">async</span><span class="w"> </span><span class="nx">refold</span><span class="p">(</span><span class="nx">design</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">model</span><span class="p">,</span><span class="w"> </span><span class="nx">seed</span><span class="p">,</span><span class="w"> </span><span class="nx">recycles</span><span class="p">,</span><span class="w"> </span><span class="nx">steps</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">signal</span><span class="p">,</span><span class="w"> </span><span class="nx">onStatus</span><span class="w"> </span><span class="p">})</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">onStatus</span><span class="p">({</span><span class="w"> </span><span class="nx">text</span><span class="o">:</span><span class="w"> </span><span class="s2">"trunk"</span><span class="p">,</span><span class="w"> </span><span class="nx">fraction</span><span class="o">:</span><span class="w"> </span><span class="kt">0.4</span><span class="w"> </span><span class="p">});</span><span class="w">          </span><span class="c1">// the button fills with `fraction`</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">cif</span><span class="p">,</span><span class="w">                       </span><span class="c1">// the refold's polymer chains, in the design's frame: drawn as a cartoon</span>
+<span class="w">      </span><span class="nx">ligandCif</span><span class="p">,</span><span class="w">                 </span><span class="c1">// optional: its ligands, drawn as sticks</span>
+<span class="w">      </span><span class="nx">metrics</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">rmsd</span><span class="p">,</span><span class="w"> </span><span class="nx">placedRmsd</span><span class="p">,</span><span class="w"> </span><span class="nx">plddt</span><span class="p">,</span><span class="w"> </span><span class="nx">ptm</span><span class="p">,</span><span class="w"> </span><span class="nx">iptm</span><span class="p">,</span><span class="w"> </span><span class="nx">chainPtm</span><span class="p">,</span><span class="w"> </span><span class="nx">minIpae</span><span class="w"> </span><span class="p">},</span><span class="w">   </span><span class="c1">// a number that does not apply: NaN or null</span>
+<span class="w">      </span><span class="nx">text</span><span class="o">:</span><span class="w"> </span><span class="s2">"AlphaFold 3 refold: 1.2 Å RMSD · pLDDT 91"</span><span class="p">,</span><span class="w">    </span><span class="c1">// optional, kept with the record</span>
+<span class="w">      </span><span class="nx">pass</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span><span class="w">                </span><span class="c1">// optional: a verdict of your own; otherwise judged from `design.kind`</span>
+<span class="w">      </span><span class="nx">data</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">pdb</span><span class="w"> </span><span class="p">},</span><span class="w">             </span><span class="c1">// optional: yours, handed back by `panel.records(id)`</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">prepare</span><span class="o">:</span><span class="w"> </span><span class="kt">async</span><span class="w"> </span><span class="p">(</span><span class="nx">model</span><span class="p">,</span><span class="w"> </span><span class="nx">onProgress</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{},</span><span class="w">  </span><span class="c1">// optional: fetch parameters ahead of the click (never for a model whose terms are not agreed)</span>
+<span class="w">  </span><span class="nx">available</span><span class="o">:</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">                     </span><span class="c1">// optional: false hides the Refold box and the rows' ↻</span>
+<span class="p">},</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">nameHeader</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="s2">"Seed"</span><span class="p">,</span><span class="w"> </span><span class="nx">title</span><span class="o">:</span><span class="w"> </span><span class="s2">"Each design is named by its seed"</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">describe</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">design</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="sb">`seed </span><span class="si">${</span><span class="nx">design</span><span class="p">.</span><span class="nx">name</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span><span class="w">   </span><span class="c1">// how the progress line names a design</span>
+<span class="w">  </span><span class="nx">onSelect</span><span class="o">:</span><span class="w"> </span><span class="kt">async</span><span class="w"> </span><span class="p">(</span><span class="nx">id</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{},</span><span class="w">                    </span><span class="c1">// a row was chosen: show that design, resolve once it is on screen</span>
+<span class="w">  </span><span class="nx">overlay</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">key</span><span class="p">,</span><span class="w"> </span><span class="nx">cif</span><span class="p">,</span><span class="w"> </span><span class="nx">options</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{},</span><span class="w">            </span><span class="c1">// default: Studio's own setOverlay</span>
+<span class="w">  </span><span class="nx">onDownload</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">design</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{},</span><span class="w">                    </span><span class="c1">// default: save design.cif</span>
+<span class="p">});</span>
+
+<span class="nx">panel</span><span class="p">.</span><span class="nx">setDesigns</span><span class="p">([{</span><span class="w"> </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="s2">"s1"</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="s2">"163509"</span><span class="p">,</span><span class="w"> </span><span class="nx">cif</span><span class="p">,</span><span class="w"> </span><span class="nx">kind</span><span class="o">:</span><span class="w"> </span><span class="s2">"binder"</span><span class="p">,</span><span class="w"> </span><span class="nx">data</span><span class="o">:</span><span class="w"> </span><span class="kt">anything</span><span class="w"> </span><span class="p">}]);</span><span class="w">  </span><span class="c1">// refolds of a design that stays are kept</span>
+<span class="k">await</span><span class="w"> </span><span class="nx">panel</span><span class="p">.</span><span class="nx">setSelected</span><span class="p">(</span><span class="s2">"s1"</span><span class="p">);</span><span class="w">     </span><span class="c1">// the host showed that design: its refold is drawn over it</span>
+<span class="nx">panel</span><span class="p">.</span><span class="nx">refold</span><span class="p">();</span><span class="w">                    </span><span class="c1">// Refold all; panel.refold(["s1"]) for one</span>
+<span class="nx">panel</span><span class="p">.</span><span class="nx">prefetch</span><span class="p">();</span><span class="w">                  </span><span class="c1">// optional: call `prepare` for the selected model while the machine is idle</span>
+<span class="nx">panel</span><span class="p">.</span><span class="nx">records</span><span class="p">(</span><span class="s2">"s1"</span><span class="p">);</span><span class="w">               </span><span class="c1">// every refold made of it, with the settings: for a results .zip</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><strong>Designs</strong> are folded one after another, never two at once. <strong>Refold all</strong> skips
+a design already refolded with the settings in the box and shows that refold
+instead, so going back to earlier settings brings their numbers back.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">design.kind</span></code> (<code class="docutils literal notranslate"><span class="pre">&quot;monomer&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;binder&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;antibody&quot;</span></code>, or none) picks the pass
+criteria: monomer RMSD ≤ 1.5 Å; binder chain pTM ≥ 0.8, min iPAE ≤ 1.5 Å, placed
+RMSD ≤ 2.5 Å; antibody min iPAE ≤ 2.0 Å, placed RMSD ≤ 2.0 Å. Other jobs show
+numbers and no verdict, unless <code class="docutils literal notranslate"><span class="pre">refold</span></code> returns <code class="docutils literal notranslate"><span class="pre">pass</span></code>.</p></li>
+<li><p>The metrics are the names of upstream’s criteria: <code class="docutils literal notranslate"><span class="pre">rmsd</span></code> (designed chains fitted
+on themselves), <code class="docutils literal notranslate"><span class="pre">placedRmsd</span></code> (fitted on everything else, so where a binder sits
+counts), <code class="docutils literal notranslate"><span class="pre">chainPtm</span></code>, <code class="docutils literal notranslate"><span class="pre">minIpae</span></code>, and the refold model’s <code class="docutils literal notranslate"><span class="pre">plddt</span></code>, <code class="docutils literal notranslate"><span class="pre">ptm</span></code>, <code class="docutils literal notranslate"><span class="pre">iptm</span></code>.</p></li>
+<li><p>Model options are only offered; the panel does not enforce a licence on the
+server. A host that serves restricted weights checks its own terms.</p></li>
+</ul>
+</section>
+<section id="the-gradio-host">
+<h3>The Gradio host<a class="headerlink" href="#the-gradio-host" title="Link to this heading">¶</a></h3>
+<p>A Python deployment opts in with three optional provider members and one callback,
+following the optional members above. A provider without <code class="docutils literal notranslate"><span class="pre">refold_models</span></code>, or a
+deployment without <code class="docutils literal notranslate"><span class="pre">refold_fn</span></code>, behaves exactly as before: no panel, no route, the
+same handler outputs.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">MyProvider</span><span class="p">:</span>
+    <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">refold_models</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>           <span class="c1"># required to enable refolding</span>
+        <span class="k">return</span> <span class="p">[{</span><span class="s2">"id"</span><span class="p">:</span> <span class="s2">"af3"</span><span class="p">},</span> <span class="p">{</span><span class="s2">"id"</span><span class="p">:</span> <span class="s2">"openbind0"</span><span class="p">}]</span>  <span class="c1"># or "terms": None, "label": "...", for models of your own</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">refold_limits</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>                 <span class="c1"># optional, over Studio's defaults</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"steps"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"options"</span><span class="p">:</span> <span class="p">[</span><span class="mi">25</span><span class="p">,</span> <span class="mi">50</span><span class="p">],</span> <span class="s2">"default"</span><span class="p">:</span> <span class="mi">25</span><span class="p">}}</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_refold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">options</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>  <span class="c1"># optional, replaces the default check</span>
+        <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">refold</span><span class="p">(</span><span class="n">design_cif</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">options</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""options: {"model", "seed", "recycles", "steps"}, already validated."""</span>
+    <span class="o">...</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"cif"</span><span class="p">:</span> <span class="n">refolded_polymers_cif</span><span class="p">,</span>      <span class="c1"># required: in the design's frame</span>
+        <span class="s2">"ligand_cif"</span><span class="p">:</span> <span class="n">ligands_cif</span><span class="p">,</span>         <span class="c1"># optional</span>
+        <span class="s2">"metrics"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"rmsd"</span><span class="p">:</span> <span class="mf">1.2</span><span class="p">,</span> <span class="s2">"placed_rmsd"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">"plddt"</span><span class="p">:</span> <span class="mf">91.0</span><span class="p">,</span> <span class="s2">"ptm"</span><span class="p">:</span> <span class="mf">0.9</span><span class="p">,</span> <span class="s2">"iptm"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="s2">"chain_ptm"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">"min_ipae"</span><span class="p">:</span> <span class="kc">None</span><span class="p">},</span>      <span class="c1"># None or NaN where a number does not apply</span>
+        <span class="s2">"text"</span><span class="p">:</span> <span class="s2">"AlphaFold 3 refold: 1.2 Å RMSD"</span><span class="p">,</span>              <span class="c1"># optional</span>
+        <span class="s2">"passed"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>                                         <span class="c1"># optional verdict</span>
+    <span class="p">}</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">create_app</span><span class="p">(</span><span class="n">provider</span><span class="o">=</span><span class="n">MyProvider</span><span class="p">(),</span> <span class="n">generate_fn</span><span class="o">=</span><span class="n">generate</span><span class="p">,</span> <span class="n">refold_fn</span><span class="o">=</span><span class="n">refold</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">refold</span></code> runs off the API loop, one at a time. On ZeroGPU, wrap it in
+<code class="docutils literal notranslate"><span class="pre">spaces.GPU</span></code> as for <code class="docutils literal notranslate"><span class="pre">generate</span></code>: both go through Gradio’s queue, the panel’s
+requests included, so quota and queueing behave as for any other click. The
+model runtime stays in the deployment; Studio adds none.</p>
+<p>The default validation accepts <code class="docutils literal notranslate"><span class="pre">model</span></code> among those offered, <code class="docutils literal notranslate"><span class="pre">seed</span></code> as a whole
+number in range, and <code class="docutils literal notranslate"><span class="pre">recycles</span></code> and <code class="docutils literal notranslate"><span class="pre">steps</span></code> among the options, and fills what is
+left out with the defaults. Errors reach scripts as a <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> and the panel
+as a message on the failed row’s line.</p>
+<p>Under the generation controls the host then shows the panel, filled with the
+designs each run produces. Choosing a row opens that design in the editor, as the
+View selector does, and the refold is drawn over it. The same refold is reachable
+for scripts:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">result</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
+    <span class="n">Path</span><span class="p">(</span><span class="s2">"design.cif"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(),</span>
+    <span class="p">{</span><span class="s2">"model"</span><span class="p">:</span> <span class="s2">"openbind0"</span><span class="p">,</span> <span class="s2">"seed"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"recycles"</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">"steps"</span><span class="p">:</span> <span class="mi">25</span><span class="p">},</span>
+    <span class="n">api_name</span><span class="o">=</span><span class="s2">"/refold_cif"</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="c1"># result["cif"], result["ligand_cif"], result["metrics"], result["text"], result["passed"]</span>
+</pre></div>
+</div>
+<p>Stop in the panel abandons the wait; a fold the server has already started runs to
+the end, since the queue does not cancel running jobs. <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">scripts/preview_generation.py</span> <span class="pre">--refold</span></code> shows the panel locally with a simulated
+fold.</p>
 </section>
 </section>
 <section id="nim-and-other-inference-services">

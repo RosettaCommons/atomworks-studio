@@ -121,8 +121,8 @@ def shape_refold_result(raw: Any) -> dict:
 
     `refold_fn` returns a dict: `cif` (the refold's polymer chains in the design's frame, required), optionally
     `ligand_cif`, `metrics` (`rmsd`, `placed_rmsd`, `plddt`, `ptm`, `iptm`, `chain_ptm`, `min_ipae`, ...; a number
-    that does not apply is None or NaN), `text` (one line describing it) and `passed` (a verdict, when the deployment judges
-    the design itself).
+    that does not apply is None or NaN), `text` (one line describing it) and `passed` (a verdict, when the
+    deployment judges the design itself).
     """
     if not isinstance(raw, dict) or not isinstance(raw.get("cif"), str) or not raw["cif"].strip():
         raise ValueError("The refold returned no structure")

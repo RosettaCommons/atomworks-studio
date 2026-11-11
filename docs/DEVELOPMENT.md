@@ -129,6 +129,17 @@ ANNOTATION_STUDIO_URL=http://127.0.0.1:8791/ GRADIO_URL=http://127.0.0.1:8791/de
   VIEWER_MODE=molstar node packages/web/tests/editor-qol.mjs
 ```
 
+The Refold panel has two checks of its own. `packages/web/tests/refold-panel.mjs`
+runs the panel against a fake provider without any server (terms dialog, Refold
+all, Stop, rows, overlays); `packages/web/tests/embed-api.mjs` mounts it through
+`window.atomworksStudio`. For the Gradio host, start the simulated deployment and
+drive it end to end:
+
+```bash
+python scripts/preview_generation.py --delay 1 --refold --port 8792 &
+GRADIO_URL=http://127.0.0.1:8792/design/ node packages/web/tests/gradio-refold.mjs
+```
+
 Repeat with the other viewer. `STUDIO_TEST_GENERATE=1` also submits one antibody
 input, reopens the result, and checks that switching examples clears old results;
 use an echo runner locally or explicitly enable it against a model deployment.

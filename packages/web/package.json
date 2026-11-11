@@ -13,6 +13,7 @@
     "test:overlay-representation": "node tests/overlay-representation.mjs",
     "test:embed-api": "node tests/embed-api.mjs",
     "test:refold-panel": "node tests/refold-panel.mjs",
+    "test:gradio-refold": "node tests/gradio-refold.mjs",
     "test:workbench": "node tests/workbench.mjs",
     "test:menus": "node tests/menu-layout.mjs",
     "test:editor": "node tests/editor-qol.mjs",

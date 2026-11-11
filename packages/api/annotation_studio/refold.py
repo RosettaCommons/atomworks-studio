@@ -23,8 +23,14 @@ DEFAULT_REFOLD_LIMITS: dict[str, Any] = {
 MAX_REFOLD_CIF_BYTES = 10 * 1024 * 1024
 
 _METRIC_KEYS = {
-    "rmsd": "rmsd", "placed_rmsd": "placedRmsd", "plddt": "plddt", "ptm": "ptm", "iptm": "iptm",
-    "chain_ptm": "chainPtm", "min_ipae": "minIpae", "motif_rmsd": "motifRmsd",
+    "rmsd": "rmsd",
+    "placed_rmsd": "placedRmsd",
+    "plddt": "plddt",
+    "ptm": "ptm",
+    "iptm": "iptm",
+    "chain_ptm": "chainPtm",
+    "min_ipae": "minIpae",
+    "motif_rmsd": "motifRmsd",
     "motif_backbone_rmsd": "motifBackboneRmsd",
 }
 
@@ -43,7 +49,7 @@ def refold_models(provider: Any) -> list[dict]:
 
 
 def refold_limits(provider: Any) -> dict[str, Any]:
-    """The choices the panel offers and validation enforces: the provider's, over Studio's defaults, setting by setting."""
+    """The choices the panel offers and validation enforces: the provider's over Studio's defaults, per setting."""
     hook = getattr(provider, "refold_limits", None)
     given = dict(hook()) if hook is not None else {}
     limits = {key: dict(value) for key, value in DEFAULT_REFOLD_LIMITS.items()}
@@ -75,7 +81,11 @@ def validate_refold_options(options: dict, models: list[dict], limits: dict[str,
         raise ValueError(f"Unknown refold model {model!r}; choose from {ids}")
 
     def whole(name: str, value: Any) -> int:
-        if isinstance(value, bool) or not isinstance(value, int | float) or isinstance(value, float) and not value.is_integer():
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, int | float)
+            or (isinstance(value, float) and not value.is_integer())
+        ):
             raise ValueError(f"refold {name} must be a whole number")
         return int(value)
 
@@ -110,8 +120,8 @@ def shape_refold_result(raw: Any) -> dict:
     """The deployment's result as the route returns it.
 
     `refold_fn` returns a dict: `cif` (the refold's polymer chains in the design's frame, required), optionally
-    `ligand_cif`, `metrics` (`rmsd`, `placed_rmsd`, `plddt`, `ptm`, `iptm`, `chain_ptm`, `min_ipae`, ...; a number that does
-    not apply is None or NaN), `text` (one line describing it) and `passed` (a verdict, when the deployment judges
+    `ligand_cif`, `metrics` (`rmsd`, `placed_rmsd`, `plddt`, `ptm`, `iptm`, `chain_ptm`, `min_ipae`, ...; a number
+    that does not apply is None or NaN), `text` (one line describing it) and `passed` (a verdict, when the deployment judges
     the design itself).
     """
     if not isinstance(raw, dict) or not isinstance(raw.get("cif"), str) or not raw["cif"].strip():

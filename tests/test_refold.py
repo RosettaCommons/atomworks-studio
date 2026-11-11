@@ -44,7 +44,7 @@ class RefoldingProvider:
 
 
 class PlainProvider:
-    """A provider written before the refold hooks existed: the same members minus `refold_models` and `refold_limits`."""
+    """A provider written before the refold hooks existed: no `refold_models` or `refold_limits`."""
 
     title = RefoldingProvider.title
     warning_checks = RefoldingProvider.warning_checks
@@ -90,9 +90,12 @@ def test_models_and_limits_are_read_from_the_provider():
     with pytest.raises(ValueError, match="needs an id"):
         refold.refold_models(RefoldingProvider(models=[{"label": "x"}]))
     # A default that is not among the options falls back to the first option.
-    assert refold.refold_limits(RefoldingProvider(limits={"steps": {"options": [10, 20], "default": 99}}))["steps"][
-        "default"
-    ] == 10
+    assert (
+        refold.refold_limits(RefoldingProvider(limits={"steps": {"options": [10, 20], "default": 99}}))["steps"][
+            "default"
+        ]
+        == 10
+    )
 
 
 def test_a_provider_without_the_hooks_offers_nothing():
@@ -177,7 +180,12 @@ def test_the_route_and_the_panel_share_one_refold():
         seen.append((cif, options))
         if options["seed"] == 13:
             raise RuntimeError("secret detail the visitor should not see")
-        return {"cif": "data_refold\n", "ligand_cif": "data_ligand\n", "metrics": {"rmsd": 0.8, "plddt": 92.0}, "passed": True}
+        return {
+            "cif": "data_refold\n",
+            "ligand_cif": "data_ligand\n",
+            "metrics": {"rmsd": 0.8, "plddt": 92.0},
+            "passed": True,
+        }
 
     demo = _demo(RefoldingProvider(), refold_fn=fold)
     try:
@@ -185,7 +193,9 @@ def test_the_route_and_the_panel_share_one_refold():
         callbacks = _callbacks(demo)
 
         async def run():
-            direct = await callbacks["refold_cif"](DESIGN, {"model": "openbind0", "seed": 3, "recycles": 1, "steps": 50})
+            direct = await callbacks["refold_cif"](
+                DESIGN, {"model": "openbind0", "seed": 3, "recycles": 1, "steps": 50}
+            )
             assert direct["cif"] == "data_refold\n" and direct["ligand_cif"] == "data_ligand\n"
             assert direct["metrics"] == {"rmsd": 0.8, "plddt": 92.0} and direct["passed"] is True
             assert seen[-1] == (DESIGN, {"model": "openbind0", "seed": 3, "recycles": 1, "steps": 50})
@@ -199,17 +209,28 @@ def test_the_route_and_the_panel_share_one_refold():
             # The panel's request goes through the same path and answers over the bridge.
             ok = json.loads(
                 await callbacks["refold_design"](
-                    gr.EventData(None, {"request": "r1", "cif": DESIGN, "options": {"model": "af3", "seed": 4, "recycles": 3, "steps": 25}})
+                    gr.EventData(
+                        None,
+                        {
+                            "request": "r1",
+                            "cif": DESIGN,
+                            "options": {"model": "af3", "seed": 4, "recycles": 3, "steps": 25},
+                        },
+                    )
                 )
             )
             assert ok["type"] == "result" and ok["request"] == "r1"
             assert ok["result"]["ligandCif"] == "data_ligand\n" and ok["result"]["pass"] is True
             failed = json.loads(
-                await callbacks["refold_design"](gr.EventData(None, {"request": "r2", "cif": DESIGN, "options": {"seed": 13}}))
+                await callbacks["refold_design"](
+                    gr.EventData(None, {"request": "r2", "cif": DESIGN, "options": {"seed": 13}})
+                )
             )
             assert failed == {"type": "result", "request": "r2", "error": "The refold failed. Please retry."}
             invalid = json.loads(
-                await callbacks["refold_design"](gr.EventData(None, {"request": "r3", "cif": DESIGN, "options": {"steps": 7}}))
+                await callbacks["refold_design"](
+                    gr.EventData(None, {"request": "r3", "cif": DESIGN, "options": {"steps": 7}})
+                )
             )
             assert "steps must be one of" in invalid["error"]
 

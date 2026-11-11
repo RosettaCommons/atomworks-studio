@@ -192,7 +192,10 @@ def create_demo(
                 "module": editor_path.rstrip("/") + "/refold-panel.js",
             }
             gr.HTML(
-                "", html_template="", elem_id="refold-panel", padding=False,
+                "",
+                html_template="",
+                elem_id="refold-panel",
+                padding=False,
                 js_on_load=refold_support.HOST_JS.replace("__CONFIG__", json.dumps(config)),
             )
             refold_bus = gr.HTML(
@@ -287,7 +290,17 @@ def create_demo(
                 logging.getLogger(__name__).exception("Studio generation failed")
                 message = error.message if isinstance(error, gr.Error) else "The model request failed. Please retry."
                 failure = gr.Markdown(value=f"**Generation failed.** {html.escape(message)} Your input is unchanged.")
-                return gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(), failure, gr.skip(), gr.skip(), *panel(gr.skip())
+                return (
+                    gr.skip(),
+                    gr.skip(),
+                    gr.skip(),
+                    gr.skip(),
+                    gr.skip(),
+                    failure,
+                    gr.skip(),
+                    gr.skip(),
+                    *panel(gr.skip()),
+                )
 
         def inspect(session_id: str, paths: dict) -> tuple:
             if session_id not in paths:
@@ -319,7 +332,9 @@ def create_demo(
 
         bus = [refold_bus] if refolding else []
         editor.document(clear_results, outputs=[views, view, status, results_row, *bus], api_name=False)
-        editor.example(editor_example, outputs=[*controls.values(), views, view, status, results_row, *bus], api_name=False)
+        editor.example(
+            editor_example, outputs=[*controls.values(), views, view, status, results_row, *bus], api_name=False
+        )
         run.click(
             generate,
             [session, *controls.values()],
@@ -359,11 +374,15 @@ def create_demo(
                     result = await refold_cif(data.get("cif"), data.get("options"))
                 except Exception as error:
                     logging.getLogger(__name__).exception("Studio refold failed")
-                    reason = error.message if isinstance(error, gr.Error) else (
-                        str(error) if isinstance(error, ValueError) else "The refold failed. Please retry."
+                    reason = (
+                        error.message
+                        if isinstance(error, gr.Error)
+                        else (str(error) if isinstance(error, ValueError) else "The refold failed. Please retry.")
                     )
                     return refold_support.panel_message("result", request=request, error=reason)
-                return refold_support.panel_message("result", request=request, result=refold_support.panel_result(result))
+                return refold_support.panel_message(
+                    "result", request=request, result=refold_support.panel_result(result)
+                )
 
             refold_api_cif = gr.Textbox(visible=False)
             refold_api_options = gr.JSON(visible=False)
@@ -379,11 +398,19 @@ def create_demo(
                 show_progress="hidden",
             )
             refold_bus.refold(
-                refold_design, None, refold_bus, api_name=False, concurrency_limit=1, concurrency_id="refold",
+                refold_design,
+                None,
+                refold_bus,
+                api_name=False,
+                concurrency_limit=1,
+                concurrency_id="refold",
                 show_progress="hidden",
             )
             refold_bus.open_design(
-                open_design, [views], [session, editor, download, refold_bus, view], api_name=False,
+                open_design,
+                [views],
+                [session, editor, download, refold_bus, view],
+                api_name=False,
                 show_progress="hidden",
             )
     return demo.queue(max_size=8)

@@ -11,7 +11,9 @@ def main():
     parser.add_argument("--delay", type=float, default=20, help="Seconds to show the generation animation")
     parser.add_argument("--fail", action="store_true", help="Preview generation failure instead of returning the input")
     parser.add_argument(
-        "--refold", action="store_true", help="Also offer Studio's Refold panel, with a simulated refold (no model runs)"
+        "--refold",
+        action="store_true",
+        help="Also offer Studio's Refold panel, with a simulated refold (no model runs)",
     )
     parser.add_argument("--refold-delay", type=float, default=1.5, help="Seconds each simulated refold takes")
     args = parser.parse_args()

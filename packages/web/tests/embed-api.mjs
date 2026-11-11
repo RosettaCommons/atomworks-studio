@@ -19,7 +19,7 @@ const packageVersion = JSON.parse(readFileSync(new URL("../package.json", import
 
 const MEMBERS = [
   "renderFrame", "setOverlay", "setHighlight", "setLiveMode", "showDocument", "closeDocument", "openSession",
-  "openFile", "openExample", "applyEdit", "getSelection", "setSelection", "centerOn", "setTheme", "chainColor",
+  "openFile", "openExample", "applyEdit", "getSelection", "setSelection", "centerOn", "setTheme", "chainColor", "mountRefoldPanel",
 ];
 
 const browser = await chromium.launch(chromiumLaunchOptions());
@@ -108,6 +108,30 @@ try {
   assert.equal(await page.evaluate(() => window.atomworksStudio.chainColor("A")), colours[0], "and a chain keeps its colour");
   await page.evaluate(() => window.atomworksStudio.centerOn([0, 1]));
   await page.evaluate(() => window.atomworksStudio.centerOn([]));
+
+  // --- Refold panel: mounted through the API, folding through a host's provider, drawing through Studio's own overlays.
+  const refoldCif = readFileSync(new URL("../../../tests/fixtures/inverse_folding_2kl8.cif", import.meta.url), "utf8");
+  await page.evaluate((cif) => {
+    const host = document.createElement("div");
+    host.id = "refold-host";
+    document.body.append(host);
+    window.__refoldPanel = window.atomworksStudio.mountRefoldPanel(host, {
+      models: [{ id: "openbind0" }],
+      refold: async () => ({ cif, metrics: { rmsd: 1.1, plddt: 88 } }),
+    }, { nameHeader: { label: "Seed" } });
+    window.__refoldPanel.setDesigns([{ id: "d1", name: "7", kind: "monomer" }, { id: "d2", name: "8", kind: "monomer" }]);
+    return window.__refoldPanel.setSelected("d1");
+  }, refoldCif);
+  await page.locator("#refold-btn").click();
+  await page.waitForFunction(() => document.querySelector("#viewer").dataset.overlay_refold !== undefined
+    && Number(document.querySelector("#viewer").dataset.overlay_refold) > 0);
+  assert.equal(await page.locator(".refold-dtable tbody tr").count(), 2, "the panel lists the designs the host gave it");
+  assert.deepEqual(await page.locator(".refold-dtable tbody tr:first-child .refold-dt-num").allTextContents(), ["1.1", "88"]);
+  await page.evaluate(() => window.__refoldPanel.setSelected("d2"));
+  await page.waitForFunction(() => Number(document.querySelector("#viewer").dataset.overlay_refold ?? 0) > 0);
+  await page.evaluate(() => window.__refoldPanel.setSelected(null));
+  await page.waitForFunction(() => document.querySelector("#viewer").dataset.overlay_refold === undefined);
+  await page.evaluate(() => window.__refoldPanel.destroy());
 
   // --- Closing: the editor goes back to having nothing open, and a new document opens normally afterwards.
   await page.evaluate(() => window.atomworksStudio.setSelection([1, 2]));

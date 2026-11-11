@@ -97,5 +97,14 @@ export default defineConfig({
   base: "./",
   build: {
     target: "es2022",
+    rollupOptions: {
+      // The Refold panel is also a module of its own, at a fixed path, for a host page that is not Studio (the Gradio
+      // host mounts it above an iframe of the editor). It shares its code with the main bundle.
+      input: { index: resolve("index.html"), "refold-panel": resolve("src/refold/standalone.ts") },
+      preserveEntrySignatures: "strict",
+      output: {
+        entryFileNames: (chunk) => (chunk.name === "refold-panel" ? "refold-panel.js" : "assets/[name]-[hash].js"),
+      },
+    },
   },
 });

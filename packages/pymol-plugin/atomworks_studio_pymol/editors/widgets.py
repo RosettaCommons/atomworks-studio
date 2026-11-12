@@ -48,7 +48,7 @@ class BaseAnnotationEditor:
         obj_name = self._state.active
         if not obj_name or obj_name not in self._state.index_maps:
             return []
-        return selection_to_indices(selection, self._state.index_maps[obj_name])
+        return selection_to_indices(selection, self._state.index_maps[obj_name], obj_name)
 
     def _require_selection_indices(self, selection: str = "sele") -> list[int] | None:
         """Return selection indices, or ``None`` (after a popup) if nothing is selected.
@@ -476,6 +476,8 @@ class PairValueEditor(_QtWidgets.QWidget, BaseAnnotationEditor):
         self._picked: list[tuple[tuple, str, str, int] | None] = [None, None]
         self._pairs: list[tuple[tuple, tuple, float, str, int]] = []
         self._timers: list = [None, None]  # one QTimer per slot
+        # PyMOL's mouse_selection_mode while picking is active (picking forces atom mode).
+        self._saved_selection_mode: str | None = None
 
         self._btn_pick1.clicked.connect(lambda: self._toggle_picking(0))
         self._btn_pick2.clicked.connect(lambda: self._toggle_picking(1))
@@ -510,6 +512,10 @@ class PairValueEditor(_QtWidgets.QWidget, BaseAnnotationEditor):
 
         # Clear sele so we can detect the *next* click unambiguously
         cmd.select("sele", "none")
+        # A click selects a whole residue in PyMOL's default (residue) mode, so pick atoms.
+        if self._saved_selection_mode is None:
+            self._saved_selection_mode = cmd.get("mouse_selection_mode")
+            cmd.set("mouse_selection_mode", 0)
 
         btn.setText("Cancel")
         lbl.setText(f"Atom {slot + 1}: left-click an atom in PyMOL…")
@@ -522,8 +528,13 @@ class PairValueEditor(_QtWidgets.QWidget, BaseAnnotationEditor):
                 model = cmd.get_model("sele")
             except Exception:
                 return
-            if model.atom:
-                self._finish_picking(slot, model.atom[0])
+            if not model.atom:
+                return
+            if len(model.atom) != 1 or model.atom[0].model != self._state.active:
+                cmd.select("sele", "none")
+                lbl.setText(f"Atom {slot + 1}: click a single atom of '{self._state.active}'…")
+                return
+            self._finish_picking(slot, model.atom[0])
 
         timer.timeout.connect(on_tick)
         self._timers[slot] = timer
@@ -534,6 +545,9 @@ class PairValueEditor(_QtWidgets.QWidget, BaseAnnotationEditor):
         if timer is not None:
             timer.stop()
             self._timers[slot] = None
+        if self._saved_selection_mode is not None and all(t is None for t in self._timers):
+            cmd.set("mouse_selection_mode", self._saved_selection_mode)
+            self._saved_selection_mode = None
         btn = self._btn_pick1 if slot == 0 else self._btn_pick2
         btn.setText(f"Select Atom {slot + 1}")
         lbl = self._lbl_atom1 if slot == 0 else self._lbl_atom2

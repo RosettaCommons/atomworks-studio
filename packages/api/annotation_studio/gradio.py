@@ -61,9 +61,9 @@ class GenerationProvider(Protocol):
     # control the engine does not take). Without it the host is as before. See docs/INTEGRATIONS.md, "Design card".
     def design_card(self) -> dict | None: ...
 
-    # Optional, with `design_card`. Map the card's run settings (`samples`, `thinking`, `seed`, `partialDiffusion`,
-    # `partialPercent`, `backboneK`, `latentK`, `earlyStop`) to the options `validate` takes; by default each becomes
-    # the snake_case option of the same name.
+    # Optional, with `design_card`. Map the card's run settings (`samples`, `thinking`, `seed`, `partialDiffusion`
+    # (the percent, or None when off), `backboneK`, `latentK`, `earlyStop`) to the options `validate` takes; by default
+    # each becomes the snake_case option of the same name, and the percent `partial_diffusion` and its percent.
     def card_options(self, settings: dict) -> dict: ...
 
     # Optional. The choices the panel offers, over Studio's defaults: `{"steps": {"options": [25, 50], "default": 25},

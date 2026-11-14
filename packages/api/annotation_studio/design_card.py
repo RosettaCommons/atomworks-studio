@@ -16,8 +16,8 @@ from typing import Any
 DEFAULT_CARD_SETTINGS: dict[str, Any] = {
     "samples": {"min": 1, "max": 8, "default": 1},
     "thinking": {"options": ["none", "low", "medium", "high"], "default": "none"},
-    "seed": {"min": 0, "max": 2**32 - 1},
-    "partialDiffusion": {"percent": {"min": 1, "max": 100, "default": 40}},
+    "seed": True,
+    "partialDiffusion": {"percent": 40},
     "backboneK": {"min": 1, "max": 20, "step": 0.1, "default": 16},
     "latentK": {"min": 1, "max": 6, "step": 0.1, "default": 4},
     "earlyStop": {"default": True},
@@ -28,8 +28,6 @@ _OPTION_NAMES = {
     "samples": "samples",
     "thinking": "thinking",
     "seed": "seed",
-    "partialDiffusion": "partial_diffusion",
-    "partialPercent": "partial_diffusion_percent",
     "backboneK": "backbone_k",
     "latentK": "latent_k",
     "earlyStop": "early_stop",
@@ -49,14 +47,18 @@ def card_config(provider: Any) -> dict[str, Any] | None:
     engine = dict(given.get("engine") or {})
     if not engine.get("badge"):
         raise ValueError("design_card() needs engine.badge, the label the card shows beside its title")
-    settings = {key: (dict(value) if value is not None else None) for key, value in DEFAULT_CARD_SETTINGS.items()}
+    settings: dict[str, Any] = {
+        key: (dict(value) if isinstance(value, dict) else value) for key, value in DEFAULT_CARD_SETTINGS.items()
+    }
     for key, value in (given.get("settings") or {}).items():
         if key not in settings:
             raise ValueError(f"Unknown design-card setting {key!r}; choose from {sorted(settings)}")
-        settings[key] = dict(value) if value is not None else None
+        settings[key] = dict(value) if isinstance(value, dict) else value
     thinking = settings["thinking"]
-    if thinking is not None and thinking.get("default") not in thinking["options"]:
+    if isinstance(thinking, dict) and thinking.get("default") not in thinking["options"]:
         thinking["default"] = thinking["options"][0]
+    # The card reads `false` as "this engine does not take it": the control is hidden and left out of the request.
+    settings = {key: (False if value is None else value) for key, value in settings.items()}
     return json.loads(json.dumps({"engine": engine, "settings": settings}))
 
 
@@ -65,11 +67,18 @@ def card_options(provider: Any, settings: dict) -> dict:
 
     A provider with `card_options(settings)` maps them itself; otherwise each card setting becomes the option of the
     same name in snake_case, and a setting the card does not send is left out (the provider's own default applies).
+    `partialDiffusion` arrives as the percent, or null when partial diffusion is off.
     """
     hook = getattr(provider, "card_options", None)
     if hook is not None:
         return hook(dict(settings))
-    return {_OPTION_NAMES[key]: value for key, value in settings.items() if key in _OPTION_NAMES}
+    options = {_OPTION_NAMES[key]: value for key, value in settings.items() if key in _OPTION_NAMES}
+    if "partialDiffusion" in settings:
+        percent = settings["partialDiffusion"]
+        options["partial_diffusion"] = percent is not None
+        if percent is not None:
+            options["partial_diffusion_percent"] = percent
+    return options
 
 
 # What judges a design in the Refold panel, from the task the card read (the page's `criteriaKind`, without the
@@ -139,10 +148,12 @@ const frame = () => document.querySelector('iframe[title="AtomWorks Studio"]');
         reply('error', { id: entry.id, message: message.error, userMessage: message.error });
         return;
       }
-      for (const design of message.designs) {
-        const name = entry.seed != null ? String(entry.seed) : design.name;
+      for (const [index, design] of message.designs.entries()) {
+        // The first design takes the typed or drawn seed, later ones the next integers, as the page names them.
+        const seed = entry.seed != null ? entry.seed + index : null;
+        const name = seed != null ? String(seed) : design.name;
         reply('design', { id: entry.id, design: {
-          name, cif: design.cif, seed: entry.seed ?? null, kind: kinds[entry.task] ?? null,
+          name, cif: design.cif, seed, kind: kinds[entry.task] ?? null,
           filenameStem: 'design-' + name,
         } });
       }

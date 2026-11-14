@@ -54,9 +54,10 @@ def test_the_card_config_has_the_reference_defaults_and_hides_what_the_engine_la
         CardProvider(settings={"earlyStop": None, "thinking": {"options": ["low", "high"]}})
     )
     assert config["engine"] == {"badge": "Test GPU"}
-    assert config["settings"]["earlyStop"] is None
+    assert config["settings"]["earlyStop"] is False
     assert config["settings"]["thinking"] == {"options": ["low", "high"], "default": "low"}
     assert config["settings"]["samples"] == {"min": 1, "max": 8, "default": 1}
+    assert config["settings"]["partialDiffusion"] == {"percent": 40} and config["settings"]["seed"] is True
     assert config["settings"]["backboneK"]["default"] == 16 and config["settings"]["latentK"]["default"] == 4
     assert design_card.card_config(object()) is None
     with pytest.raises(ValueError, match="badge"):
@@ -75,8 +76,7 @@ def test_settings_become_provider_options():
             "samples": 2,
             "thinking": "high",
             "seed": 7,
-            "partialDiffusion": True,
-            "partialPercent": 40,
+            "partialDiffusion": 40,
             "backboneK": 12,
             "latentK": 3,
             "earlyStop": True,
@@ -176,7 +176,7 @@ def test_the_rfd4_provider_offers_the_card_with_every_setting_but_early_stop():
     assert design_card.card_config(RFD4GenerationProvider(k_defaults=(16.0, 4.0))) is None, "opt in"
     provider = RFD4GenerationProvider(k_defaults=(16.0, 4.0), card=True)
     config = design_card.card_config(provider)
-    assert config["settings"]["earlyStop"] is None
+    assert config["settings"]["earlyStop"] is False
     assert config["settings"]["thinking"]["options"] == ["none", "low", "medium", "high"]
     assert (config["settings"]["backboneK"]["default"], config["settings"]["latentK"]["default"]) == (16, 4)
     options = provider.validate(
@@ -186,8 +186,7 @@ def test_the_rfd4_provider_offers_the_card_with_every_setting_but_early_stop():
                 "samples": 2,
                 "thinking": "none",
                 "seed": 5,
-                "partialDiffusion": True,
-                "partialPercent": 40,
+                "partialDiffusion": 40,
                 "backboneK": 16,
                 "latentK": 4,
             },

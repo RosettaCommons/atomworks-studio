@@ -355,7 +355,9 @@ def _annotation_map(state: dict[str, Any]) -> dict[str, dict[str, list[int]]]:
     return out
 
 
-def compare_states(py: dict[str, Any], js: dict[str, Any], *, tolerance: float = 1e-3, where: str = "") -> list[str]:
+def compare_states(
+    py: dict[str, Any], js: dict[str, Any], *, tolerance: float = 1e-3, where: str = "", bonds: bool = True
+) -> list[str]:
     """Differences between the two engines' states (an empty list: they agree)."""
     problems: list[str] = []
     pa, ja = py["atoms"], js["atoms"]
@@ -390,7 +392,7 @@ def compare_states(py: dict[str, Any], js: dict[str, Any], *, tolerance: float =
         return {tuple(b) for b in state["bonds"] if res[b[0]] != res[b[1]] or pa["segment"][b[0]]}
 
     only_py, only_js = cross(py) - cross(js), cross(js) - cross(py)
-    if only_py or only_js:
+    if bonds and (only_py or only_js):
         problems.append(f"{where}bonds: py-only {sorted(only_py)[:5]} js-only {sorted(only_js)[:5]}")
     pm, jm = _annotation_map(py), _annotation_map(js)
     for name in sorted(set(pm) | set(jm)):
@@ -416,8 +418,10 @@ def _plan_shape(plan: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def compare_runs(py: dict[str, Any], js: dict[str, Any], *, tolerance: float = 1e-3) -> list[str]:
-    """Differences between two `run_job` results, step by step."""
+def compare_runs(
+    py: dict[str, Any], js: dict[str, Any], *, tolerance: float = 1e-3, skip_open: bool = False
+) -> list[str]:
+    """Differences between two `run_job` results, step by step (`skip_open`: not the state as opened)."""
     problems: list[str] = []
     if len(py["steps"]) != len(js["steps"]):
         return [f"step count: py {len(py['steps'])} js {len(js['steps'])}"]
@@ -426,9 +430,19 @@ def compare_runs(py: dict[str, Any], js: dict[str, Any], *, tolerance: float = 1
         if bool(ps.get("error")) != bool(js_.get("error")):
             problems.append(f"{where}error: py {ps.get('error')!r} js {js_.get('error')!r}")
             continue
-        problems.extend(compare_states(ps["state"], js_["state"], tolerance=tolerance, where=where))
+        if not (skip_open and k == 0):
+            problems.extend(compare_states(ps["state"], js_["state"], tolerance=tolerance, where=where))
         ep, ej = ps.get("extra"), js_.get("extra")
         if ep and ej:
+            if "cif" in ep and "state" in ej:
+                # The preview's CIF read back is the page's preview.
+                provider = providers()
+                shown = state_of(
+                    StudioDocument.from_cif(ep["cif"], "preview", condition_provider=provider.condition_provider)
+                )
+                problems.extend(
+                    compare_states(shown, ej["state"], tolerance=tolerance, where=f"{where}preview: ", bonds=False)
+                )
             if "plan" in ep and _plan_shape(ep["plan"]) != _plan_shape(ej["plan"]):
                 problems.append(f"{where}plan: py {_plan_shape(ep['plan'])} js {_plan_shape(ej['plan'])}")
             if "origins" in ep and ep["origins"] != ej["origins"]:

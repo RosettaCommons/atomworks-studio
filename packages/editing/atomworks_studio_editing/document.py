@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import itertools
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from io import StringIO
@@ -18,7 +19,6 @@ from atomworks.io.utils.atom_array_plus import (
     AnnotationList2D,
     AtomArrayPlus,
     as_atom_array_plus,
-    concatenate_atom_array_plus,
 )
 from atomworks.io.utils.ccd import custom_ccd_residues
 from atomworks.io.utils.chain import create_chain_id_generator
@@ -32,7 +32,6 @@ from atomworks.ml.conditions.base import ConditionBase
 from atomworks.ml.transforms.interactions import AnnotateInteractions, InteractionType
 from atomworks.ml.utils.expandable_segment import (
     collapse_expandable_segments,
-    insert_expandable_segment,
     realize_expandable_segments,
 )
 
@@ -54,6 +53,14 @@ from atomworks_studio_editing.structure_mutations import (
 )
 from atomworks_studio_editing.validation import validate_atom_array, validate_atom_array_for_save
 
+from .chain_plans import (
+    ChainPlanMixin,
+    chain_key_array,
+    concatenate_documents,
+    ensure_hidden,
+    reinstall_sentinel_bonds,
+    residue_bounds,
+)
 from .contracts import (
     NEUTRAL_VALIDATION_PROVIDER,
     ConditionOperation,
@@ -139,6 +146,50 @@ def _first_array(result: dict[str, Any]) -> AtomArrayPlus:
     return array
 
 
+BUFFER_IONS = ("NA", "CL")
+
+
+def prepare_for_design(array: AtomArrayPlus, *, keep_unresolved: bool) -> AtomArrayPlus:
+    """An entry as the design card opens one: heavy atoms of the template only, no buffer ions, no unresolved residues.
+
+    AtomWorks' `rcsb` preset completes residues with every missing atom, hydrogens included; a design starts from the
+    atoms the entry has and the heavy atoms a residue lacks (unmodelled ends and loops are kept as residues without
+    coordinates only with `keep_unresolved`, as upstream's example inputs are set up). Sodium and chloride from the
+    crystallisation buffer are never part of a design, on top of the preset's own additive list.
+    """
+    names = np.asarray(array.res_name).astype(str)
+    coordinates = np.isfinite(np.asarray(array.coord)).all(axis=1)
+    drop = np.isin(names, BUFFER_IONS)
+    # Hydrogens the preset added to complete residues: no coordinates. Those the file has are kept.
+    drop |= np.isin(np.asarray(array.element).astype(str), ["H", "D"]) & ~coordinates
+    # A terminal OXT the preset added likewise (the page's engine completes residues from their template heavy atoms,
+    # which have none).
+    drop |= (np.asarray(array.atom_name).astype(str) == "OXT") & ~coordinates
+    if not keep_unresolved:
+        bounds = residue_bounds(array)
+        for start, stop in itertools.pairwise(bounds):
+            if not coordinates[start:stop][~drop[start:stop]].any():
+                drop[start:stop] = True
+    result = array[~drop] if drop.any() else array
+    # An assembly with copies of a chain names every chain by its instance ("A_1", "A_2"), for good: the names then
+    # stay what a written CIF shows however many copies an edit leaves.
+    transformations = (
+        np.asarray(result.transformation_id).astype(str)
+        if "transformation_id" in result.get_annotation_categories()
+        else None
+    )
+    if transformations is not None:
+        chain_ids = np.asarray(result.chain_id).astype(str)
+        copies = {c: {t for t, c2 in zip(transformations, chain_ids, strict=True) if c2 == c} for c in set(chain_ids)}
+        if any(len(t) > 1 for t in copies.values()):
+            names = np.array([f"{c}_{t}" for c, t in zip(chain_ids, transformations, strict=True)])
+            result.set_annotation("chain_id", names)
+            drop = np.ones(1, dtype=bool)
+    if drop.any():
+        refresh_chain_derived_annotations(result)
+    return result
+
+
 def parse_annotated_cif(
     cif_text: str,
     *,
@@ -148,8 +199,12 @@ def parse_annotated_cif(
     remove_waters: bool | None = None,
     hydrogen_policy: Literal["keep", "remove"] | None = None,
     advanced_options: dict[str, Any] | None = None,
+    keep_unresolved: bool | None = None,
 ) -> AtomArrayPlus:
-    """Parse with the same presets and core options as the desktop load dialog."""
+    """Parse with the same presets and core options as the desktop load dialog.
+
+    With the `rcsb` preset, `keep_unresolved` (not None) also applies `prepare_for_design`.
+    """
     overrides = dict(advanced_options or {})
     for key, value in (("model", model), ("remove_waters", remove_waters), ("hydrogen_policy", hydrogen_policy)):
         if value is not None:
@@ -157,11 +212,23 @@ def parse_annotated_cif(
     config = build_load_config(preset, assembly=assembly, **overrides).replace(file_type="cif")
     array = _first_array(parse(StringIO(cif_text), config=config))
     normalize_annotation_aliases(array)
+    if preset == "rcsb" and keep_unresolved is not None:
+        array = prepare_for_design(array, keep_unresolved=keep_unresolved)
     return array
 
 
-class StudioDocument:
+class StudioDocument(ChainPlanMixin):
     """Authoritative mutable AtomWorks structure with bounded undo history."""
+
+    @property
+    def array(self) -> AtomArrayPlus:
+        return self._array
+
+    @array.setter
+    def array(self, value: AtomArrayPlus) -> None:
+        # Every array the document holds carries its residues' source tags, however it was made.
+        ensure_hidden(value)
+        self._array = value
 
     def __init__(
         self,
@@ -170,6 +237,7 @@ class StudioDocument:
         *,
         condition_provider: ConditionProvider | None = None,
         validation_provider: ValidationProvider | None = None,
+        track_sources: bool = True,
     ):
         self.array = array
         self.name = name
@@ -181,6 +249,10 @@ class StudioDocument:
         self.revision = 0
         self._editing = False
         self._interaction_cache: dict[tuple[Any, ...], dict[str, Any]] = {}
+        self._sources: dict = {}
+        self._origins: list = []
+        if track_sources:
+            self._init_design_state()
 
     @classmethod
     def from_cif(
@@ -192,12 +264,31 @@ class StudioDocument:
         condition_provider: ConditionProvider | None = None,
         validation_provider: ValidationProvider | None = None,
     ) -> StudioDocument:
-        return cls(
-            parse_annotated_cif(cif_text, **(parse_options or {})),
+        """Open a CIF. `parse_options["fix_all"]` also holds every atom's coordinates and sequence, as the design
+        card opens a structure to design with (everything fixed; the user frees what to design)."""
+        options = dict(parse_options or {})
+        fix_all = bool(options.pop("fix_all", False))
+        document = cls(
+            parse_annotated_cif(cif_text, **options),
             name,
             condition_provider=condition_provider,
             validation_provider=validation_provider,
+            track_sources=False,
         )
+        if fix_all and len(document.array):
+            everything = list(range(len(document.array)))
+            document.set_conditions(
+                [
+                    {"condition": "coordinate", "atom_indices": everything},
+                    {"condition": "sequence", "atom_indices": everything},
+                ],
+                allow_target_discard=True,
+            )
+            document.clear_history()
+            document.revision = 0
+        # Each chain as loaded, conditions included: what residues cropped from a chain come back as.
+        document._init_design_state()
+        return document
 
     def clone(self) -> StudioDocument:
         clone = StudioDocument(
@@ -205,8 +296,10 @@ class StudioDocument:
             self.name,
             condition_provider=self.condition_provider,
             validation_provider=self.validation_provider,
+            track_sources=False,
         )
         clone.revision = self.revision
+        clone._share_design_state(self)
         return clone
 
     def export_state(self) -> dict[str, Any]:
@@ -217,6 +310,7 @@ class StudioDocument:
             "revision": self.revision,
             "cif": self._array_to_cif(self.array),
             "undo_cifs": [self._array_to_cif(array) for array in self._undo],
+            "design": self.export_design_state(undo_arrays=self._undo),
         }
 
     @classmethod
@@ -239,7 +333,10 @@ class StudioDocument:
         if not isinstance(undo_cifs, list) or len(undo_cifs) > 10:
             raise ValueError("invalid persisted undo history")
         document._undo = [parse_annotated_cif(str(cif)) for cif in undo_cifs]
+        for array in document._undo:
+            ensure_hidden(array)
         document.revision = int(state.get("revision", 0))
+        document.restore_design_state(state.get("design"), undo_arrays=document._undo)
         return document
 
     def _mark_changed(self) -> None:
@@ -885,6 +982,69 @@ class StudioDocument:
             selected = self.resolve_indices(indices, scope)
             return transform(self.array, selected, enabled)
 
+    def set_internal_coordinates(
+        self,
+        indices: list[int],
+        enabled: bool = True,
+        *,
+        scope: ConditionScope = "atom",
+        group_id: int | None = None,
+        allow_target_discard: bool = False,
+        expected_revision: int | None = None,
+    ) -> dict[str, object] | None:
+        """Mark atoms as one rigid body (internal coordinates), or unmark them.
+
+        `group_id` joins that existing rigid group instead of making a new one, so chains from one structure can move
+        as a single body.
+        """
+        from .providers import load_providers
+
+        transform = load_providers().condition_operations.get("internal_coordinate")
+        if transform is None:
+            raise ValueError("internal-coordinate conditioning is not available")
+        if group_id is not None and (isinstance(group_id, bool) or not isinstance(group_id, int) or group_id <= 0):
+            raise ValueError("group_id must be a positive integer")
+        with self._condition_edit("internal_coordinate", allow_target_discard, expected_revision):
+            selected = self.resolve_indices(indices, scope)
+            result = transform(self.array, selected, enabled)
+            if enabled and group_id is not None:
+                groups_cls = STANDARD_ANNOTATIONS.get("condition_CoordinateGroup_1_atom")
+                groups = np.asarray(groups_cls.annotation(self.array, default="generate")).copy()
+                moved = selected[np.asarray(groups)[selected] > groups_cls.KNOWN_ABSOLUTE_COORDS]
+                groups[moved] = group_id
+                groups_cls.set_annotation(self.array, groups, on_internal_coord_mismatch="clear")
+            return result
+
+    def clear_internal_targets(
+        self, indices: list[int], *, scope: ConditionScope = "atom", expected_revision: int | None = None
+    ) -> dict[str, object] | None:
+        """Forget the saved shapes of the selected rigid groups (the pipeline centres and turns the body).
+
+        Groups with no saved shape are left as they are: marking atoms rigid leaves their shapes unset, so clearing
+        them is a step that changes nothing (still one undo step, as a sequence of edits expects).
+        """
+        from .providers import load_providers
+
+        transform = load_providers().condition_operations.get("clear_internal_targets")
+        if transform is None:
+            raise ValueError("internal-coordinate target editing is not available")
+        groups_cls = STANDARD_ANNOTATIONS.get("condition_CoordinateGroup_1_atom")
+        targets_cls = STANDARD_ANNOTATIONS.get("condition_InternalCoordinate_1_atom")
+        selected = self.resolve_indices(indices, scope)
+        groups = np.asarray(groups_cls.annotation(self.array, default="generate"))
+        wanted = np.unique(groups[selected])
+        wanted = wanted[wanted > groups_cls.KNOWN_ABSOLUTE_COORDS]
+        targets = np.asarray(targets_cls.annotation(self.array, default="generate"))
+        if not np.isfinite(targets[np.isin(groups, wanted)]).any():
+            if expected_revision is not None and self.revision != expected_revision:
+                raise DocumentRevisionConflictError(expected_revision, self.revision)
+            with self.edit():
+                pass
+            return {"affected_count": 0, "message": "The selected internal-coordinate groups have no saved targets."}
+        return self.apply_selection_transform(
+            indices, scope, transform, True, allow_target_discard=True, expected_revision=expected_revision
+        )
+
     def condition_groups(self, name: str) -> list[dict[str, Any]]:
         """List the groups offered by both editors, including the unassigned index group."""
         spec = self.condition_provider.definitions_by_name[name]
@@ -1047,7 +1207,13 @@ class StudioDocument:
     def assign_chain(self, indices: list[int], chain_id: str) -> None:
         with self.edit():
             selected = self.resolve_indices(indices)
+            before = chain_key_array(self.array)
+            old = set(before[selected].tolist())
             assign_chain_id(self.array, selected, chain_id)
+            after = chain_key_array(self.array)
+            # A chain renamed whole keeps its source (the chain as it was loaded) under its new name.
+            if len(old) == 1 and next(iter(old)) in self._sources and not np.isin(after, [next(iter(old))]).any():
+                self._sources[str(after[selected[0]])] = self._sources[next(iter(old))]
 
     def edit_bond(self, atom1: int, atom2: int, action: Literal["add", "remove"], bond_type: str = "SINGLE") -> None:
         with self.edit():
@@ -1063,17 +1229,29 @@ class StudioDocument:
             )
 
     def delete_atoms(self, indices: list[int], close_residue_gaps: bool = False) -> None:
+        """Delete atoms in one undo step.
+
+        Without `close_residue_gaps`, whole residues and blocks of new residues taken out of a chain that stays are a
+        plan edit (the chain re-joined and numbered by the one rule: see `remove_atoms`); anything else is deleted as
+        it is. With it, the residues the deletion leaves a gap between are closed up.
+        """
+        if not close_residue_gaps:
+            self.remove_atoms(indices)
+            return
         with self.edit():
             selected = self.resolve_indices(indices)
             keep = np.ones(len(self.array), dtype=bool)
             keep[selected] = False
             if not keep.any():
                 raise ValueError("cannot delete every atom")
+            touched = set(chain_key_array(self.array)[selected].tolist())
             self.array = mutate_delete_atoms(
                 self.array,
                 keep,
-                close_res_id_gaps=close_residue_gaps,
+                close_res_id_gaps=True,
             )
+            reinstall_sentinel_bonds(self.array, touched)
+            refresh_chain_derived_annotations(self.array)
 
     def reset_residue_ids(self) -> None:
         with self.edit():
@@ -1107,25 +1285,28 @@ class StudioDocument:
         chain_id: str | None = None,
         chain_type: str | None = None,
     ) -> None:
+        """Insert one block of new residues, beside `atom_index`'s residue or as a new chain.
+
+        A block inside a chain does not renumber it: where the numbering has no gap the block takes the residue
+        before's number plus the next insertion code ("40A"), and realizing it numbers past that, so a target's
+        numbering and hotspots stay where they were.
+        """
         if new_chain:
             chain_id = (chain_id or "").strip() or self.next_chain_id()
             if len(chain_id) > 4:
                 raise ValueError("Chain IDs must contain at most four characters")
         with self.edit():
+            selected = None
             if atom_index is not None and not new_chain:
                 selected = int(self.resolve_indices([atom_index])[0])
-                bounds = struc.get_residue_starts(self.array, add_exclusive_stop=True)
-                residue = int(np.searchsorted(bounds[:-1], selected, side="right")) - 1
-                atom_index = int(bounds[residue] if before else bounds[residue + 1] - 1)
-            self.array = insert_expandable_segment(
-                self.array,
+            self._insert_segment_array(
                 minimum,
                 maximum,
-                atom_idx=atom_index,
-                insert_before=before,
+                atom_index=selected,
+                before=before,
                 new_chain=new_chain,
-                new_chain_id=chain_id,
-                new_chain_type=chain_type,
+                chain=chain_id,
+                chain_type=chain_type,
             )
 
     def realize_segments(self, seed: int | None = None) -> None:
@@ -1207,7 +1388,9 @@ class StudioDocument:
         with self.edit():
             arrays = [copy.deepcopy(self.array), *(copy.deepcopy(other.array) for other in others)]
             used: set[str] = set()
+            moved: list[dict[str, str]] = []
             for array in arrays:
+                old_keys = chain_key_array(array)
                 chains = np.unique(array.chain_id)
                 available = {chain for chain in chains if chain not in used}
                 generator = create_chain_id_generator(used | available)
@@ -1216,14 +1399,24 @@ class StudioDocument:
                     array.chain_id = np.array([renames.get(chain, chain) for chain in array.chain_id])
                 used.update(available)
                 used.update(renames.values())
+                transformation = (
+                    np.asarray(array.transformation_id).astype(str)
+                    if "transformation_id" in array.get_annotation_categories()
+                    else np.full(len(array), "1")
+                )
+                new_keys = [f"{chain}_{tid}" for chain, tid in zip(array.chain_id, transformation, strict=True)]
+                moved.append(dict(zip(old_keys.tolist(), new_keys, strict=True)))
             prepare = getattr(self.condition_provider, "prepare_combination", None)
             if prepare is not None:
                 arrays = prepare(arrays)
-            self.array = concatenate_atom_array_plus(
-                arrays, fill_missing_standard_annotations=True, on_annotation_mismatch_policy="raise"
-            )
+            self.array = concatenate_documents(arrays)
             refresh_chain_derived_annotations(self.array)
             self.condition_provider.after_condition_update("index", self.array)
+            # Where the chains came from goes with them, under their new names.
+            for other, names in zip(others, moved[1:], strict=True):
+                for old, new in names.items():
+                    if old in other._sources:
+                        self._sources[new] = other._sources[old]
 
     def inspect_bonds(
         self, atom_index: int | None = None, *, atom_indices: list[int] | None = None

@@ -594,6 +594,45 @@ nothing changes. `RFD4GenerationProvider` takes `guide_dir` (and `guide_url`, de
 All of it is JSON: a design's CIF travels as a string. `prepare` (fetching the refold
 model ahead of the click) is not forwarded; the host prepares on its own.
 
+#### Streaming a run to the card (Gradio host)
+
+With only `generate_fn` the Gradio host answers a card request once, when every design
+is done. A deployment that can report the run as it goes also passes
+`generate_stream_fn(cif, options)` (to `create_app` or `create_demo`): a **synchronous
+generator function** (it works under `spaces.GPU` on ZeroGPU, which supports generators)
+that yields dicts in order, and the card draws live frames and the numbered progress
+exactly as the browser page does, with no card code of its own:
+
+| Yielded item | Meaning |
+| --- | --- |
+| `{"frame": cif, "step": i, "steps": n, "design": k, "designs": m, "name"?: "step_3.cif", "keep_camera"?: bool}` | A live frame of design `k` (0-based) at sampling step `i` of `n` (0-based). The button reads `design 1 of 3 · step 24/60` (`step 24/60` for one design). `keep_camera` leaves the camera where the person put it, as `FrameOptions.keepCamera`. |
+| `{"status": "text"}` | A status line (not progress). |
+| `{"done": True, "designs": [cif, …], "trajectories"?: [multi-model cif or None, …], "steps_run"?: [int or None, …], "nsteps"?: n, "designed_chains"?: [[chain, …], …], "warnings"?: [str, …]}` | The last item. The designs open as Studio documents; a `trajectories` entry is that design's `DesignInfo.trajectoryCif` (Show trajectory and the zip), `steps_run` and `nsteps` its `stepsRun` and `nsteps`. |
+
+An error is the generator raising: the card shows it as it shows a failed `generate_fn`.
+A model that runs all samples of a request as one batch sends frames for one design only
+(`designs` says how many are being made); the other designs arrive in `done`. A provider
+without `generate_stream_fn` behaves exactly as before, and a deployment that gives only
+the stream still gets the `/generate_cif` route (the stream is run to its end).
+
+The Gradio handler is an async generator, so each item becomes one bus update as it is
+yielded; the stream runs in a worker thread, one `next()` at a time. The bus carries JSON
+messages `{ type: "frame" | "status" | "generated", request, seq, … }`, numbered per
+request. The bridge in the page above the editor forwards them to the card as the
+`status`, `progress`, `frame` and `design`/`done` messages of the table above (a `design`
+now may carry `trajectoryCif`, `stepsRun`, `nsteps`, `designedChains`), drops a number it
+has already seen and logs a number it missed. In tests, 60 frames of 300 residues sent with
+no pause between them (`scripts/preview_generation.py --card --stream --frame-delay 0
+--steps 60 --residues 300`, `packages/web/tests/gradio-card-stream.mjs`) reached the card
+all, in order; the one message that must not be lost, the last, is also the bus's final
+value. **Stop** sends the page's `card_abort` event: the handler stops consuming, sends
+nothing more and closes the generator. A generator that reacts to being closed (the
+RFD4 Space's does: it ends its sampler at the next step) releases the GPU at once; one
+that does not finishes the call it has started (ZeroGPU bills it). A deployment that
+implements "Early stop when converged" builds `RFD4GenerationProvider(early_stop=True)`
+(or sets `provider.early_stop = True`): the card shows the checkbox and the option
+arrives as `early_stop` in the stream's options.
+
 ## NIM and other inference services
 
 Use Studio before and after inference: export an input, call the service from

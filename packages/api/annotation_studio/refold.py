@@ -162,7 +162,8 @@ def panel_message(kind: str, **fields: Any) -> str:
 # its queue, so ZeroGPU and progress behave as for any other click); `host` mounts Studio's own panel beside the editor.
 BUS_JS = """
 // Events the page raises: 'refold' (fold one design), 'open_design' (a row of the panel was chosen) and, in design-card
-// mode, 'card_generate' (the card's Generate). Gradio reads the event names from the quoted words of this script.
+// mode, 'card_generate' (the card's Generate) and 'card_abort' (its Stop, for a streaming model). Gradio reads the
+// event names from the quoted words of this script.
 const bus = window.__studioRefoldBus = {listeners: new Set(), emit: (name, data) => trigger(name, data)};
 watch('value', () => {
   let message;

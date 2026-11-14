@@ -29,6 +29,9 @@ class GenerationOptions(BaseModel):
     latent_k: float | None = Field(default=None, ge=1, le=LATENT_K_MAX, allow_inf_nan=False)
     partial_diffusion: bool = False
     partial_diffusion_percent: float = Field(default=70, ge=1, le=100, allow_inf_nan=False)
+    # Stop once the structure and the sequence have stopped changing (the browser engine's "Early stop when
+    # converged"). Only a deployment whose model adapter implements it offers it (`early_stop=True` on the provider).
+    early_stop: bool = False
 
 
 class RFD4GenerationProvider:
@@ -66,8 +69,10 @@ class RFD4GenerationProvider:
     }
     """
 
-    def __init__(self, *, k_defaults: tuple[float, float], card: bool = False):
+    def __init__(self, *, k_defaults: tuple[float, float], card: bool = False, early_stop: bool = False):
         self.k_defaults = k_defaults
+        # The deployment's model adapter takes `early_stop` (see GenerationOptions): the card then offers the checkbox.
+        self.early_stop = early_stop
         # Show the design card (the RFD4-Proteina page's interface) in place of the Gradio controls.
         self.card = card
         # Markdown a deployment shows above the card (data handling, terms); the card's own page has no such line.
@@ -123,8 +128,8 @@ class RFD4GenerationProvider:
         )
 
     def design_card(self) -> dict | None:
-        """The design card the RFD4-Proteina page has, with this engine's badge; None unless `card=True`. A server run
-        takes every card setting but "Early stop when converged", a loop of the browser engine: it is hidden."""
+        """The design card the RFD4-Proteina page has, with this engine's badge; None unless `card=True`. "Early stop
+        when converged" is shown when the deployment's adapter implements it (`early_stop=True`), else hidden."""
         if not self.card:
             return None
         return {
@@ -134,7 +139,7 @@ class RFD4GenerationProvider:
             "settings": {
                 "backboneK": {"min": 1, "max": BACKBONE_K_MAX, "step": 0.1, "default": self.k_defaults[0]},
                 "latentK": {"min": 1, "max": LATENT_K_MAX, "step": 0.1, "default": self.k_defaults[1]},
-                "earlyStop": None,
+                "earlyStop": {"default": True} if self.early_stop else None,
             },
         }
 

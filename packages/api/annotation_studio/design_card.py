@@ -149,13 +149,45 @@ const frame = () => document.querySelector('iframe[title="AtomWorks Studio"]');
       // itself, in the frame. A deployment that wants its own Guide listens for this event.
       window.dispatchEvent(new CustomEvent('atomworks-design-guide'));
     } else if (data.type === 'abort') {
-      // Stop abandons the wait; the server finishes the call it has started.
-      for (const [request, entry] of pending) if (entry.id === data.id) pending.delete(request);
+      // Stop abandons the wait; a streaming model is told to stop being listened to, and finishes the call it has
+      // started.
+      for (const [request, entry] of pending) {
+        if (entry.id !== data.id) continue;
+        pending.delete(request);
+        if (config.streaming) bus.emit('card_abort', { request });
+      }
     }
   });
+  const progressText = (m) => {
+    const label = m.designs > 1 ? `design ${m.design + 1} of ${m.designs} · step ${m.step + 1}/${m.steps}` : `step ${m.step + 1}/${m.steps}`;
+    return { fraction: (m.step + 1) / (m.steps + 1), label };
+  };
   bus.listeners.add((message) => {
     const entry = pending.get(message.request);
     if (!entry) return;
+    // Streamed messages are numbered: one heard twice is dropped, one missing is reported (a bus update replaced before
+    // the page read it), never silently.
+    if (message.seq != null) {
+      if (message.seq <= (entry.seq || 0)) return;
+      if (message.seq > (entry.seq || 0) + 1) console.warn('design card: missed ' + (message.seq - (entry.seq || 0) - 1) + ' bus message(s)');
+      entry.seq = message.seq;
+    }
+    if (message.type === 'frame') {
+      const { fraction, label } = progressText(message);
+      reply('progress', { id: entry.id, fraction, label });
+      if (!entry.noted) {
+        // The first frame ends the wait for the GPU: the button says the step from here on, the status line is cleared.
+        entry.noted = true;
+        const text = message.designs > 1 ? `Generating ${message.designs} designs in parallel; showing design ${message.design + 1}.` : 'Generating…';
+        reply('status', { id: entry.id, text, options: { visible: false } });
+      }
+      reply('frame', { id: entry.id, cif: message.cif, options: { name: message.name || `step_${message.step + 1}.cif`, keepCamera: Boolean(message.keepCamera) } });
+      return;
+    }
+    if (message.type === 'status') {
+      reply('status', { id: entry.id, text: message.text, options: { visible: false } });
+      return;
+    }
     pending.delete(message.request);
     if (message.type === 'generated') {
       if (message.error) {
@@ -169,6 +201,10 @@ const frame = () => document.querySelector('iframe[title="AtomWorks Studio"]');
         reply('design', { id: entry.id, design: {
           name, cif: design.cif, seed, kind: kinds[entry.task] ?? null,
           filenameStem: 'design-' + name,
+          trajectoryCif: design.trajectoryCif ?? null,
+          stepsRun: design.stepsRun ?? null,
+          nsteps: message.nsteps ?? null,
+          designedChains: design.designedChains,
         } });
       }
       reply('done', { id: entry.id, result: { message: (message.warnings || []).join('; ') || undefined } });

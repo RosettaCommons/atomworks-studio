@@ -16,6 +16,7 @@ import httpx
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 
+from annotation_studio import design_card as card_support
 from annotation_studio import refold as refold_support
 
 
@@ -53,6 +54,17 @@ class GenerationProvider(Protocol):
     # "openbind0") needs nothing else; others give a `label`. `"terms": None` drops the AlphaFold 3 terms dialog a
     # deployment that has its own licence for the weights does not need.
     def refold_models(self) -> list[dict]: ...
+
+    # Optional. Design card: show the card the RFD4-Proteina page has (start screen, examples, job editor, run
+    # settings, results) inside Studio's sidebar, in place of the Gradio controls. Return `{"engine": {"badge":
+    # "ZeroGPU"}, "settings": {...}}` (settings override `design_card.DEFAULT_CARD_SETTINGS` key by key; None hides a
+    # control the engine does not take). Without it the host is as before. See docs/INTEGRATIONS.md, "Design card".
+    def design_card(self) -> dict | None: ...
+
+    # Optional, with `design_card`. Map the card's run settings (`samples`, `thinking`, `seed`, `partialDiffusion`,
+    # `partialPercent`, `backboneK`, `latentK`, `earlyStop`) to the options `validate` takes; by default each becomes
+    # the snake_case option of the same name.
+    def card_options(self, settings: dict) -> dict: ...
 
     # Optional. The choices the panel offers, over Studio's defaults: `{"steps": {"options": [25, 50], "default": 25},
     # "recycles": {...}, "seed": {"min": 0, "max": 99}, "model": {"default": "openbind0"}}`.
@@ -123,15 +135,20 @@ class StudioHandoff:
         session_id = session["session_id"]
         return session_id, self.frame(session_id)
 
-    def frame(self, session_id: str | None = None, *, example: str | None = None) -> str:
+    def frame(self, session_id: str | None = None, *, example: str | None = None, card: str | None = None) -> str:
+        """The editor's frame. With `card` (design-card mode, `design_card.frame_config`), Studio draws the card in its
+        sidebar and the frame takes the window's height, as the page does."""
         query = "embed=1"
         if session_id:
             query += "&amp;session=" + html.escape(quote(session_id, safe=""))
         elif example:
             query += "&amp;example=" + html.escape(quote(example, safe=""))
+        if card:
+            query += "&amp;card=" + html.escape(quote(card, safe=""))
+        height = "height:calc(100vh - 24px);min-height:560px" if card else "height:76vh;min-height:620px"
         return (
             f'<iframe src="{self.editor_path}?{query}" title="AtomWorks Studio" '
-            'style="width:100%;height:76vh;min-height:620px;border:0" '
+            f'style="width:100%;{height};border:0" '
             'allow="clipboard-write; fullscreen; webgpu"></iframe>'
         )
 
@@ -150,6 +167,159 @@ class StudioHandoff:
         if errors:
             raise gr.Error("Fix Studio validation errors before generating: " + "; ".join(errors))
         return snapshot
+
+
+def _check_input(provider: GenerationProvider, snapshot: dict, options: dict) -> None:
+    """Give the provider the last word on whether these options suit this input."""
+    hook = getattr(provider, "validate_input", None)
+    if hook is not None:
+        hook(snapshot, options)
+
+
+async def _run_cifs(generate_fn: Callable[[str, dict], list[str]], cif: str, options: dict) -> list[str]:
+    results = await asyncio.to_thread(generate_fn, cif, options)
+    if not results:
+        raise gr.Error("The model returned no structures")
+    return results
+
+
+def _refold_handlers(provider, refold_fn, models: list[dict], limits: dict) -> tuple[Callable, Callable]:
+    """`refold_cif` (the route) and `refold_design` (the panel's request, answered over the bridge): one refold."""
+    check_refold = getattr(provider, "validate_refold", None) or (
+        lambda options: refold_support.validate_refold_options(options, models, limits)
+    )
+
+    async def refold_cif(cif: str, options: dict) -> dict:
+        """Refold one design with the deployment's model: validated, off the API loop, one at a time."""
+        validated = check_refold(options or {})
+        design = refold_support.check_design_cif(cif)
+        raw = await asyncio.to_thread(refold_fn, design, validated)
+        return refold_support.shape_refold_result(raw)
+
+    async def refold_design(event: gr.EventData) -> str:
+        """The panel's request: the same `refold_cif`, answered through the bridge component."""
+        data = event._data or {}
+        request = str(data.get("request", ""))
+        try:
+            result = await refold_cif(data.get("cif"), data.get("options"))
+        except Exception as error:
+            logging.getLogger(__name__).exception("Studio refold failed")
+            reason = (
+                error.message
+                if isinstance(error, gr.Error)
+                else (str(error) if isinstance(error, ValueError) else "The refold failed. Please retry.")
+            )
+            return refold_support.panel_message("result", request=request, error=reason)
+        return refold_support.panel_message("result", request=request, result=refold_support.panel_result(result))
+
+    return refold_cif, refold_design
+
+
+def _create_card_demo(
+    handoff: StudioHandoff,
+    *,
+    provider: GenerationProvider,
+    card: dict,
+    generate_fn: Callable[[str, dict], list[str]],
+    refold_fn: Callable[[str, dict], dict] | None,
+    refold_models: list[dict],
+    refold_limits: dict,
+) -> gr.Blocks:
+    """Design-card mode: the editor frame alone, with the card in its sidebar and a bridge for its requests."""
+    if refold_fn is not None:
+        card["refold"] = {"models": refold_models, "limits": refold_limits}
+    with gr.Blocks(delete_cache=(3600, 3600)) as demo:
+        bus = gr.HTML("", html_template="", visible="hidden", elem_id="refold-bus", js_on_load=refold_support.BUS_JS)
+        gr.HTML("", html_template="", visible="hidden", elem_id="design-card-bridge", js_on_load=card_support.BRIDGE_JS)
+        gr.HTML(
+            handoff.frame(example=getattr(provider, "default_example", None), card=card_support.frame_config(card)),
+            elem_id="studio-editor",
+            js_on_load=HOST_BRIDGE,
+        )
+        api_cif = gr.Textbox(visible=False)
+        api_options = gr.JSON(visible=False)
+        api_result = gr.JSON(visible=False)
+        api_run = gr.Button(visible=False)
+
+        async def generate_cif(cif: str, options: dict) -> dict:
+            """Generate from an annotated CIF through the same Studio validation and model path."""
+            validated = provider.validate(options or {})
+            session_id, _ = await handoff.open("input.cif", cif)
+            snapshot = await handoff.export(session_id, provider.warning_checks)
+            _check_input(provider, snapshot, validated)
+            return {
+                "designs": await _run_cifs(generate_fn, snapshot["cif"], validated),
+                "warnings": [issue["message"] for issue in snapshot["issues"]],
+            }
+
+        async def card_generate(event: gr.EventData) -> str:
+            """The card's request: the open document, the card's settings, the designs as sessions Studio can open."""
+            data = event._data or {}
+            request = str(data.get("request", ""))
+            try:
+                options = provider.validate(card_support.card_options(provider, data.get("settings") or {}))
+                snapshot = await handoff.export(str(data.get("session_id") or ""), provider.warning_checks)
+                _check_input(provider, snapshot, options)
+                results = await _run_cifs(generate_fn, snapshot["cif"], options)
+                designs = []
+                for index, cif in enumerate(results, start=1):
+                    session_id, _ = await handoff.open(f"design-{index}.cif", cif)
+                    designs.append({"id": session_id, "name": f"Design {index}", "cif": cif})
+                return refold_support.panel_message(
+                    "generated",
+                    request=request,
+                    designs=designs,
+                    warnings=[issue["message"] for issue in snapshot["issues"]],
+                    revision=snapshot["revision"],
+                )
+            except Exception as error:
+                logging.getLogger(__name__).exception("Studio generation failed")
+                reason = error.message if isinstance(error, gr.Error) else "The model request failed. Please retry."
+                if isinstance(error, ValueError) and not isinstance(error, gr.Error):
+                    reason = str(error)
+                return refold_support.panel_message("generated", request=request, error=reason)
+
+        api_run.click(
+            generate_cif,
+            [api_cif, api_options],
+            api_result,
+            api_name="generate_cif",
+            concurrency_limit=1,
+            show_progress="hidden",
+        )
+        bus.card_generate(
+            card_generate,
+            None,
+            bus,
+            api_name=False,
+            concurrency_limit=1,
+            show_progress="hidden",
+        )
+        if refold_fn is not None:
+            refold_cif, refold_design = _refold_handlers(provider, refold_fn, refold_models, refold_limits)
+            refold_api_cif = gr.Textbox(visible=False)
+            refold_api_options = gr.JSON(visible=False)
+            refold_api_result = gr.JSON(visible=False)
+            refold_api_run = gr.Button(visible=False)
+            refold_api_run.click(
+                refold_cif,
+                [refold_api_cif, refold_api_options],
+                refold_api_result,
+                api_name="refold_cif",
+                concurrency_limit=1,
+                concurrency_id="refold",
+                show_progress="hidden",
+            )
+            bus.refold(
+                refold_design,
+                None,
+                bus,
+                api_name=False,
+                concurrency_limit=1,
+                concurrency_id="refold",
+                show_progress="hidden",
+            )
+    return demo.queue(max_size=8)
 
 
 def create_demo(
@@ -172,6 +342,17 @@ def create_demo(
         raise ValueError("refold_fn needs a provider that implements refold_models()")
     refolding = refold_fn is not None
     refold_limits = refold_support.refold_limits(provider) if refolding else {}
+    card = card_support.card_config(provider)
+    if card is not None:
+        return _create_card_demo(
+            handoff,
+            provider=provider,
+            card=card,
+            generate_fn=generate_fn,
+            refold_fn=refold_fn,
+            refold_models=refold_models,
+            refold_limits=refold_limits,
+        )
     with gr.Blocks(delete_cache=(3600, 3600)) as demo:
         gr.Markdown(f"# {provider.title}")
         session = gr.Textbox(visible=False)
@@ -219,16 +400,10 @@ def create_demo(
             return (message,) if refolding else ()
 
         def check_input(snapshot: dict, options: dict) -> None:
-            """Give the provider the last word on whether these options suit this input."""
-            hook = getattr(provider, "validate_input", None)
-            if hook is not None:
-                hook(snapshot, options)
+            _check_input(provider, snapshot, options)
 
         async def run_cifs(cif: str, options: dict) -> list[str]:
-            results = await asyncio.to_thread(generate_fn, cif, options)
-            if not results:
-                raise gr.Error("The model returned no structures")
-            return results
+            return await _run_cifs(generate_fn, cif, options)
 
         async def generate_cif(cif: str, options: dict) -> dict:
             """Generate from an annotated CIF through the same Studio validation and model path."""
@@ -355,34 +530,7 @@ def create_demo(
         )
         view.input(inspect, [view, views], [session, editor, download, *bus], api_name=False, show_progress_on=status)
         if refolding:
-            check_refold = getattr(provider, "validate_refold", None) or (
-                lambda options: refold_support.validate_refold_options(options, refold_models, refold_limits)
-            )
-
-            async def refold_cif(cif: str, options: dict) -> dict:
-                """Refold one design with the deployment's model: validated, off the API loop, one at a time."""
-                validated = check_refold(options or {})
-                design = refold_support.check_design_cif(cif)
-                raw = await asyncio.to_thread(refold_fn, design, validated)
-                return refold_support.shape_refold_result(raw)
-
-            async def refold_design(event: gr.EventData) -> str:
-                """The panel's request: the same `refold_cif`, answered through the bridge component."""
-                data = event._data or {}
-                request = str(data.get("request", ""))
-                try:
-                    result = await refold_cif(data.get("cif"), data.get("options"))
-                except Exception as error:
-                    logging.getLogger(__name__).exception("Studio refold failed")
-                    reason = (
-                        error.message
-                        if isinstance(error, gr.Error)
-                        else (str(error) if isinstance(error, ValueError) else "The refold failed. Please retry.")
-                    )
-                    return refold_support.panel_message("result", request=request, error=reason)
-                return refold_support.panel_message(
-                    "result", request=request, result=refold_support.panel_result(result)
-                )
+            refold_cif, refold_design = _refold_handlers(provider, refold_fn, refold_models, refold_limits)
 
             refold_api_cif = gr.Textbox(visible=False)
             refold_api_options = gr.JSON(visible=False)

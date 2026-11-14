@@ -21,7 +21,8 @@ class GenerationOptions(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid", strict=True)
-    thinking: Literal["low", "medium", "high"] = "medium"
+    # "none" is no extra recycling passes (depth 1 at every step); the Gradio controls offer low to high.
+    thinking: Literal["none", "low", "medium", "high"] = "medium"
     samples: int = Field(default=1, ge=1, le=8)
     seed: int = Field(default=42, ge=0, lt=2**32)
     backbone_k: float | None = Field(default=None, ge=1, le=BACKBONE_K_MAX, allow_inf_nan=False)
@@ -65,8 +66,10 @@ class RFD4GenerationProvider:
     }
     """
 
-    def __init__(self, *, k_defaults: tuple[float, float]):
+    def __init__(self, *, k_defaults: tuple[float, float], card: bool = False):
         self.k_defaults = k_defaults
+        # Show the design card (the RFD4-Proteina page's interface) in place of the Gradio controls.
+        self.card = card
 
     def controls(self) -> dict[str, gr.Component]:
         with gr.Row():
@@ -111,6 +114,20 @@ class RFD4GenerationProvider:
             partial_diffusion_percent=partial_diffusion_percent,
             partial_diffusion=partial_diffusion,
         )
+
+    def design_card(self) -> dict | None:
+        """The design card the RFD4-Proteina page has, with this engine's badge; None unless `card=True`. A server run
+        takes every card setting but "Early stop when converged", a loop of the browser engine: it is hidden."""
+        if not self.card:
+            return None
+        return {
+            "engine": {"badge": "ZeroGPU", "title": "Designs run on a GPU on the server"},
+            "settings": {
+                "backboneK": {"min": 1, "max": BACKBONE_K_MAX, "step": 0.1, "default": self.k_defaults[0]},
+                "latentK": {"min": 1, "max": LATENT_K_MAX, "step": 0.1, "default": self.k_defaults[1]},
+                "earlyStop": None,
+            },
+        }
 
     def validate(self, options: dict) -> dict:
         return GenerationOptions.model_validate(options).model_dump()

@@ -7,7 +7,6 @@ see them as any other click. A provider without `design_card` is untouched. The 
 docs/INTEGRATIONS.md, "Design card".
 """
 
-import base64
 import json
 from typing import Any
 
@@ -73,16 +72,25 @@ def card_options(provider: Any, settings: dict) -> dict:
     return {_OPTION_NAMES[key]: value for key, value in settings.items() if key in _OPTION_NAMES}
 
 
-def frame_config(config: dict[str, Any]) -> str:
-    """The card's configuration as the editor frame's `card` query value (URL-safe base64 of compact JSON)."""
-    raw = json.dumps(config, separators=(",", ":"), sort_keys=True).encode()
-    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+# What judges a design in the Refold panel, from the task the card read (the page's `criteriaKind`, without the
+# chain details only the browser engine has): binders and antibodies by their own criteria, a design of new protein only
+# by the monomer's, and jobs with ligands or motifs by numbers alone.
+_KIND_BY_TASK = {"binder": "binder", "antibody": "antibody"}
+_MONOMER_TASKS = ("unconditional", "empty", "fold", "redesign_all", "inverse", "partial")
 
 
-# The browser half, in the page that holds the editor frame. The card inside the frame posts `generate` and `refold`
-# requests here; they go to Python through the bus (the hidden component of the Refold bridge) and the answers come back
-# the same way. Only the editor's own frame, from this origin, is believed.
+def design_kind(task: str | None) -> str | None:
+    return _KIND_BY_TASK.get(task or "") or ("monomer" if task in _MONOMER_TASKS else None)
+
+
+# The browser half, in the page that holds the editor frame (opened with `?embed=1&card=1&parent_origin=`): the card
+# inside speaks Studio's design-card frame protocol (docs/INTEGRATIONS.md, "Design card in a frame"). Its `generate` and
+# `refold` requests go to Python through the bus (the hidden component of the Refold bridge) and the answers come back
+# the same way, as the `design`, `done`, `error` and `refold-*` messages the card expects. Only the editor's own
+# frame, from this origin, is believed.
 BRIDGE_JS = """
+const config = __CONFIG__;
+const kinds = __KINDS__;
 const frame = () => document.querySelector('iframe[title="AtomWorks Studio"]');
 (async () => {
   const until = async (test, ms = 60000) => {
@@ -95,20 +103,60 @@ const frame = () => document.querySelector('iframe[title="AtomWorks Studio"]');
     }
   };
   const bus = await until(() => window.__studioRefoldBus);
-  const SOURCE = 'atomworks-design-card';
+  const FRAME = 'atomworks-studio';
+  const HOST = 'atomworks-design-host';
+  const pending = new Map();
+  let counter = 0;
+  const reply = (type, body = {}) =>
+    frame()?.contentWindow?.postMessage({ source: HOST, type, ...body }, location.origin);
   window.addEventListener('message', (event) => {
     const data = event.data;
     if (event.origin !== location.origin || event.source !== frame()?.contentWindow) return;
-    if (!data || data.source !== SOURCE) return;
-    if (data.type === 'generate') {
-      bus.emit('card_generate', { request: data.request, session_id: data.sessionId, settings: data.settings });
+    if (!data || data.source !== FRAME || data.channel !== 'design-card') return;
+    if (data.type === 'hello') {
+      reply('config', config);
+    } else if (data.type === 'generate') {
+      const request = 'g' + (++counter);
+      const { sessionId, settings = {}, task } = data.request || {};
+      pending.set(request, { kind: 'generate', id: data.id, seed: settings.seed, task });
+      reply('status', { id: data.id, text: 'Waiting for the GPU…' });
+      bus.emit('card_generate', { request, session_id: sessionId, settings });
     } else if (data.type === 'refold') {
-      bus.emit('refold', { request: data.request, cif: data.cif, options: data.options });
+      const request = 'r' + (++counter);
+      pending.set(request, { kind: 'refold', id: data.id });
+      bus.emit('refold', { request, cif: data.design?.cif, options: data.settings });
+    } else if (data.type === 'abort') {
+      // Stop abandons the wait; the server finishes the call it has started.
+      for (const [request, entry] of pending) if (entry.id === data.id) pending.delete(request);
     }
   });
   bus.listeners.add((message) => {
-    if (message.type !== 'result' && message.type !== 'generated') return;
-    frame()?.contentWindow?.postMessage({ source: SOURCE + '-host', ...message }, location.origin);
+    const entry = pending.get(message.request);
+    if (!entry) return;
+    pending.delete(message.request);
+    if (message.type === 'generated') {
+      if (message.error) {
+        reply('error', { id: entry.id, message: message.error, userMessage: message.error });
+        return;
+      }
+      for (const design of message.designs) {
+        const name = entry.seed != null ? String(entry.seed) : design.name;
+        reply('design', { id: entry.id, design: {
+          name, cif: design.cif, seed: entry.seed ?? null, kind: kinds[entry.task] ?? null,
+          filenameStem: 'design-' + name,
+        } });
+      }
+      reply('done', { id: entry.id, result: { message: (message.warnings || []).join('; ') || undefined } });
+    } else if (message.type === 'result') {
+      if (message.error) reply('refold-error', { id: entry.id, message: message.error });
+      else reply('refold-result', { id: entry.id, result: message.result });
+    }
   });
 })();
 """
+
+
+def bridge_js(config: dict[str, Any]) -> str:
+    """`BRIDGE_JS` with the card's configuration (the `config` message the frame asks for) filled in."""
+    kinds = {task: design_kind(task) for task in ("binder", "antibody", *_MONOMER_TASKS)}
+    return BRIDGE_JS.replace("__CONFIG__", json.dumps(config)).replace("__KINDS__", json.dumps(kinds))

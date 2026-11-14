@@ -135,16 +135,16 @@ class StudioHandoff:
         session_id = session["session_id"]
         return session_id, self.frame(session_id)
 
-    def frame(self, session_id: str | None = None, *, example: str | None = None, card: str | None = None) -> str:
-        """The editor's frame. With `card` (design-card mode, `design_card.frame_config`), Studio draws the card in its
-        sidebar and the frame takes the window's height, as the page does."""
+    def frame(self, session_id: str | None = None, *, example: str | None = None, card: bool = False) -> str:
+        """The editor's frame. With `card` (design-card mode), Studio draws the card in its sidebar and the frame takes
+        the window's height, as the page does."""
         query = "embed=1"
         if session_id:
             query += "&amp;session=" + html.escape(quote(session_id, safe=""))
         elif example:
             query += "&amp;example=" + html.escape(quote(example, safe=""))
         if card:
-            query += "&amp;card=" + html.escape(quote(card, safe=""))
+            query += "&amp;card=1"
         height = "height:calc(100vh - 24px);min-height:560px" if card else "height:76vh;min-height:620px"
         return (
             f'<iframe src="{self.editor_path}?{query}" title="AtomWorks Studio" '
@@ -230,9 +230,15 @@ def _create_card_demo(
         card["refold"] = {"models": refold_models, "limits": refold_limits}
     with gr.Blocks(delete_cache=(3600, 3600)) as demo:
         bus = gr.HTML("", html_template="", visible="hidden", elem_id="refold-bus", js_on_load=refold_support.BUS_JS)
-        gr.HTML("", html_template="", visible="hidden", elem_id="design-card-bridge", js_on_load=card_support.BRIDGE_JS)
         gr.HTML(
-            handoff.frame(example=getattr(provider, "default_example", None), card=card_support.frame_config(card)),
+            "",
+            html_template="",
+            visible="hidden",
+            elem_id="design-card-bridge",
+            js_on_load=card_support.bridge_js(card),
+        )
+        gr.HTML(
+            handoff.frame(example=getattr(provider, "default_example", None), card=True),
             elem_id="studio-editor",
             js_on_load=HOST_BRIDGE,
         )

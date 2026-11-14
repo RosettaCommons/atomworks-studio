@@ -1,7 +1,6 @@
 """The design-card mode of the Gradio host: configuration, the editor frame, the bridge, the generate request."""
 
 import asyncio
-import base64
 import json
 import re
 from pathlib import Path
@@ -48,10 +47,6 @@ def _demo(provider, **kwargs):
 
 def _callbacks(demo):
     return {event.fn.__name__: event.fn for event in demo.fns.values() if event.fn}
-
-
-def _decode(value):
-    return json.loads(base64.urlsafe_b64decode(value + "=" * (-len(value) % 4)))
 
 
 def test_the_card_config_has_the_reference_defaults_and_hides_what_the_engine_lacks():
@@ -113,10 +108,12 @@ def test_card_mode_shows_only_the_editor_and_the_bridge():
         html_blocks = [b for b in demo.blocks.values() if type(b).__name__ == "HTML"]
         assert sorted(b.elem_id for b in html_blocks) == ["design-card-bridge", "refold-bus", "studio-editor"]
         editor = next(b for b in html_blocks if b.elem_id == "studio-editor")
-        query = re.search(r"card=([^&\"]+)", editor.value).group(1)
-        card = _decode(query)
+        assert "card=1" in editor.value
+        bridge = next(b for b in html_blocks if b.elem_id == "design-card-bridge")
+        card = json.loads(re.search(r"const config = (\{.*?\});\n", bridge.js_on_load, re.S).group(1))
         assert card["engine"]["badge"] == "Test GPU"
         assert card["refold"]["models"] == [{"id": "openbind0"}]
+        assert "'design-card'" in bridge.js_on_load and "'refold-result'" in bridge.js_on_load
         assert "example=enzyme_design" in editor.value
         assert any(e["api_name"] == "generate_cif" for e in demo.config["dependencies"])
         assert any(e["api_name"] == "refold_cif" for e in demo.config["dependencies"])
@@ -197,3 +194,9 @@ def test_the_rfd4_provider_offers_the_card_with_every_setting_but_early_stop():
         )
     )
     assert options["thinking"] == "none" and options["partial_diffusion_percent"] == 40
+
+
+def test_what_judges_a_design_follows_the_task():
+    assert design_card.design_kind("binder") == "binder" and design_card.design_kind("antibody") == "antibody"
+    assert design_card.design_kind("unconditional") == "monomer"
+    assert design_card.design_kind("enzyme") is None and design_card.design_kind(None) is None

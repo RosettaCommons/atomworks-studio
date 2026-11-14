@@ -123,6 +123,19 @@ def resolve(doc: StudioDocument, sel: Any) -> list[int]:
     return sorted(out)
 
 
+def cif_chain_names(cif: str) -> dict[str, list[str]]:
+    """The chain names a written CIF carries, in atom order without repeats: `label_asym_id` and `auth_asym_id`."""
+    import io
+
+    from biotite.structure.io.pdbx import CIFFile
+
+    site = CIFFile.read(io.StringIO(cif)).block["atom_site"]
+    names = {}
+    for column in ("label_asym_id", "auth_asym_id"):
+        names[column] = list(dict.fromkeys(str(v) for v in site[column].as_array()))
+    return names
+
+
 def _nanround(v: float):
     return None if not np.isfinite(v) else round(float(v), 4)
 
@@ -171,11 +184,12 @@ def state_of(doc: StudioDocument) -> dict[str, Any]:
         "annotations": annotations,
         "summary": {
             "atom_count": summary["atom_count"],
-            "chain_ids": sorted({str(x) for x in labels}),
+            "chain_ids": summary["chain_ids"],
             "next_chain_id": summary["next_chain_id"],
             "condition_counts": summary["condition_counts"],
             "undo_depth": summary["undo_depth"],
             "sequence": summary["sequence"],
+            "cif_chains": cif_chain_names(doc.to_cif()),
         },
     }
 
@@ -435,6 +449,12 @@ def compare_states(
     for field in ("atom_count", "chain_ids", "next_chain_id"):
         if ps[field] != js_[field]:
             problems.append(f"{where}summary.{field}: py {ps[field]} js {js_[field]}")
+    # What Studio's sequence bar labels the chains: the same names, in the same order, as the page's.
+    if [c["chain_id"] for c in ps["sequence"]] != [c["chain_id"] for c in js_["sequence"]]:
+        problems.append(
+            f"{where}sequence chain ids: py {[c['chain_id'] for c in ps['sequence']]}"
+            f" js {[c['chain_id'] for c in js_['sequence']]}"
+        )
     counts = lambda s: {k: v for k, v in s["condition_counts"].items() if k in KEY_CONDITIONS}  # noqa: E731
     if counts(ps) != counts(js_) and not any(i for i in (pm, jm)):
         problems.append(f"{where}condition_counts: py {counts(ps)} js {counts(js_)}")

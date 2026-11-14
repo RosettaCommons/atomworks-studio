@@ -58,7 +58,8 @@ class GenerationProvider(Protocol):
     # Optional. Design card: show the card the RFD4-Proteina page has (start screen, examples, job editor, run
     # settings, results) inside Studio's sidebar, in place of the Gradio controls. Return `{"engine": {"badge":
     # "ZeroGPU"}, "settings": {...}}` (settings override `design_card.DEFAULT_CARD_SETTINGS` key by key; None hides a
-    # control the engine does not take). Without it the host is as before. See docs/INTEGRATIONS.md, "Design card".
+    # control the engine does not take; "notice", Markdown shown above the editor, for terms or data handling). Without
+    # it the host is as before. See docs/INTEGRATIONS.md, "Design card".
     def design_card(self) -> dict | None: ...
 
     # Optional, with `design_card`. Map the card's run settings (`samples`, `thinking`, `seed`, `partialDiffusion`
@@ -229,6 +230,10 @@ def _create_card_demo(
     if refold_fn is not None:
         card["refold"] = {"models": refold_models, "limits": refold_limits}
     with gr.Blocks(delete_cache=(3600, 3600)) as demo:
+        notice = (provider.design_card() or {}).get("notice")
+        if notice:
+            # A deployment's own notice (data handling, terms) stays on the page; the card does not replace it.
+            gr.Markdown(notice, elem_id="design-card-notice")
         bus = gr.HTML("", html_template="", visible="hidden", elem_id="refold-bus", js_on_load=refold_support.BUS_JS)
         gr.HTML(
             "",

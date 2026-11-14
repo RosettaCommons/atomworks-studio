@@ -70,6 +70,8 @@ class RFD4GenerationProvider:
         self.k_defaults = k_defaults
         # Show the design card (the RFD4-Proteina page's interface) in place of the Gradio controls.
         self.card = card
+        # Markdown a deployment shows above the card (data handling, terms); the card's own page has no such line.
+        self.notice = ""
 
     def controls(self) -> dict[str, gr.Component]:
         with gr.Row():
@@ -122,6 +124,7 @@ class RFD4GenerationProvider:
             return None
         return {
             "engine": {"badge": "ZeroGPU", "title": "Designs run on a GPU on the server"},
+            "notice": self.notice or None,
             "settings": {
                 "backboneK": {"min": 1, "max": BACKBONE_K_MAX, "step": 0.1, "default": self.k_defaults[0]},
                 "latentK": {"min": 1, "max": LATENT_K_MAX, "step": 0.1, "default": self.k_defaults[1]},

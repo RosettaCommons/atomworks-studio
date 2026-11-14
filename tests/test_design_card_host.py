@@ -109,6 +109,7 @@ def test_card_mode_shows_only_the_editor_and_the_bridge():
         assert sorted(b.elem_id for b in html_blocks) == ["design-card-bridge", "refold-bus", "studio-editor"]
         editor = next(b for b in html_blocks if b.elem_id == "studio-editor")
         assert "card=1" in editor.value
+        assert "design-card-notice" not in [b.elem_id for b in demo.blocks.values()]
         bridge = next(b for b in html_blocks if b.elem_id == "design-card-bridge")
         card = json.loads(re.search(r"const config = (\{.*?\});\n", bridge.js_on_load, re.S).group(1))
         assert card["engine"]["badge"] == "Test GPU"
@@ -199,3 +200,18 @@ def test_what_judges_a_design_follows_the_task():
     assert design_card.design_kind("binder") == "binder" and design_card.design_kind("antibody") == "antibody"
     assert design_card.design_kind("unconditional") == "monomer"
     assert design_card.design_kind("enzyme") is None and design_card.design_kind(None) is None
+
+
+def test_a_deployment_notice_stays_above_the_card():
+    pytest.importorskip("gradio")
+
+    class Noticed(CardProvider):
+        def design_card(self):
+            return {**self._card, "notice": "**Notice:** terms"}
+
+    demo = _demo(Noticed())
+    try:
+        notice = next(b for b in demo.blocks.values() if getattr(b, "elem_id", None) == "design-card-notice")
+        assert "terms" in notice.value
+    finally:
+        demo.close()

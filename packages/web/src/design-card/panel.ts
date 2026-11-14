@@ -500,7 +500,7 @@ export class DesignPanel {
     const wanted = chains.map((c) => String(c).toUpperCase());
     const raw = parseCifBlock(text);
     const open = async (assembly: string): Promise<SessionDoc> => {
-      const sid = await createSession(text, name, { preset: "rcsb", assembly, ...extra });
+      const sid = await createSession(text, name, { preset: "rcsb", assembly, fixAll: true, ...extra });
       const doc = new SessionDoc(sid);
       await doc.refresh();
       return doc;

@@ -177,13 +177,15 @@ function emptyAtoms(): AtomArray {
 export async function createSession(
   cif: string,
   name: string,
-  options: { preset?: "minimal" | "rcsb"; assembly?: string; keepUnresolved?: boolean } = {},
+  options: { preset?: "minimal" | "rcsb"; assembly?: string; keepUnresolved?: boolean; fixAll?: boolean } = {},
 ): Promise<string> {
   const form = new FormData();
   form.append("file", new Blob([cif], { type: "chemical/x-mmcif" }), `${name.replace(/[^\w.-]+/g, "_") || "structure"}.cif`);
   form.append("parse_preset", options.preset ?? "minimal");
   if (options.assembly != null) form.append("assembly", options.assembly);
   if (options.keepUnresolved != null) form.append("keep_unresolved", options.keepUnresolved ? "true" : "false");
+  // An entry opens with everything held as it is (a user marks what to design); a server that does it by default ignores this.
+  if (options.fixAll != null) form.append("fix_all", options.fixAll ? "true" : "false");
   const r = await api<{ session_id: string }>("/api/sessions", { method: "POST", body: form, timeoutMs: 120_000 });
   return r.session_id;
 }

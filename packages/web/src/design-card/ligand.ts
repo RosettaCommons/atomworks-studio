@@ -50,11 +50,11 @@ export function ligandCifFromCcd(
     "loop_",
     ...["group_PDB", "id", "type_symbol", "label_atom_id", "label_comp_id", "label_asym_id", "label_entity_id",
       "label_seq_id", "auth_seq_id", "auth_comp_id", "auth_asym_id", "auth_atom_id", "Cartn_x", "Cartn_y", "Cartn_z",
-      "occupancy", "B_iso_or_equiv", "pdbx_formal_charge", "pdbx_PDB_model_num"].map((c) => `_atom_site.${c}`),
+      "occupancy", "B_iso_or_equiv", "pdbx_formal_charge", "pdbx_PDB_model_num", "pdbx_PDB_ins_code", "label_alt_id"].map((c) => `_atom_site.${c}`),
     ...atoms.map((a, k) => {
       const [x, y, z] = a.xyz.map((v, j) => (v + shift[j]).toFixed(3));
       return ["HETATM", k + 1, a.element, q(a.name), code, chainId, 1, ".", 1, code, chainId, q(a.name), x, y, z,
-        "1.00", "0.00", a.charge, 1].join(" ");
+        "1.00", "0.00", a.charge, 1, "?", "."].join(" ");
     }),
     "",
   ];

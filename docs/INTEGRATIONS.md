@@ -474,7 +474,8 @@ new residues replaced). Writes: `/conditions/batch`, `/delete`, `/combine`,
 `/segments` (+ `/range`, `/replace`, `/restore`, `/scaffold`, `/ligand-binder`),
 `/chains` (+ `/order`, `/rebuild`), `/coordinates/clear`, `/internal-coords` (+
 `/clear-targets`), `/undo`, and `POST /sessions` (multipart `file` and import
-options: `parse_preset`, `assembly`, `keep_unresolved`). Ligands by dictionary code
+options: `parse_preset`, `assembly`, `keep_unresolved`, `fix_all`: an entry opens with every
+residue held as it is, and without its unresolved residues unless `keep_unresolved`). Ligands by dictionary code
 are fetched from `files.rcsb.org/ligands/view/<CODE>.cif` and built into a CIF in the
 browser; the examples fetch their PDB entries from `files.rcsb.org`. An example
 being built lives in a hidden session and is shown once, finished. The card's Undo

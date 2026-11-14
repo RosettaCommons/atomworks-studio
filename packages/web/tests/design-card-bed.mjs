@@ -69,6 +69,8 @@ export async function startBed({ viewport = { width: 1400, height: 1000 }, color
     if (!body) { await route.fulfill({ status: 404, body: 'not found' }); return; }
     await route.fulfill({ status: 200, body, headers: { 'access-control-allow-origin': '*', 'content-type': 'chemical/x-mmcif' } });
   });
+  // Every open starts from nothing: Studio reopens the session its tab last had, and a Python server still has it.
+  await page.addInitScript(() => { try { sessionStorage.clear(); } catch { /* blocked */ } });
   const open = async (query = 'card=1&viewer=molstar') => {
     await page.goto(`${base}?${query}`);
     await page.waitForFunction(() => document.querySelector('#status')?.textContent.includes('Ready.') && window.atomworksStudio);

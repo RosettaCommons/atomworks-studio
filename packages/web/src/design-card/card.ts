@@ -14,6 +14,7 @@ import cardCss from "./card.css?inline";
 import cardModeCss from "./card-mode.css?inline";
 import { SessionDoc, createSession, deleteSession } from "./doc.ts";
 import { cardMarkup } from "./markup.ts";
+import { createGuide, guideUrl } from "./guide.ts";
 import { DesignPanel } from "./panel.ts";
 import type { PanelHost } from "./panel.ts";
 import { DEFAULT_RESULTS_MODELS, resultsFiles } from "./results.ts";
@@ -336,11 +337,16 @@ export function mountDesignCard(
   applyTheme();
 
   if (provider?.guide) {
+    // `{ url }`: the card's own popup; a function: the host's.
+    const address = guideUrl(provider.guide);
+    const popup = address ? createGuide(address) : null;
+    const openGuide = (): void => { void (popup ? popup.open() : (provider.guide as () => void | Promise<void>)()); };
+    if (popup) cleanups.push(() => popup.destroy());
     els.guideBtn.hidden = false;
-    els.guideBtn.addEventListener("click", () => void provider.guide!());
+    els.guideBtn.addEventListener("click", openGuide);
     // Studio's own footer link opens the same guide.
     const link = sidebar ? document.getElementById("guide-link") : null;
-    const open = (ev: Event): void => { ev.preventDefault(); void provider.guide!(); };
+    const open = (ev: Event): void => { ev.preventDefault(); openGuide(); };
     link?.addEventListener("click", open);
     cleanups.push(() => link?.removeEventListener("click", open));
   }

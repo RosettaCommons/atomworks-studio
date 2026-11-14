@@ -17,7 +17,9 @@ type HostConfig = {
   engine: EngineInfo;
   settings?: ProviderSettings;
   refold?: { models: RefoldModelInput[]; limits?: RefoldLimits };
+  /** The Guide button: `guideUrl` is the guide page the card shows itself (same origin as the frame); `guide` alone sends `guide` to the parent. */
   guide?: boolean;
+  guideUrl?: string;
   zipTitle?: string;
 };
 
@@ -79,7 +81,7 @@ export async function connectDesignHost(parentOrigin: string, timeoutMs = 3000):
     settings: config.settings,
     zipTitle: config.zipTitle,
     refold,
-    guide: config.guide ? () => send("guide") : undefined,
+    guide: config.guideUrl ? { url: config.guideUrl } : config.guide ? () => send("guide") : undefined,
     generate: (request, hooks: GenerateHooks) => new Promise((resolve, reject) => {
       const id = `generate-${(counter += 1)}`;
       // Frames and designs are handed over in the order they came.

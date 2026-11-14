@@ -191,8 +191,11 @@ export interface DesignCardProvider {
   refoldPanel?: { nameHeader?: RefoldColumnHeader; describe?: (design: RefoldDesign) => string; storage?: unknown };
   /** An engine-specific box beside Generate (the page's speed hint). Called once; may return a cleanup. */
   renderExtras?(container: HTMLElement): void | (() => void);
-  /** The Guide button's action; the button is shown only when this exists. */
-  guide?(): void | Promise<void>;
+  /**
+   * The Guide button, shown only when this exists: a function the host runs, or `{ url }` for the card's own popup
+   * (the guide page at `url`, its `<main>` in a dialog over the designer; relative to the page the card is in).
+   */
+  guide?: (() => void | Promise<void>) | { url: string };
   /** Files added to "Save all (.zip)". */
   zipFiles?(context: { input: { cif: string; name: string; revision: number } | null; designs: DesignRecord[] }): { name: string; text: string }[];
   /** The zip's README title ("RFD4-Proteina (WebGPU) results"). */

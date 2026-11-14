@@ -3,6 +3,7 @@
 import argparse
 import os
 import time
+from pathlib import Path
 
 
 def main():
@@ -20,6 +21,7 @@ def main():
         action="store_true",
         help="Show the design card (the RFD4-Proteina page's interface) in Studio's sidebar, with simulated generation",
     )
+    parser.add_argument("--no-guide", action="store_true", help="With --card: a card with no Guide button")
     parser.add_argument("--refold-delay", type=float, default=1.5, help="Seconds each simulated refold takes")
     args = parser.parse_args()
     if args.delay < 0:
@@ -46,7 +48,10 @@ def main():
 
     refold_fn = None
     if args.card:
-        provider.guide_url = "https://web.rfd4-proteina.org/help/"
+        if not args.no_guide:
+            # The Guide button shows this directory's index.html, served by the app itself at /help/ (create_app reads
+            # the provider's guide_dir), as a deployment with its own guide does.
+            provider.guide_dir = str(Path(__file__).resolve().parents[1] / "packages/web/tests/fixtures/guide")
     if args.refold or args.card:
         provider.refold_models = lambda: [{"id": "af3"}, {"id": "openbind0"}]
 

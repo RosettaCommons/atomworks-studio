@@ -63,6 +63,13 @@ def test_the_card_config_has_the_reference_defaults_and_hides_what_the_engine_la
     guided = design_card.card_config(CardProvider(guide={"url": "https://example.org/guide/"}))
     assert guided["guide"] is True and guided["guideUrl"] == "https://example.org/guide/"
     assert "guide" not in config
+    # A guide at an address of the host's own: the frame fetches it and shows it itself.
+    local = design_card.card_config(CardProvider(guide={"url": "/help/index.html"}))
+    assert local["guide"] is True and local["guideUrl"] == "/help/index.html"
+    assert design_card.card_config(CardProvider(guide="/help/index.html"))["guideUrl"] == "/help/index.html"
+    # Back-compat: a Guide with no address is a button the host's page answers.
+    bare = design_card.card_config(CardProvider(guide=True))
+    assert bare["guide"] is True and "guideUrl" not in bare
     with pytest.raises(ValueError, match="badge"):
         design_card.card_config(CardProvider(engine={}))
     with pytest.raises(ValueError, match="Unknown design-card setting"):
@@ -223,3 +230,52 @@ def test_a_deployment_notice_stays_above_the_card():
         assert "terms" in notice.value
     finally:
         demo.close()
+
+
+def test_the_bridge_no_longer_opens_the_guide_in_a_new_tab():
+    js = design_card.bridge_js(design_card.card_config(CardProvider(guide={"url": "/help/index.html"})))
+    assert "window.open" not in js
+    assert '"guideUrl": "/help/index.html"' in js
+
+
+def _guide_app(provider, **kwargs):
+    from annotation_studio.gradio import create_app
+    from fastapi.testclient import TestClient
+
+    return TestClient(create_app(provider=provider, generate_fn=lambda cif, options: [cif], **kwargs))
+
+
+def test_create_app_serves_the_guide_directory_at_help(tmp_path):
+    (tmp_path / "img").mkdir()
+    (tmp_path / "index.html").write_text("<main><h1>Sample guide</h1></main>")
+    (tmp_path / "img/a.svg").write_text("<svg xmlns='http://www.w3.org/2000/svg'/>")
+    client = _guide_app(CardProvider(guide={"url": "/help/index.html"}), guide_dir=tmp_path)
+    for path in ("/help/", "/help/index.html"):
+        response = client.get(path)
+        assert response.status_code == 200 and "Sample guide" in response.text
+    assert client.get("/help/img/a.svg").headers["content-type"].startswith("image/svg")
+    assert client.get("/help/missing.html").status_code == 404
+    # Studio itself stays where it was.
+    assert client.get("/api/v1/health").status_code in (200, 404)
+    assert client.get("/", params={"embed": "1"}).status_code in (200, 404, 307)
+
+
+def test_a_provider_member_names_the_guide_directory_as_method_or_attribute(tmp_path):
+    (tmp_path / "index.html").write_text("<main>from the provider</main>")
+
+    class Method(CardProvider):
+        def guide_dir(self):
+            return tmp_path
+
+    class Attribute(CardProvider):
+        guide_dir = str(tmp_path)
+
+    for provider in (Method(), Attribute()):
+        assert "from the provider" in _guide_app(provider).get("/help/").text
+
+
+def test_without_a_guide_directory_nothing_is_mounted_at_help(tmp_path):
+    client = _guide_app(CardProvider())
+    assert client.get("/help/").status_code in (404, 405)
+    with pytest.raises(ValueError, match="not a directory"):
+        _guide_app(CardProvider(), guide_dir=tmp_path / "nope")

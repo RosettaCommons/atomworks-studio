@@ -8,6 +8,7 @@
 // in-browser engine (RFD4P_PAGE=<clone>); see design-card-bed.mjs. Examples that build from RCSB entries use
 // tests/.cache/rcsb, fetched from files.rcsb.org when missing.
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { startBed, fakeProviderSource } from './design-card-bed.mjs';
 
 const bed = await startBed();
@@ -118,6 +119,54 @@ try {
     await page.locator('#rfd4p-guide-btn').click();
     assert.equal(await page.evaluate(() => window.__fake.guided), 1);
     assert.equal(await page.evaluate(() => window.__fake.extras), 1, 'renderExtras ran once');
+  });
+
+  await check('guide: { url } is the card\'s own popup over the designer (content, images, links, Escape, ×)', async () => {
+    const origin = new URL(bed.base).origin;
+    let fetches = 0;
+    const fixture = (name) => readFileSync(new URL(`./fixtures/guide/${name}`, import.meta.url));
+    await page.route(`${origin}/__guide/**`, (route) => {
+      const path = new URL(route.request().url()).pathname.replace('/__guide/', '');
+      fetches += 1;
+      route.fulfill(path === 'index.html' ? { contentType: 'text/html', body: fixture('index.html') }
+        : { contentType: 'image/svg+xml', body: fixture(path) });
+    });
+    await page.evaluate(() => window.__card?.destroy());
+    await bed.open('card=1&viewer=molstar');
+    await page.evaluate(({ src }) => {
+      const provider = eval(src);
+      provider.guide = { url: '/__guide/index.html' };
+      window.__card = window.atomworksStudio.mountDesignCard(null, provider, {});
+    }, { src: fakeProviderSource });
+    await page.locator('#rfd4p-guide-btn').click();
+    const dialog = page.locator('dialog.rfd4p-guide');
+    await dialog.waitFor({ state: 'visible' });
+    assert.equal(await dialog.locator('h1').textContent(), 'Sample guide');
+    assert.equal(await dialog.locator('.rfd4p-guide-body').count(), 1);
+    assert.equal(await page.evaluate(() => window.__fake.guided), 0, 'the card did not call a guide function');
+    assert.equal(await dialog.locator('a', { hasText: 'Back to the designer' }).count(), 0, '"back to the designer" is removed');
+    assert.equal(await page.evaluate(() => window.__guideScriptRan), undefined, 'scripts of the guide do not run');
+    const img = dialog.locator('img');
+    assert.equal(await img.getAttribute('src'), `${origin}/__guide/img/sample.svg`);
+    await page.waitForFunction(() => document.querySelector('dialog.rfd4p-guide img').complete && document.querySelector('dialog.rfd4p-guide img').naturalWidth > 0);
+    const external = dialog.locator('a', { hasText: 'full documentation' });
+    assert.equal(await external.getAttribute('href'), 'https://example.org/docs');
+    assert.equal(await external.getAttribute('target'), '_blank');
+    assert.equal(await dialog.locator('a', { hasText: 'another page' }).getAttribute('href'), `${origin}/__guide/other.html`);
+    await dialog.locator('nav.toc a', { hasText: 'Run' }).click();
+    assert.equal(await dialog.isVisible(), true, 'a contents link scrolls the popup, it does not leave');
+    await page.keyboard.press('Escape');
+    assert.equal(await dialog.isVisible(), false, 'Escape closes it');
+    await page.locator('#rfd4p-guide-btn').click();
+    await dialog.waitFor({ state: 'visible' });
+    await dialog.locator('.rfd4p-guide-x').click();
+    assert.equal(await dialog.isVisible(), false, 'the × closes it');
+    assert.equal(fetches, 2, 'the page and its image, fetched once');
+    await page.evaluate(() => window.__card.destroy());
+    assert.equal(await page.locator('dialog.rfd4p-guide').count(), 0, 'destroy removes the popup');
+    await page.unroute(`${origin}/__guide/**`);
+    await bed.open('card=1&viewer=molstar');
+    await mount();
   });
 
   // ---- the start screen ---------------------------------------------------------------------------------------------

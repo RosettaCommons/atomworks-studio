@@ -4,17 +4,19 @@ import asyncio
 import html
 import json
 import logging
+import os
 import tempfile
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 from urllib.parse import quote
 
 import gradio as gr
 import httpx
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from annotation_studio import design_card as card_support
 from annotation_studio import refold as refold_support
@@ -66,6 +68,12 @@ class GenerationProvider(Protocol):
     # (the percent, or None when off), `backboneK`, `latentK`, `earlyStop`) to the options `validate` takes; by default
     # each becomes the snake_case option of the same name, and the percent `partial_diffusion` and its percent.
     def card_options(self, settings: dict) -> dict: ...
+
+    # Optional, with `design_card`. A directory of static files (the guide's `index.html` and its images) that
+    # `create_app` serves at `/help/` (a method returning the path, or a plain attribute; `create_app(guide_dir=...)`
+    # does the same). Let `design_card()["guide"]` be `{"url": "/help/index.html"}` and the Guide button shows that page
+    # as a popup over the designer, from the deployment itself. Without it nothing is mounted.
+    def guide_dir(self) -> str | Path | None: ...
 
     # Optional. The choices the panel offers, over Studio's defaults: `{"steps": {"options": [25, 50], "default": 25},
     # "recycles": {...}, "seed": {"min": 0, "max": 99}, "model": {"default": "openbind0"}}`.
@@ -585,15 +593,36 @@ def create_demo(
     return demo.queue(max_size=8)
 
 
+def guide_directory(provider: Any, explicit: str | os.PathLike | None = None) -> Path | None:
+    """The directory a deployment serves at `/help/`: `explicit`, else the provider's `guide_dir` (a method returning
+    it, or a plain attribute), else None. The directory must exist."""
+    given = explicit
+    if given is None:
+        member = getattr(provider, "guide_dir", None)
+        given = member() if callable(member) else member
+    if not given:
+        return None
+    directory = Path(given)
+    if not directory.is_dir():
+        raise ValueError(f"guide_dir {str(directory)!r} is not a directory")
+    return directory
+
+
 def create_app(
     *,
     provider: GenerationProvider,
     generate_fn: Callable[[str, dict], list[str]],
     refold_fn: Callable[[str, dict], dict] | None = None,
+    guide_dir: str | os.PathLike | None = None,
 ) -> FastAPI:
     """Mount the optional generation UI at /design beside the existing editor.
 
     `refold_fn`, optional, adds Studio's Refold panel and the `/refold_cif` route; see `create_demo`.
+
+    `guide_dir` (or a `guide_dir` member of the provider, a method or an attribute), optional, is a directory of static
+    files served at `/help/` (`index.html` for the directory itself): the guide the design card's Guide button shows
+    (`design_card()["guide"] = {"url": "/help/index.html"}`) comes from the deployment itself and needs no other site.
+    Without it nothing is mounted.
     """
     from annotation_studio.main import app as studio
 
@@ -617,5 +646,9 @@ def create_app(
         footer_links=["api"],
         run_history=False,
     )
+    guide = guide_directory(provider, guide_dir)
+    if guide is not None:
+        # Before "/", which would take the path.
+        app.mount("/help", StaticFiles(directory=guide, html=True), name="guide")
     app.mount("/", studio)
     return app

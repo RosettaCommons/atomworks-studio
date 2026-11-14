@@ -38,7 +38,10 @@ def card_config(provider: Any) -> dict[str, Any] | None:
     """The provider's card as JSON-safe data, or None when it does not opt in.
 
     `design_card()` returns `{"engine": {"badge": "ZeroGPU"}, "settings": {...}, "guide": {"url": "..."}}`; `settings`
-    overrides `DEFAULT_CARD_SETTINGS` per key (None drops a control), `guide` makes the card show its Guide button.
+    overrides `DEFAULT_CARD_SETTINGS` per key (None drops a control), `guide` makes the card show its Guide button:
+    `{"url": "/help/index.html"}` (or the bare string) is a guide page the card fetches and shows as a popup over the
+    designer, by itself, in the editor frame (so the address is relative to this host's origin, where `create_app`'s
+    `guide_dir` serves it); `True` is a button the host's own page answers (the frame sends `guide` to it).
     """
     hook = getattr(provider, "design_card", None)
     given = hook() if hook is not None else None
@@ -62,9 +65,10 @@ def card_config(provider: Any) -> dict[str, Any] | None:
     config: dict[str, Any] = {"engine": engine, "settings": settings}
     guide = given.get("guide")
     if guide:
-        # The Guide button opens this address in a new tab (the page shows its guide as a popup it owns).
         config["guide"] = True
-        config["guideUrl"] = str(guide["url"] if isinstance(guide, dict) else guide)
+        url = guide.get("url") if isinstance(guide, dict) else (guide if isinstance(guide, str) else None)
+        if url:
+            config["guideUrl"] = str(url)
     return json.loads(json.dumps(config))
 
 
@@ -141,8 +145,9 @@ const frame = () => document.querySelector('iframe[title="AtomWorks Studio"]');
       pending.set(request, { kind: 'refold', id: data.id });
       bus.emit('refold', { request, cif: data.design?.cif, options: data.settings });
     } else if (data.type === 'guide') {
-      // The click happened in the frame, which gives this page (its parent) the user activation a new tab needs.
-      if (config.guideUrl) window.open(config.guideUrl, '_blank', 'noopener');
+      // Only a card configured with `guide: true` and no address asks the page; one with an address shows the guide
+      // itself, in the frame. A deployment that wants its own Guide listens for this event.
+      window.dispatchEvent(new CustomEvent('atomworks-design-guide'));
     } else if (data.type === 'abort') {
       // Stop abandons the wait; the server finishes the call it has started.
       for (const [request, entry] of pending) if (entry.id === data.id) pending.delete(request);

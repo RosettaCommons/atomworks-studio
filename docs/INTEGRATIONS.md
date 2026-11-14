@@ -467,7 +467,9 @@ const card = window.atomworksStudio.mountDesignCard(null, {
   refold: refoldProvider,          // optional: Studio's RefoldProvider; the card hosts the Refold panel in Outputs
   refoldPanel: { nameHeader: { label: "Seed" }, describe: (d) => `seed ${d.name}` },
   renderExtras(container) {},      // optional: an engine-specific box beside Generate (the page's speed hint)
-  guide() {},                      // optional: the Guide button is shown only when this exists
+  guide: { url: "/help/index.html" },   // optional: the Guide button is shown only when this exists. `{ url }`: the card
+                                   // fetches that page and shows its <main> as a popup over the designer (see below);
+                                   // or a function, `guide() {}`, for a host that shows its guide itself
   zipFiles: ({ input, designs }) => [{ name: "notes.txt", text: "…" }],   // optional: more files in Save all
   zipTitle: "RFD4-Proteina (WebGPU) results",
   inputChanged(spec) {},           // optional: the job changed; get ready (load weights)
@@ -498,6 +500,15 @@ title, disabled })`, `setTheme` / `theme()`, `designs()`, `settings()`,
 `inputSessionId()`, `spec()`, `generate()` (Stop while a run goes), `stop()`,
 `zip()` (the bytes **Save all** would download), `setStatus`, `onChange(listener)`
 (`input`, `designs`, `run`, `settings`, `theme` events) and `destroy()`.
+
+**The guide popup.** With `guide: { url }` the card fetches the page at `url` (resolved
+against the page the card is in; revalidated with the server each time the popup is
+first opened) and shows its `<main>` in a `<dialog>` over the designer: links resolve
+against the guide's own address and open in a new tab, in-page links scroll the popup,
+images resolve too, a link to the directory above the guide ("back to the designer") is
+dropped, and Escape, the × and a click on the backdrop close it. If the guide cannot be
+read it opens in a new tab instead. A function `guide()` replaces all of that with the
+host's own action. The Guide link in Studio's footer opens the same guide.
 
 **What the card needs from the server.** Reads: `GET /sessions/{sid}` (name,
 revision, undo depth), `GET /sessions/{sid}/cif` (the annotated CIF, parsed in the
@@ -552,15 +563,24 @@ frame accepts only those from its parent's window and origin.
 | `generate` `{ id, request }` | `request` is `{ sessionId, cif, name, revision, task, settings }` (`settings` as `RunSettings`). |
 | `refold` `{ id, design, settings }` | `design` is `{ id, name, cif, kind, data }`, `settings` the Refold box's. |
 | `abort` `{ id }` | Stop was pressed. |
-| `guide` | The Guide button was pressed. |
+| `guide` | The Guide button was pressed, for a card whose `config` has `guide: true` and no `guideUrl` (the host answers it; the Gradio host fires a `atomworks-design-guide` event on its page). |
 
 | Parent → frame | Meaning |
 | --- | --- |
-| `config` `{ engine, settings?, refold?: { models, limits? }, guide?, zipTitle? }` | What a `DesignCardProvider` has: the badge, which settings the engine takes, the refold models, whether there is a Guide. |
+| `config` `{ engine, settings?, refold?: { models, limits? }, guide?, guideUrl?, zipTitle? }` | What a `DesignCardProvider` has: the badge, which settings the engine takes, the refold models, whether there is a Guide. With `guideUrl` the frame shows that guide page itself (the card's popup; the address is relative to the frame's origin, so a host serves the guide next to Studio); `guide: true` alone sends `guide` to the parent. |
 | `status` / `progress` / `loading` `{ id, … }` | `hooks.status(text, options)`, `hooks.progress(fraction, label)`, `hooks.loading(text)`. |
 | `frame` `{ id, cif, options }` / `design` `{ id, design }` | `hooks.frame`, `hooks.design` (a `DesignInfo`). Handled in the order sent. |
 | `done` `{ id, result? }` / `error` `{ id, message, userMessage? }` | The run ended; `result` is `{ message? }`. |
 | `refold-status` / `refold-result` / `refold-error` `{ id, … }` | A refold's progress, its `RefoldResult`, or why it failed. |
+
+**The Gradio host serves the guide.** `create_app(provider=..., guide_dir="path/to/guide")`, or a
+`guide_dir` member of the provider (a method returning the directory, or a plain
+attribute), serves that directory at `/help/` (`html=True`, so `/help/` is its
+`index.html`); a provider's `design_card()` then returns `"guide": {"url":
+"/help/index.html"}` and the Guide button shows it as the popup above, in the editor
+frame, with no request to any other site. Without `guide_dir` nothing is mounted and
+nothing changes. `RFD4GenerationProvider` takes `guide_dir` (and `guide_url`, default
+`/help/index.html`, for a guide at another address).
 
 All of it is JSON: a design's CIF travels as a string. `prepare` (fetching the refold
 model ahead of the click) is not forwarded; the host prepares on its own.

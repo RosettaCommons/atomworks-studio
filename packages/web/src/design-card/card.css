@@ -856,7 +856,42 @@ body.rfd4p-building .rfd4p-piece-pop { visibility: hidden; }
   font-variant-numeric: tabular-nums;
 }
 
-/* The guide popup (web/guide-dialog.js), its content from help/index.html. */
+/* The guide popup (guide.ts): the <main> of the guide page the provider names, in a <dialog>. */
+.rfd4p-guide {
+  --hot: #f59e0b; --pass: var(--success, #45b99a); --refold: #e040fb; --muted: var(--text-muted, #a3a6ad);
+  width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0;
+  border: 1px solid var(--border-strong, #50535a); border-radius: 8px;
+  background: var(--surface-panel, #1a1b1e); color: var(--text, #ededef);
+}
+.rfd4p-guide::backdrop { background: rgba(0, 0, 0, 0.55); }
+.rfd4p-guide-x {
+  position: sticky; top: 8px; float: right; margin: 8px 8px 0 0; min-height: 0; padding: 0 8px; z-index: 1;
+  border: 0; background: none; color: var(--text-muted, #a3a6ad); font-size: 22px; line-height: 1; cursor: pointer;
+}
+.rfd4p-guide-x:hover { color: var(--text, #ededef); }
+.rfd4p-guide-body { padding: 20px 24px 28px; font-size: 14px; line-height: 1.55; }
+.rfd4p-guide-body h1 { font-size: 22px; margin: 0 0 4px; }
+.rfd4p-guide-body h2 { font-size: 17px; margin: 28px 0 8px; padding-top: 10px; border-top: 1px solid var(--border, #383a3f); }
+.rfd4p-guide-body h3 { font-size: 14px; margin: 16px 0 4px; }
+.rfd4p-guide-body p, .rfd4p-guide-body ul { margin: 0 0 8px; }
+.rfd4p-guide-body ul { padding-left: 20px; }
+.rfd4p-guide-body a { color: var(--accent, #82aaff); }
+.rfd4p-guide-body .lead { color: var(--muted); }
+.rfd4p-guide-body nav.toc { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; }
+.rfd4p-guide-body table { width: 100%; border-collapse: collapse; margin: 4px 0 10px; font-size: 13px; }
+.rfd4p-guide-body th, .rfd4p-guide-body td { text-align: left; vertical-align: top; padding: 5px 6px; border-bottom: 1px solid var(--border, #383a3f); }
+.rfd4p-guide-body th { color: var(--muted); font-weight: 600; }
+.rfd4p-guide-body .table-wrap { overflow-x: auto; }
+.rfd4p-guide-body code { font: 12px var(--font-mono, monospace); padding: 0 4px; border: 1px solid var(--border, #383a3f); border-radius: 4px; }
+.rfd4p-guide-body .ui { font-weight: 600; }
+.rfd4p-guide-body .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+.rfd4p-guide-body .note { padding: 8px 10px; border: 1px solid var(--border, #383a3f); border-radius: 6px; font-size: 13px; }
+.rfd4p-guide-body figure { margin: 10px 0 14px; }
+.rfd4p-guide-body figure img { display: block; width: 100%; height: auto; border: 1px solid var(--border, #383a3f); border-radius: 6px; }
+.rfd4p-guide-body figure.narrow img { max-width: 340px; }
+.rfd4p-guide-body figcaption { margin-top: 4px; color: var(--muted); font-size: 12px; }
+.rfd4p-guide-body footer { margin-top: 28px; color: var(--muted); font-size: 12px; }
+
 .rfd4p-head .rfd4p-theme-btn { min-width: 30px; padding: 0 6px; font-size: 14px; line-height: 1; }
 
 /* + new, + pdb, + lig: one bar across the card, tinted, so the way to build a job stands out; the same on the start

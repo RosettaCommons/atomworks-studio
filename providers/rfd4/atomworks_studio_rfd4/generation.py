@@ -72,7 +72,10 @@ class RFD4GenerationProvider:
         self.card = card
         # Markdown a deployment shows above the card (data handling, terms); the card's own page has no such line.
         self.notice = ""
-        # Where the card's Guide button leads (a new tab); no button when empty.
+        # The card's Guide: a directory of the guide's pages (`index.html` and its images) the app serves at /help/
+        # (`create_app` reads this member), and the address of the page the Guide button shows as a popup over the
+        # designer. With only `guide_dir` the button shows /help/index.html; with neither there is no button.
+        self.guide_dir = ""
         self.guide_url = ""
 
     def controls(self) -> dict[str, gr.Component]:
@@ -127,7 +130,7 @@ class RFD4GenerationProvider:
         return {
             "engine": {"badge": "ZeroGPU"},
             "notice": self.notice or None,
-            "guide": {"url": self.guide_url} if self.guide_url else None,
+            "guide": {"url": self.guide_url or "/help/index.html"} if (self.guide_url or self.guide_dir) else None,
             "settings": {
                 "backboneK": {"min": 1, "max": BACKBONE_K_MAX, "step": 0.1, "default": self.k_defaults[0]},
                 "latentK": {"min": 1, "max": LATENT_K_MAX, "step": 0.1, "default": self.k_defaults[1]},

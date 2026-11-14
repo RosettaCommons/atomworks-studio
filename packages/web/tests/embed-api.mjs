@@ -44,7 +44,7 @@ try {
   await page.waitForFunction(() => Number(document.querySelector("#viewer").dataset.renderedAtoms) > 0);
 
   // How many atoms the sequence bar says a residue holds, to compare with what the viewer painted.
-  const atomsOf = async (number) => (await page.locator(`.sequence-token[aria-label$=" ${number} in chain A_1"]`)
+  const atomsOf = async (number) => (await page.locator(`.sequence-token[aria-label$=" ${number} in chain A"]`)
     .first().getAttribute("data-atoms")).split(",").length;
   const viewer = (name) => page.evaluate((key) => document.querySelector("#viewer").dataset[key], name);
 

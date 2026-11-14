@@ -97,6 +97,15 @@ the others (`session_id`, `structure`, `edit_result`); chains are named as in th
 | `POST /internal-coords` | Also takes `group_id`: join that rigid group instead of making a new one. |
 | `POST /delete` | Whole residues taken out of a chain that stays go through its plan (nothing is renumbered); `close_residue_gaps` closes the gaps instead. |
 
+Every chain name the API returns (`chain_ids`, `sequence[].chain_id`, `next_chain_id`,
+the chains of `condition_editors.centroids`, an atom's `chain`) is the name the
+annotated CIF carries (`label_asym_id`, equal to `auth_asym_id`): `A`, not the
+instance id `A_1`. The instance id stays an atom property (`chain_iid` in
+selection expressions, also returned next to `chain` in an atom's annotations), and
+only an assembly whose copies share a chain id names its chains `A_1`, `A_2`.
+The routes that name an existing chain (`/chains/rebuild`, `/chains/order`, the
+`chain` of `/centroids`) accept the names the API returns.
+
 `POST /sessions` also takes `keep_unresolved` and `fix_all` with the `rcsb` preset.
 `keep_unresolved` opens an entry as the design card does: only the heavy atoms a
 residue's template has, no sodium or chloride, and no residues without coordinates

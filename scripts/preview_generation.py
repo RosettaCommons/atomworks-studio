@@ -70,7 +70,7 @@ def main():
     parser.add_argument(
         "--sequential",
         action="store_true",
-        help="With --stream: make the designs one at a time, as the Space does (frames of each, the design the moment it is done)",
+        help="With --stream: make the designs one at a time, as the Space does (frames of each, then the design)",
     )
     parser.add_argument("--frame-delay", type=float, default=0.15, help="Seconds between simulated live frames")
     parser.add_argument("--steps", type=int, default=12, help="Simulated sampling steps")

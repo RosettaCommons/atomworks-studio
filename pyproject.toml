@@ -81,7 +81,7 @@ select = ["B", "E", "F", "I", "N", "RUF", "UP"]
 # FastAPI uses calls in defaults to declare request parsing.
 "packages/api/annotation_studio/main.py" = ["B008"]
 # The browser halves of the Gradio host are JavaScript in Python strings, written as JavaScript is.
-"packages/api/annotation_studio/design_card.py" = ["E501"]
+"packages/api/annotation_studio/design_card.py" = ["E501", "RUF001"]
 # PyMOL/Qt plugin boundaries must contain arbitrary host and third-party plugin failures.
 "packages/pymol-plugin/atomworks_studio_pymol/*.py" = ["BLE001", "N807", "N999"]
 "packages/pymol-plugin/atomworks_studio_pymol/**/*.py" = ["BLE001", "N999"]

@@ -22,11 +22,16 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 def load(name: str = "antibody_design") -> StudioDocument:
     return StudioDocument.from_cif(
-        (EXAMPLES / f"{name}.cif").read_text(), name, condition_provider=condition_provider, validation_provider=validation_provider
+        (EXAMPLES / f"{name}.cif").read_text(),
+        name,
+        condition_provider=condition_provider,
+        validation_provider=validation_provider,
     )
 
 
-def indices(doc: StudioDocument, chain: str, residues: range | list[int] | None = None, *, atoms: tuple[str, ...] = ()) -> list[int]:
+def indices(
+    doc: StudioDocument, chain: str, residues: range | list[int] | None = None, *, atoms: tuple[str, ...] = ()
+) -> list[int]:
     labels = display_chain_array(doc.array)
     out = []
     for i in range(len(doc.array)):
@@ -87,7 +92,14 @@ def test_unknown_chain_has_an_empty_plan_and_no_source() -> None:
 
 def test_rebuild_numbers_the_gap_and_joins_both_sides() -> None:
     doc = load()
-    doc.rebuild_chain("A", [{"kind": "kept", "lo": 29, "hi": 40}, {"kind": "new", "min": 5, "max": 9}, {"kind": "kept", "lo": 45, "hi": 51}])
+    doc.rebuild_chain(
+        "A",
+        [
+            {"kind": "kept", "lo": 29, "hi": 40},
+            {"kind": "new", "min": 5, "max": 9},
+            {"kind": "kept", "lo": 45, "hi": 51},
+        ],
+    )
     assert plan_of(doc, "A") == [("kept", 29, 40), ("new", 5, 9), ("kept", 45, 51)]
     numbers = residue_numbers(doc, "A")
     assert numbers[10:15] == ["39", "40", "44*", "45", "46"]
@@ -295,9 +307,14 @@ def test_routes_rebuild_plan_preview_source_and_origins() -> None:
     replaced = client.post(f"{base}/segments/replace", json={"atom_indices": pocket, "minimum": 2, "maximum": 3})
     assert replaced.status_code == 200, replaced.text
     origins = client.get(f"{base}/segments/origins").json()["origins"]
-    assert len(origins) == 1 and next(iter(origins.values())) == {"count": 6, "keys": [f"A:{n}:" for n in range(30, 36)]}
+    assert len(origins) == 1 and next(iter(origins.values())) == {
+        "count": 6,
+        "keys": [f"A:{n}:" for n in range(30, 36)],
+    }
     atom = int(next(iter(origins)))
-    assert client.post(f"{base}/segments/range", json={"atom_index": atom, "minimum": 3, "maximum": 4}).status_code == 200
+    assert (
+        client.post(f"{base}/segments/range", json={"atom_index": atom, "minimum": 3, "maximum": 4}).status_code == 200
+    )
     assert client.post(f"{base}/segments/restore", json={"atom_index": atom}).status_code == 200
     assert client.get(f"{base}/segments/origins").json() == {"origins": {}}
     assert client.post(f"{base}/segments/restore", json={"atom_index": 0}).status_code == 422
@@ -320,7 +337,10 @@ def test_routes_scaffold_order_clear_and_ligand_binder() -> None:
     assert client.post(f"{base}/undo").status_code == 200
 
     small, _ = open_session(client, "small_molecule_binder")
-    result = client.post(f"/api/v1/sessions/{small}/segments/ligand-binder", json={"remove_protein": True, "pose_fixed": False, "minimum": 60, "maximum": 80})
+    result = client.post(
+        f"/api/v1/sessions/{small}/segments/ligand-binder",
+        json={"remove_protein": True, "pose_fixed": False, "minimum": 60, "maximum": 80},
+    )
     assert result.status_code == 200, result.text
     assert result.json()["structure"]["sequence"]
 
@@ -337,7 +357,13 @@ def test_internal_coords_join_a_group_and_clearing_unset_targets_is_a_step() -> 
         # The example's rigid groups hold saved shapes: re-marking them is confirmed against the revision.
         marked = client.post(
             f"{base}/internal-coords",
-            json={"atom_indices": atoms, "enabled": True, "group_id": 7, "allow_target_discard": True, "expected_revision": revision},
+            json={
+                "atom_indices": atoms,
+                "enabled": True,
+                "group_id": 7,
+                "allow_target_discard": True,
+                "expected_revision": revision,
+            },
         )
         assert marked.status_code == 200, marked.text
         cleared = client.post(f"{base}/internal-coords/clear-targets", json={"atom_indices": atoms})

@@ -16,7 +16,6 @@ from typing import Any
 
 import numpy as np
 from atomworks_studio_editing.chain_plans import (
-    chain_key_array,
     display_chain_array,
     is_polymer_mask,
     is_segment_mask,
@@ -84,7 +83,11 @@ def resolve(doc: StudioDocument, sel: Any) -> list[int]:
         if "atoms" in s:
             out.update(int(i) for i in s["atoms"])
             continue
-        chains = None if "chain" not in s else {str(c) for c in (s["chain"] if isinstance(s["chain"], list) else [s["chain"]])}
+        chains = (
+            None
+            if "chain" not in s
+            else {str(c) for c in (s["chain"] if isinstance(s["chain"], list) else [s["chain"]])}
+        )
         ranges = _res_ranges(s["res"]) if "res" in s else None
         names = set(s["names"]) if "names" in s else None
         hits = []
@@ -131,7 +134,7 @@ def state_of(doc: StudioDocument) -> dict[str, Any]:
     labels = display_chain_array(a)
     ins = np.asarray(a.ins_code).astype(str)
     ins = np.where(np.isin(ins, [".", "?"]), "", ins)
-    from atomworks_studio_editing.chain_plans import _src_labels  # noqa: PLC0415 - test support
+    from atomworks_studio_editing.chain_plans import _src_labels
 
     atoms = {
         "chain": [str(x) for x in labels],
@@ -145,11 +148,13 @@ def state_of(doc: StudioDocument) -> dict[str, Any]:
         "polymer": [bool(x) for x in is_polymer_mask(a)],
         "src": [str(x) for x in _src_labels(a)],
     }
-    from atomworks.io.utils.standard_annotations import S_SEGMAX, S_SEGMIN  # noqa: PLC0415
+    from atomworks.io.utils.standard_annotations import S_SEGMAX, S_SEGMIN
 
     atoms["seg_min"] = [int(x) for x in S_SEGMIN.annotation(a)] if S_SEGMIN.has_annotation(a) else [-1] * n
     atoms["seg_max"] = [int(x) for x in S_SEGMAX.annotation(a)] if S_SEGMAX.has_annotation(a) else [-1] * n
-    bonds = sorted({tuple(sorted((int(u), int(v)))) for u, v, _t in (a.bonds.as_array() if a.bonds is not None else [])})
+    bonds = sorted(
+        {tuple(sorted((int(u), int(v)))) for u, v, _t in (a.bonds.as_array() if a.bonds is not None else [])}
+    )
     annotations = {}
     for entry in doc.annotation_details():
         annotations[entry["name"]] = {
@@ -239,8 +244,13 @@ def apply_op(doc: StudioDocument, docs: dict[str, StudioDocument], op: dict[str,
     if name == "conditions":
         return doc.set_conditions(
             [
-                {"condition": e["condition"], "atom_indices": sel(e["select"]), "enabled": e.get("enabled", True),
-                 "value": e.get("value"), "scope": e.get("scope", "atom")}
+                {
+                    "condition": e["condition"],
+                    "atom_indices": sel(e["select"]),
+                    "enabled": e.get("enabled", True),
+                    "value": e.get("value"),
+                    "scope": e.get("scope", "atom"),
+                }
                 for e in op["edits"]
             ],
             allow_target_discard=True,
@@ -317,8 +327,21 @@ def run_js_job(job: dict[str, Any], tmp_path: Path) -> dict[str, Any]:
 # `index_group` is not compared: the RFD4 provider assigns index groups to residues placed anywhere as it syncs
 # them with the index condition; the page's engine only has what the group editor sets, and the card never reads it.
 KEY_CONDITIONS = (
-    "sequence", "coordinate", "index", "hotspot", "rasa", "hbond", "pistack", "pication", "saltbridge", "hydrophobic",
-    "metal_coord", "secondary_structure", "cath_label", "chain_centroid", "coordinate_group",
+    "sequence",
+    "coordinate",
+    "index",
+    "hotspot",
+    "rasa",
+    "hbond",
+    "pistack",
+    "pication",
+    "saltbridge",
+    "hydrophobic",
+    "metal_coord",
+    "secondary_structure",
+    "cath_label",
+    "chain_centroid",
+    "coordinate_group",
     "internal_coordinate",
 )
 
@@ -368,7 +391,9 @@ def compare_states(
         bad = [i for i in range(n) if pa[field][i] != ja[field][i]]
         if bad:
             i = bad[0]
-            problems.append(f"{where}{field}: {len(bad)} atoms differ, first at {i}: py {pa[field][i]!r} js {ja[field][i]!r}")
+            problems.append(
+                f"{where}{field}: {len(bad)} atoms differ, first at {i}: py {pa[field][i]!r} js {ja[field][i]!r}"
+            )
     bad = []
     for i in range(n):
         for p, j in zip(pa["coord"][i], ja["coord"][i], strict=True):
@@ -381,8 +406,14 @@ def compare_states(
     # (A placeholder's source name is text in the page's engine, "x.x.x.x": not compared.)
     bad = [i for i in range(n) if not pa["segment"][i] and pa["src"][i] != ja["src"][i]]
     if bad:
-        problems.append(f"{where}src labels: {len(bad)} differ, first {bad[0]}: py {pa['src'][bad[0]]!r} js {ja['src'][bad[0]]!r}")
-    bad = [i for i in range(n) if pa["segment"][i] and (pa["seg_min"][i], pa["seg_max"][i]) != (ja["seg_min"][i], ja["seg_max"][i])]
+        problems.append(
+            f"{where}src labels: {len(bad)} differ, first {bad[0]}: py {pa['src'][bad[0]]!r} js {ja['src'][bad[0]]!r}"
+        )
+    bad = [
+        i
+        for i in range(n)
+        if pa["segment"][i] and (pa["seg_min"][i], pa["seg_max"][i]) != (ja["seg_min"][i], ja["seg_max"][i])
+    ]
     if bad:
         problems.append(f"{where}segment ranges differ at {bad[:3]}")
     # Bonds between residues and any to a placeholder (bonds inside a residue come from a CCD table).
@@ -405,7 +436,7 @@ def compare_states(
         if ps[field] != js_[field]:
             problems.append(f"{where}summary.{field}: py {ps[field]} js {js_[field]}")
     counts = lambda s: {k: v for k, v in s["condition_counts"].items() if k in KEY_CONDITIONS}  # noqa: E731
-    if counts(ps) != counts(js_) and not any(i for i in (pm, jm)) :
+    if counts(ps) != counts(js_) and not any(i for i in (pm, jm)):
         problems.append(f"{where}condition_counts: py {counts(ps)} js {counts(js_)}")
     return problems
 
@@ -462,8 +493,8 @@ class EntryUnavailableError(RuntimeError):
 def entry_path(entry: str) -> Path:
     """A CIF of an RCSB entry: a cached copy (`STUDIO_PARITY_CIF_DIR`, `tests/fixtures/rcsb`, the system temp dir)
     or, failing that, the entry downloaded once. Raises `EntryUnavailableError` when it is not to be had."""
-    import tempfile  # noqa: PLC0415
-    import urllib.request  # noqa: PLC0415
+    import tempfile
+    import urllib.request
 
     name = entry.upper()
     folders = [Path(p) for p in (os.environ.get("STUDIO_PARITY_CIF_DIR"),) if p]
@@ -475,7 +506,7 @@ def entry_path(entry: str) -> Path:
     cache = folders[-1]
     try:
         cache.mkdir(parents=True, exist_ok=True)
-        with urllib.request.urlopen(f"https://files.rcsb.org/download/{name}.cif", timeout=20) as response:  # noqa: S310
+        with urllib.request.urlopen(f"https://files.rcsb.org/download/{name}.cif", timeout=20) as response:
             data = response.read()
         if len(data) < 1000:
             raise OSError("short response")

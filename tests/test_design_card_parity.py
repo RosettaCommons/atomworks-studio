@@ -66,7 +66,7 @@ def test_card_recipe_matches_the_page_engine(name, tmp_path):
 @pytest.mark.parametrize("keep_unresolved", [True, False])
 @pytest.mark.parametrize("entry", sorted(ENTRIES))
 def test_entry_opens_as_the_page_opens_it(entry, keep_unresolved, tmp_path):
-    """POST /sessions with the rcsb preparation, the assembly and `keep_unresolved`, against `createStudioDocWithCcd`."""
+    """POST /sessions with the rcsb preparation, assembly and `keep_unresolved`, against the page's opening."""
     open_options = {**RCSB, "keep_unresolved": keep_unresolved, **{k: v for k, v in ENTRIES[entry].items() if v}}
     job = {"documents": {"main": {"entry": entry, "name": entry, "open": open_options}}, "ops": []}
     problems = compare(job, tmp_path, skip_open=entry == "5O45")

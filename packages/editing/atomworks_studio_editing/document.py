@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import itertools
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from io import StringIO
@@ -18,7 +19,6 @@ from atomworks.io.utils.atom_array_plus import (
     AnnotationList2D,
     AtomArrayPlus,
     as_atom_array_plus,
-    concatenate_atom_array_plus,
 )
 from atomworks.io.utils.ccd import custom_ccd_residues
 from atomworks.io.utils.chain import create_chain_id_generator
@@ -32,7 +32,6 @@ from atomworks.ml.conditions.base import ConditionBase
 from atomworks.ml.transforms.interactions import AnnotateInteractions, InteractionType
 from atomworks.ml.utils.expandable_segment import (
     collapse_expandable_segments,
-    insert_expandable_segment,
     realize_expandable_segments,
 )
 
@@ -168,13 +167,17 @@ def prepare_for_design(array: AtomArrayPlus, *, keep_unresolved: bool) -> AtomAr
     drop |= (np.asarray(array.atom_name).astype(str) == "OXT") & ~coordinates
     if not keep_unresolved:
         bounds = residue_bounds(array)
-        for start, stop in zip(bounds[:-1], bounds[1:], strict=True):
+        for start, stop in itertools.pairwise(bounds):
             if not coordinates[start:stop][~drop[start:stop]].any():
                 drop[start:stop] = True
     result = array[~drop] if drop.any() else array
     # An assembly with copies of a chain names every chain by its instance ("A_1", "A_2"), for good: the names then
     # stay what a written CIF shows however many copies an edit leaves.
-    transformations = np.asarray(result.transformation_id).astype(str) if "transformation_id" in result.get_annotation_categories() else None
+    transformations = (
+        np.asarray(result.transformation_id).astype(str)
+        if "transformation_id" in result.get_annotation_categories()
+        else None
+    )
     if transformations is not None:
         chain_ids = np.asarray(result.chain_id).astype(str)
         copies = {c: {t for t, c2 in zip(transformations, chain_ids, strict=True) if c2 == c} for c in set(chain_ids)}
@@ -275,7 +278,10 @@ class StudioDocument(ChainPlanMixin):
         if fix_all and len(document.array):
             everything = list(range(len(document.array)))
             document.set_conditions(
-                [{"condition": "coordinate", "atom_indices": everything}, {"condition": "sequence", "atom_indices": everything}],
+                [
+                    {"condition": "coordinate", "atom_indices": everything},
+                    {"condition": "sequence", "atom_indices": everything},
+                ],
                 allow_target_discard=True,
             )
             document.clear_history()
@@ -991,7 +997,7 @@ class StudioDocument(ChainPlanMixin):
         `group_id` joins that existing rigid group instead of making a new one, so chains from one structure can move
         as a single body.
         """
-        from .providers import load_providers  # noqa: PLC0415
+        from .providers import load_providers
 
         transform = load_providers().condition_operations.get("internal_coordinate")
         if transform is None:
@@ -1017,7 +1023,7 @@ class StudioDocument(ChainPlanMixin):
         Groups with no saved shape are left as they are: marking atoms rigid leaves their shapes unset, so clearing
         them is a step that changes nothing (still one undo step, as a sequence of edits expects).
         """
-        from .providers import load_providers  # noqa: PLC0415
+        from .providers import load_providers
 
         transform = load_providers().condition_operations.get("clear_internal_targets")
         if transform is None:

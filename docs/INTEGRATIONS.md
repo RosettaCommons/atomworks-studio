@@ -69,6 +69,43 @@ For an iframe, allow the parent's exact origin with
 `ANNOTATION_STUDIO_FRAME_ANCESTORS`. Sessions are bounded, expire, and use one
 server process. Export files before submitting a long-running inference job.
 
+### Editing chains as plans
+
+A chain loaded from a structure is a list of *parts*: runs of the chain as it was
+loaded (`kept`, by source residue number `lo`/`hi` or source index `from`/`to`),
+blocks of new residues (`new`: an existing block's placeholder `atom`, or a length
+`min`/`max`) and residues the source does not have (`own`, by `atoms`). A session
+remembers each chain as loaded and what every block of new residues replaced, across
+Undo, copies, saved state and session files. The mutating routes below answer like
+the others (`session_id`, `structure`, `edit_result`); chains are named as in the CIF.
+
+| Method and path after `/api/v1/sessions/{session_id}` | Body or result |
+| --- | --- |
+| `GET /chains/{chain}/plan` | `{chain, source: [{num, ins, name, label}], parts}`; an unknown chain has no parts. |
+| `GET /chains/{chain}/source` | `{chain, cif}`: the chain as loaded, as an overlay mmCIF; 404 when it has none. |
+| `POST /chains/rebuild` | `{chain_id, parts}`: the chain made from its plan in one Undo step. Order, numbering (the source's when the parts run in its order, new blocks numbered between without renumbering anything), source names (`annotation_src-component`) and bonds all follow the plan. |
+| `POST /chains/preview` | `{chain_id, parts}` -> `{cif}`: the document as `rebuild` would leave it; the session is unchanged. |
+| `POST /chains/order` | `{chain_ids}`: those chains first, in that order. |
+| `POST /coordinates/clear` | `{atom_indices, lead}`: no coordinates or coordinate conditions; `lead` atoms move to the front of their residues. |
+| `POST /segments` | New residues beside an atom's residue, or `new_chain`; a block between residues takes the residue before's number and the next insertion code (`40A`) when there is no gap. |
+| `POST /segments/range` | `{atom_index, minimum, maximum}`: a block's length range. |
+| `POST /segments/replace` | `{atom_indices, minimum, maximum}`: each run of selected residues becomes a block, which remembers them. |
+| `GET /segments/origins` | `{origins: {"<atom index>": {count, keys: ["A:41:", ...]}}}` for every block that replaced residues. |
+| `POST /segments/restore` | `{atom_index}`: the block turns back into the residues it replaced, with their coordinates and conditions. |
+| `POST /segments/scaffold` | `{atom_indices, spread, sidechains_only, unindexed, ordered, total_min, total_max}`: motif scaffolding; with `ordered` the motif keeps the order of `atom_indices` as sent. |
+| `POST /segments/ligand-binder` | `{remove_protein, pose_fixed, minimum, maximum}`: a new chain around the ligands. |
+| `POST /internal-coords` | Also takes `group_id`: join that rigid group instead of making a new one. |
+| `POST /delete` | Whole residues taken out of a chain that stays go through its plan (nothing is renumbered); `close_residue_gaps` closes the gaps instead. |
+
+`POST /sessions` also takes `keep_unresolved` and `fix_all` with the `rcsb` preset.
+`keep_unresolved` opens an entry as the design card does: only the heavy atoms a
+residue's template has, no sodium or chloride, and no residues without coordinates
+unless it is `true`. An assembly with copies of a chain names every chain by its copy
+(`A_1`, `A_2`) for good. `fix_all` holds every atom's coordinates and sequence, with
+no Undo history. The page's in-browser engine (`web/studio-api.js`) does the same;
+`tests/test_design_card_parity.py` checks it against that engine (see
+[development](DEVELOPMENT.md#design-card-parity)).
+
 ## Embedding Studio in a page
 
 An iframe host drives Studio over `postMessage` and the HTTP API, as above. A host

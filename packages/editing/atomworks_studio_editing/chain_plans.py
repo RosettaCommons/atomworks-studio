@@ -22,7 +22,6 @@ from typing import Any
 
 import biotite.structure as struc
 import numpy as np
-from atomworks.constants import MASKED
 from atomworks.enums import ChainType
 from atomworks.io.utils.atom_array_plus import AtomArrayPlus, concatenate_atom_array_plus
 from atomworks.io.utils.standard_annotations import S_SEGMAX, S_SEGMIN
@@ -88,12 +87,19 @@ def residue_bounds(array: AtomArrayPlus) -> np.ndarray:
     if n == 0:
         return np.array([0])
     changed = np.zeros(n - 1, dtype=bool)
-    for values in (chain_key_array(array), np.asarray(array.res_id), np.asarray(array.res_name).astype(str), _ins_array(array)):
+    for values in (
+        chain_key_array(array),
+        np.asarray(array.res_id),
+        np.asarray(array.res_name).astype(str),
+        _ins_array(array),
+    ):
         changed |= values[1:] != values[:-1]
     return np.concatenate([[0], np.flatnonzero(changed) + 1, [n]])
 
 
-def _residue_key(array: AtomArrayPlus, index: int, keys: np.ndarray | None = None, ins: np.ndarray | None = None) -> str:
+def _residue_key(
+    array: AtomArrayPlus, index: int, keys: np.ndarray | None = None, ins: np.ndarray | None = None
+) -> str:
     keys = chain_key_array(array) if keys is None else keys
     ins = _ins_array(array) if ins is None else ins
     return f"{keys[index]}:{int(array.res_id[index])}:{ins[index]}"
@@ -102,7 +108,7 @@ def _residue_key(array: AtomArrayPlus, index: int, keys: np.ndarray | None = Non
 def _standard_annotation(name: str):
     try:
         return STANDARD_ANNOTATIONS.get(name)
-    except Exception:  # noqa: BLE001 - not registered in this installation
+    except Exception:
         return None
 
 
@@ -175,11 +181,41 @@ def align_custom_annotations(arrays: list[AtomArrayPlus]) -> list[AtomArrayPlus]
     by its own option, these are the document's private ones.
     """
     standard = set(STANDARD_ANNOTATIONS.get_field_names(include_aliases=True))
-    base = {"chain_id", "res_id", "ins_code", "res_name", "hetero", "atom_name", "element", "occupancy", "charge",
-            "chain_type", "is_polymer", "label_alt_id", "b_factor", "atomic_number", "chem_comp_type", "stereo",
-            "is_aromatic", "is_backbone_atom", "pn_unit_id", "molecule_id", "chain_entity", "pn_unit_entity",
-            "molecule_entity", "transformation_id", "chain_iid", "pn_unit_iid", "molecule_iid", "label_entity_id",
-            "atom_id", "token_id", "is_leaving_atom", "altloc_id", "auth_seq_id"}
+    base = {
+        "chain_id",
+        "res_id",
+        "ins_code",
+        "res_name",
+        "hetero",
+        "atom_name",
+        "element",
+        "occupancy",
+        "charge",
+        "chain_type",
+        "is_polymer",
+        "label_alt_id",
+        "b_factor",
+        "atomic_number",
+        "chem_comp_type",
+        "stereo",
+        "is_aromatic",
+        "is_backbone_atom",
+        "pn_unit_id",
+        "molecule_id",
+        "chain_entity",
+        "pn_unit_entity",
+        "molecule_entity",
+        "transformation_id",
+        "chain_iid",
+        "pn_unit_iid",
+        "molecule_iid",
+        "label_entity_id",
+        "atom_id",
+        "token_id",
+        "is_leaving_atom",
+        "altloc_id",
+        "auth_seq_id",
+    }
     extra: dict[str, np.ndarray] = {}
     for array in arrays:
         for name in array.get_annotation_categories():
@@ -338,7 +374,7 @@ class _SourceIndex:
 # The mixin
 # ---------------------------------------------------------------------------------------------------------------------
 class ChainPlanMixin:
-    """Design-card operations of `StudioDocument` (needs ``array``, ``edit``, ``set_condition``, ``resolve_indices``)."""
+    """Design-card operations of `StudioDocument` (uses its ``array``, ``edit`` and ``set_condition``)."""
 
     # -- state ---------------------------------------------------------------------------------------------------
     def _init_design_state(self) -> None:
@@ -388,7 +424,9 @@ class ChainPlanMixin:
         chain_ids[indices] = chain_id
         array.set_annotation("chain_id", chain_ids)
         if "transformation_id" in array.get_annotation_categories():
-            tids = np.asarray(array.transformation_id).astype(f"<U{max(len(transformation), array.transformation_id.dtype.itemsize // 4)}")
+            tids = np.asarray(array.transformation_id).astype(
+                f"<U{max(len(transformation), array.transformation_id.dtype.itemsize // 4)}"
+            )
             tids[indices] = transformation
             array.set_annotation("transformation_id", tids)
 
@@ -409,8 +447,12 @@ class ChainPlanMixin:
                 continue
             label = str(labels[i])
             residues.append(
-                {"num": num, "ins": str(ins[i]), "name": str(b.res_name[i]),
-                 "label": label if _SOURCE_LABEL.fullmatch(label) else ""}
+                {
+                    "num": num,
+                    "ins": str(ins[i]),
+                    "name": str(b.res_name[i]),
+                    "label": label if _SOURCE_LABEL.fullmatch(label) else "",
+                }
             )
         index = {f"{r['num']}:{r['ins']}": k for k, r in enumerate(residues)}
         return _SourceIndex(residues, index, src.label, b, src.chain)
@@ -442,9 +484,12 @@ class ChainPlanMixin:
             if segment[i]:
                 lo, hi = (int(x) for x in str(a.res_name[i]).split("-"))
                 parts.append(
-                    {"kind": "new", "atom": i,
-                     "min": int(seg_min[i]) if seg_min is not None and seg_min[i] > 0 else lo,
-                     "max": int(seg_max[i]) if seg_max is not None and seg_max[i] > 0 else hi}
+                    {
+                        "kind": "new",
+                        "atom": i,
+                        "min": int(seg_min[i]) if seg_min is not None and seg_min[i] > 0 else lo,
+                        "max": int(seg_max[i]) if seg_max is not None and seg_max[i] > 0 else hi,
+                    }
                 )
                 last_key = None
                 continue
@@ -485,10 +530,26 @@ class ChainPlanMixin:
         mine = keys == src.chain
         wanted = {int(r) for r in np.asarray(b.res_id)[mine]}
         header = ["data_overlay", "loop_"] + [
-            f"_atom_site.{c}" for c in (
-                "group_PDB", "id", "type_symbol", "label_atom_id", "label_comp_id", "label_asym_id", "label_entity_id",
-                "label_seq_id", "auth_seq_id", "auth_asym_id", "Cartn_x", "Cartn_y", "Cartn_z", "occupancy",
-                "B_iso_or_equiv", "pdbx_PDB_model_num")]
+            f"_atom_site.{c}"
+            for c in (
+                "group_PDB",
+                "id",
+                "type_symbol",
+                "label_atom_id",
+                "label_comp_id",
+                "label_asym_id",
+                "label_entity_id",
+                "label_seq_id",
+                "auth_seq_id",
+                "auth_asym_id",
+                "Cartn_x",
+                "Cartn_y",
+                "Cartn_z",
+                "occupancy",
+                "B_iso_or_equiv",
+                "pdbx_PDB_model_num",
+            )
+        ]
         rows = []
         for i in np.flatnonzero(mine):
             x, y, z = (float(v) for v in b.coord[i])
@@ -638,8 +699,8 @@ class ChainPlanMixin:
         counter = -first_kept
         for r in mine:
             counter += 1
-            res_id[bounds[r]:bounds[r + 1]] = counter
-            ins[bounds[r]:bounds[r + 1]] = ""
+            res_id[bounds[r] : bounds[r + 1]] = counter
+            ins[bounds[r] : bounds[r + 1]] = ""
         a.set_annotation("res_id", res_id)
         a.set_annotation("ins_code", ins)
 
@@ -659,7 +720,9 @@ class ChainPlanMixin:
             if segments and segment[i]:
                 lo = int(seg_min[i]) if seg_min is not None and seg_min[i] > 0 else 1
                 hi = int(seg_max[i]) if seg_max is not None and seg_max[i] > 0 else lo
-                out.append({"key": f"seg:{i}", "segment": True, "atoms": [i], "length": int(np.floor((lo + hi) / 2 + 0.5))})
+                out.append(
+                    {"key": f"seg:{i}", "segment": True, "atoms": [i], "length": int(np.floor((lo + hi) / 2 + 0.5))}
+                )
                 continue
             if not polymer[i]:
                 continue
@@ -689,8 +752,14 @@ class ChainPlanMixin:
         for p in parts:
             kind = p.get("kind")
             if kind == "kept":
-                start = p["from"] if isinstance(p.get("from"), int) and not isinstance(p.get("from"), bool) else to_index(p["lo"])
-                end = p["to"] if isinstance(p.get("to"), int) and not isinstance(p.get("to"), bool) else to_index(p["hi"])
+                start = (
+                    p["from"]
+                    if isinstance(p.get("from"), int) and not isinstance(p.get("from"), bool)
+                    else to_index(p["lo"])
+                )
+                end = (
+                    p["to"] if isinstance(p.get("to"), int) and not isinstance(p.get("to"), bool) else to_index(p["hi"])
+                )
                 plan.append({"kind": "kept", "from": int(start), "to": int(end)})
             elif kind == "own":
                 plan.append({"kind": "own", "atoms": [int(i) for i in p.get("atoms", [])]})
@@ -698,8 +767,12 @@ class ChainPlanMixin:
                 atom = p.get("atom")
                 low = int(p.get("min") or 1)
                 plan.append(
-                    {"kind": "new", "atom": int(atom) if isinstance(atom, int) and not isinstance(atom, bool) else None,
-                     "min": max(1, low), "max": max(max(1, low), int(p.get("max") or 1))}
+                    {
+                        "kind": "new",
+                        "atom": int(atom) if isinstance(atom, int) and not isinstance(atom, bool) else None,
+                        "min": max(1, low),
+                        "max": max(max(1, low), int(p.get("max") or 1)),
+                    }
                 )
             else:
                 raise ValueError(f"unknown part kind {kind!r}")
@@ -773,12 +846,24 @@ class ChainPlanMixin:
             mine = np.flatnonzero(keys == key)
             if len(mine):
                 position = self._insert_segment_array(
-                    p["min"], p["max"], atom_index=int(mine[0]), before=True, new_chain=False, chain=None, chain_type=None
+                    p["min"],
+                    p["max"],
+                    atom_index=int(mine[0]),
+                    before=True,
+                    new_chain=False,
+                    chain=None,
+                    chain_type=None,
                 )
             else:
                 chain_id, _, _tid = key.rpartition("_")
                 position = self._insert_segment_array(
-                    p["min"], p["max"], atom_index=None, before=True, new_chain=True, chain=chain_id or key, chain_type=None
+                    p["min"],
+                    p["max"],
+                    atom_index=None,
+                    before=True,
+                    new_chain=True,
+                    chain=chain_id or key,
+                    chain_type=None,
                 )
             tt = hidden_tags(self.array, "_studio_tag").astype(object)
             tt[position] = f"n{k}"
@@ -844,8 +929,8 @@ class ChainPlanMixin:
         ins_code = _ins_array(d).astype("<U4")
 
         def set_res(r, num, code):
-            res_id[r["s0"]:r["e"]] = num
-            ins_code[r["s0"]:r["e"]] = code
+            res_id[r["s0"] : r["e"]] = num
+            ins_code[r["s0"] : r["e"]] = code
 
         def fixed_num(r):
             if r["k"] is not None:
@@ -865,13 +950,13 @@ class ChainPlanMixin:
                 if r["k"] is not None:
                     x = info.residues[r["k"]]
                     set_res(r, x["num"], x["ins"])
-                    src[r["s0"]:r["e"]] = x["label"]
+                    src[r["s0"] : r["e"]] = x["label"]
             last_id, last_ins = None, ""
             for j, r in enumerate(res):
                 if not r["seg"]:
                     last_id, last_ins = int(res_id[r["s0"]]), str(ins_code[r["s0"]])
                     continue
-                q = next((x for x in res[j + 1:] if not x["seg"]), None)
+                q = next((x for x in res[j + 1 :] if not x["seg"]), None)
                 q_id = fixed_num(q)[0] if q is not None else None
                 code = ""
                 if last_id is None:
@@ -891,7 +976,7 @@ class ChainPlanMixin:
             for r in res:
                 if r["k"] is not None:
                     x = info.residues[r["k"]]
-                    src[r["s0"]:r["e"]] = x["label"] or f"{info.chain}{x['num']}{x['ins']}"
+                    src[r["s0"] : r["e"]] = x["label"] or f"{info.chain}{x['num']}{x['ins']}"
             _set_src_labels(d, src)
             self._renumber_chain(key)
 
@@ -899,7 +984,7 @@ class ChainPlanMixin:
         d = self.array
         res_of = np.full(len(d), -1, dtype=int)
         for j, r in enumerate(res):
-            res_of[r["s0"]:r["e"]] = j
+            res_of[r["s0"] : r["e"]] = j
         names = np.asarray(d.atom_name).astype(str)
         rows = []
         for u, v, bt in _bond_pairs(d).tolist():
@@ -1009,7 +1094,12 @@ class ChainPlanMixin:
                     run = id(q)
                     for k in keep_k:
                         last = new_parts[-1] if new_parts else None
-                        if last is not None and last["kind"] == "kept" and last["to"] == k - 1 and last.get("_run") == run:
+                        if (
+                            last is not None
+                            and last["kind"] == "kept"
+                            and last["to"] == k - 1
+                            and last.get("_run") == run
+                        ):
                             last["to"] = k
                         else:
                             new_parts.append({"kind": "kept", "from": k, "to": k, "_run": run})
@@ -1080,7 +1170,7 @@ class ChainPlanMixin:
                     order.extend([i for i in atoms if i in first] + [i for i in atoms if i not in first])
                 self._permute(order)
                 refresh_chain_derived_annotations(self.array)
-        return {"affected_count": int(len(selected)), "message": f"Cleared the coordinates of {len(selected)} atoms."}
+        return {"affected_count": len(selected), "message": f"Cleared the coordinates of {len(selected)} atoms."}
 
     def set_segment_range(self, atom_index: int, minimum: int, maximum: int) -> dict[str, Any]:
         """Change an expandable segment's length range (its placeholder's min/max, and its ``min-max`` name)."""
@@ -1130,13 +1220,21 @@ class ChainPlanMixin:
                     continue
                 in_run = True
                 prev = next((x for x in reversed(residues[:k]) if x["key"] not in keys), None)
-                nxt = next((x for x in residues[k + 1:] if x["key"] not in keys), None)
-                runs.append({"chain": chain, "prev": prev["key"] if prev else None,
-                             "next": nxt["key"] if nxt else None, "atoms": list(r["atoms"])})
+                nxt = next((x for x in residues[k + 1 :] if x["key"] not in keys), None)
+                runs.append(
+                    {
+                        "chain": chain,
+                        "prev": prev["key"] if prev else None,
+                        "next": nxt["key"] if nxt else None,
+                        "atoms": list(r["atoms"]),
+                    }
+                )
         if not drop:
             raise ValueError("select polymer residues to replace")
-        origins = [SegmentOrigin(run["chain"], run["prev"], run["next"], copy.deepcopy(a[np.asarray(run["atoms"])]))
-                   for run in runs]
+        origins = [
+            SegmentOrigin(run["chain"], run["prev"], run["next"], copy.deepcopy(a[np.asarray(run["atoms"])]))
+            for run in runs
+        ]
         with self.edit():
             for chain in dict.fromkeys(run["chain"] for run in runs):
                 plan = self.chain_plan(chain)
@@ -1147,7 +1245,7 @@ class ChainPlanMixin:
                 new_parts: list[dict[str, Any]] = []
                 in_run = False
 
-                def res_key(i):
+                def res_key(i, d=d, dkeys=dkeys, dins=dins):
                     return f"{dkeys[i]}:{int(d.res_id[i])}:{dins[i]}"
 
                 for q in plan["parts"]:
@@ -1195,7 +1293,9 @@ class ChainPlanMixin:
                 self._rebuild(chain, new_parts)
             self._origins.extend(origins)
         count = len(runs)
-        return {"message": f"Replaced {len(keys)} residues with {count} new-residue segment{'' if count == 1 else 's'}."}
+        return {
+            "message": f"Replaced {len(keys)} residues with {count} new-residue segment{'' if count == 1 else 's'}."
+        }
 
     def _segment_origin(self, atom_index: int):
         a = self.array
@@ -1217,7 +1317,6 @@ class ChainPlanMixin:
             if origin.chain != chain or origin.prev != prev or origin.next != nxt:
                 continue
             b = origin.array
-            bkeys = chain_key_array(b)
             bins = _ins_array(b)
             keys = list(dict.fromkeys(f"{chain}:{int(b.res_id[i])}:{bins[i]}" for i in range(len(b))))
             if any(key in taken for key in keys):
@@ -1268,7 +1367,8 @@ class ChainPlanMixin:
             self._delete_atoms([len(self.array) - 1])
             self._relink_chain(chain)
             refresh_chain_derived_annotations(self.array)
-        return {"message": f"Brought back {len(keys)} residue{'' if len(keys) == 1 else 's'} to chain {self._chain_label(chain)}."}
+        plural = "" if len(keys) == 1 else "s"
+        return {"message": f"Brought back {len(keys)} residue{plural} to chain {self._chain_label(chain)}."}
 
     def _relink_chain(self, key: str) -> None:
         """A chain's links after its residues moved: peptide bonds between consecutive numbers, blocks joined."""
@@ -1280,7 +1380,7 @@ class ChainPlanMixin:
         names = np.asarray(a.atom_name).astype(str)
         res_of = np.zeros(len(a), dtype=int)
         for r in range(len(bounds) - 1):
-            res_of[bounds[r]:bounds[r + 1]] = r
+            res_of[bounds[r] : bounds[r + 1]] = r
         in_chain = keys == key
         own = {int(i) for i in np.flatnonzero(in_chain & segment)}
         rows = []
@@ -1324,13 +1424,27 @@ class ChainPlanMixin:
         for g in sorted(gaps, key=order):
             if g["res_id"] is None:
                 chain_id, _, _t = g["chain"].rpartition("_")
-                self._insert_segment_array(g["min"], g["max"], atom_index=None, before=True, new_chain=True,
-                                           chain=chain_id or g["chain"], chain_type=None)
+                self._insert_segment_array(
+                    g["min"],
+                    g["max"],
+                    atom_index=None,
+                    before=True,
+                    new_chain=True,
+                    chain=chain_id or g["chain"],
+                    chain_type=None,
+                )
                 continue
             anchor = next((r["atoms"][0] for r in self._chain_residues(g["chain"]) if r["res_id"] == g["res_id"]), None)
             if anchor is not None:
-                self._insert_segment_array(g["min"], g["max"], atom_index=anchor, before=g["before"], new_chain=False,
-                                           chain=None, chain_type=None)
+                self._insert_segment_array(
+                    g["min"],
+                    g["max"],
+                    atom_index=anchor,
+                    before=g["before"],
+                    new_chain=False,
+                    chain=None,
+                    chain_type=None,
+                )
 
     def scaffold_motif(
         self,
@@ -1387,26 +1501,37 @@ class ChainPlanMixin:
                 continue
             run = 0
             last_kept = None
-            def flush(nxt):
-                nonlocal run
-                if not run:
-                    return
-                anchor = last_kept if last_kept is not None else nxt
-                if anchor is not None:
-                    low, high = span(run)
-                    gaps.append({"chain": chain, "res_id": anchor["res_id"], "before": last_kept is None, "min": low, "max": high})
-                run = 0
+
+            def flush(nxt, previous, length, chain=chain):
+                anchor = previous if previous is not None else nxt
+                if length and anchor is not None:
+                    low, high = span(length)
+                    gaps.append(
+                        {
+                            "chain": chain,
+                            "res_id": anchor["res_id"],
+                            "before": previous is None,
+                            "min": low,
+                            "max": high,
+                        }
+                    )
+
             for r in residues:
                 if r["key"] in kept:
-                    flush(r)
+                    flush(r, last_kept, run)
+                    run = 0
                     last_kept = r
                 else:
                     run += r["length"] if r.get("segment") else 1
-            flush(None)
+            flush(None, last_kept, run)
 
         backbone = {"N", "CA", "C", "O", "OXT"}
         names = np.asarray(a.atom_name).astype(str)
-        crd_atoms = [int(i) for i in keep if (not polymer[i]) or names[i] not in backbone] if sidechains_only else [int(i) for i in keep]
+        crd_atoms = (
+            [int(i) for i in keep if (not polymer[i]) or names[i] not in backbone]
+            if sidechains_only
+            else [int(i) for i in keep]
+        )
         with self.edit():
             self.set_condition("coordinate", [int(i) for i in keep], enabled=False, allow_target_discard=True)
             if crd_atoms:
@@ -1420,8 +1545,10 @@ class ChainPlanMixin:
             if len(typed) > 1:
                 self._order_motif(typed, chains)
         n = len(kept)
-        return {"message": f"Kept {n} motif residue{'' if n == 1 else 's'}{' (placed anywhere)' if unindexed else ''}; "
-                           f"{len(gaps)} new-residue segment{'' if len(gaps) == 1 else 's'}."}
+        return {
+            "message": f"Kept {n} motif residue{'' if n == 1 else 's'}{' (placed anywhere)' if unindexed else ''}; "
+            f"{len(gaps)} new-residue segment{'' if len(gaps) == 1 else 's'}."
+        }
 
     def _order_motif(self, typed: list[str], chains: list[str]) -> None:
         """After a scaffold: the kept residues of `chains` take the order of `typed` ("A:38:" style), each in the slot
@@ -1434,8 +1561,15 @@ class ChainPlanMixin:
         residues = []
         for r in range(len(bounds) - 1):
             s0, e = int(bounds[r]), int(bounds[r + 1])
-            residues.append({"key": f"{keys[s0]}:{int(a.res_id[s0])}:{ins[s0]}", "chain": str(keys[s0]),
-                             "atoms": list(range(s0, e)), "segment": bool(segment[s0]), "next": None})
+            residues.append(
+                {
+                    "key": f"{keys[s0]}:{int(a.res_id[s0])}:{ins[s0]}",
+                    "chain": str(keys[s0]),
+                    "atoms": list(range(s0, e)),
+                    "segment": bool(segment[s0]),
+                    "next": None,
+                }
+            )
         changed = False
         for chain in chains:
             slots = [r for r in residues if r["chain"] == chain and not r["segment"]]
@@ -1479,7 +1613,9 @@ class ChainPlanMixin:
             lig = [int(i) for i in np.flatnonzero(~(is_polymer_mask(now) | is_segment_mask(now)))]
             self.set_condition("sequence", lig, allow_target_discard=True)
             self.set_condition("coordinate", lig, enabled=bool(pose_fixed), allow_target_discard=True)
-            self._insert_segment_array(minimum, maximum, atom_index=None, before=True, new_chain=True, chain=None, chain_type=None)
+            self._insert_segment_array(
+                minimum, maximum, atom_index=None, before=True, new_chain=True, chain=None, chain_type=None
+            )
             n_lig = len(set(np.asarray(self.array.res_name)[lig].tolist()))
         return {"message": f"Set up a protein of {minimum}-{maximum} residues around {n_lig} ligand(s)."}
 
@@ -1499,15 +1635,13 @@ class ChainPlanMixin:
             return hit[1]
 
         loaded: list[AtomArrayPlus] = []
+        position: dict[int, int] = {}
         sources: dict[str, dict[str, Any]] = {}
         for key, src in self._sources.items():
-            for k, array in enumerate(loaded):
-                if array is src.array:
-                    break
-            else:
+            if id(src.array) not in position:
+                position[id(src.array)] = len(loaded)
                 loaded.append(src.array)
-                k = len(loaded) - 1
-            sources[key] = {"loaded": k, "chain": src.chain, "label": src.label}
+            sources[key] = {"loaded": position[id(src.array)], "chain": src.chain, "label": src.label}
         return {
             "keys": chain_key_array(self.array).tolist(),
             "src_tags": hidden_tags(self.array).tolist(),
@@ -1515,13 +1649,21 @@ class ChainPlanMixin:
             "loaded": [{"cif": cif_of(array), "keys": chain_key_array(array).tolist()} for array in loaded],
             "sources": sources,
             "origins": [
-                {"chain": o.chain, "prev": o.prev, "next": o.next, "cif": cif_of(o.array),
-                 "keys": chain_key_array(o.array).tolist(), "src_tags": hidden_tags(o.array).tolist()}
+                {
+                    "chain": o.chain,
+                    "prev": o.prev,
+                    "next": o.next,
+                    "cif": cif_of(o.array),
+                    "keys": chain_key_array(o.array).tolist(),
+                    "src_tags": hidden_tags(o.array).tolist(),
+                }
                 for o in self._origins
             ],
         }
 
-    def restore_design_state(self, state: dict[str, Any] | None, *, undo_arrays: list[AtomArrayPlus] | None = None) -> None:
+    def restore_design_state(
+        self, state: dict[str, Any] | None, *, undo_arrays: list[AtomArrayPlus] | None = None
+    ) -> None:
         """Counterpart of `export_design_state` on a document just parsed from the same CIF."""
         from atomworks_studio_editing.document import parse_annotated_cif
 
@@ -1572,5 +1714,7 @@ class ChainPlanMixin:
             if len(item.get("src_tags", [])) == len(array):
                 set_hidden(array, HIDDEN_SRC, item["src_tags"])
             self._origins.append(
-                SegmentOrigin(mapping.get(item["chain"], item["chain"]), rekey(item["prev"]), rekey(item["next"]), array)
+                SegmentOrigin(
+                    mapping.get(item["chain"], item["chain"]), rekey(item["prev"]), rekey(item["next"]), array
+                )
             )

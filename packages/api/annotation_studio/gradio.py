@@ -91,10 +91,12 @@ STUDIO_CSS = """
 # Card mode: Gradio's own margins and width limit go, so the editor frame is as wide and tall as the page's.
 CARD_CSS = """
 .gradio-container { max-width: none !important; padding: 0 !important; }
-.gradio-container .main, .gradio-container .wrap, .gradio-container .contain {
-    padding: 0 !important; gap: 0 !important;
-}
-#studio-editor { padding: 0 !important; margin: 0 !important; border: 0 !important; }
+.gradio-container .main { max-width: none !important; margin: 0 !important; padding: 0 !important; }
+.gradio-container .wrap,
+.gradio-container .contain,
+.gradio-container .column { padding: 0 !important; gap: 0 !important; }
+#studio-editor, #studio-editor .html-container { padding: 0 !important; margin: 0 !important; border: 0 !important; }
+#design-card-style, #design-card-bridge, #refold-bus { display: none !important; }
 #design-card-notice { padding: 4px 12px; margin: 0; font-size: 12px; opacity: 0.8; }
 """
 
@@ -253,7 +255,7 @@ def _create_card_demo(
             js_on_load=card_support.bridge_js(card),
         )
         # The editor fills the window as the page does, and opens on the card's start screen, not on an example.
-        gr.HTML(f"<style>{CARD_CSS}</style>", padding=False)
+        gr.HTML(f"<style>{CARD_CSS}</style>", padding=False, elem_id="design-card-style")
         gr.HTML(handoff.frame(card=True), elem_id="studio-editor", js_on_load=HOST_BRIDGE)
         api_cif = gr.Textbox(visible=False)
         api_options = gr.JSON(visible=False)

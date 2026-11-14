@@ -19,9 +19,9 @@ for (const scheme of ['dark', 'light']) {
   for (const kind of ['page', 'space']) {
     const s = await open(kind, scheme);
     // The card's own theme toggle sets the theme; ensure the scheme asked for.
-    const want = scheme;
-    const cur = await s.frame.evaluate(() => document.documentElement.dataset.theme || document.body.dataset.theme || '');
-    if (cur !== want) { await s.f.locator('#rfd4p-theme-btn').click(); await s.page.waitForTimeout(500); }
+    const label = await s.f.locator('#rfd4p-theme-btn').getAttribute('aria-label');
+    const isDark = label === 'Light mode';
+    if ((scheme === 'dark') !== isDark) { await s.f.locator('#rfd4p-theme-btn').click(); await s.page.waitForTimeout(600); }
     await s.page.screenshot({ path: `${OUT}/${kind}-${scheme}-start.png` });
     await s.f.locator('.rfd4p-task-card', { hasText: 'Protein binder' }).click();
     await s.f.locator('#rfd4p-run-settings:not([hidden])').waitFor({ timeout: 120000 });

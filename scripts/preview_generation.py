@@ -81,7 +81,7 @@ def main():
     from annotation_studio.gradio import create_app
     from atomworks_studio_rfd4.generation import RFD4GenerationProvider
 
-    provider = RFD4GenerationProvider(k_defaults=(16.0, 4.0), card=args.card)
+    provider = RFD4GenerationProvider(k_defaults=(16.0, 4.0), card=args.card, early_stop=args.card)
     provider.title = (
         "RFD4-Proteina · local UI preview\n\n"
         f"Simulated generation: waits {args.delay:g} seconds, then "

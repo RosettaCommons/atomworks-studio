@@ -597,8 +597,12 @@ no pause between them (`scripts/preview_generation.py --card --stream --frame-de
 --steps 60 --residues 300`, `packages/web/tests/gradio-card-stream.mjs`) reached the card
 all, in order; the one message that must not be lost, the last, is also the bus's final
 value. **Stop** sends the page's `card_abort` event: the handler stops consuming, sends
-nothing more and closes the generator, and the model finishes the call it has started
-(ZeroGPU bills it).
+nothing more and closes the generator. A generator that reacts to being closed (the
+RFD4 Space's does: it ends its sampler at the next step) releases the GPU at once; one
+that does not finishes the call it has started (ZeroGPU bills it). A deployment that
+implements "Early stop when converged" builds `RFD4GenerationProvider(early_stop=True)`
+(or sets `provider.early_stop = True`): the card shows the checkbox and the option
+arrives as `early_stop` in the stream's options.
 
 ## NIM and other inference services
 

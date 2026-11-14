@@ -121,7 +121,7 @@ class DocumentStore:
         if path is None:
             return
         metadata = json.dumps(
-            {"name": document.name, "owner_id": current_owner()},
+            {"name": document.name, "owner_id": current_owner(), "design": document.export_design_state()},
             separators=(",", ":"),
         )
         temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
@@ -139,15 +139,15 @@ class DocumentStore:
         try:
             metadata_text, cif = path.read_text(encoding="utf-8").split("\n", 1)
             metadata = json.loads(metadata_text)
-            return (
-                str(metadata.get("owner_id", "local")),
-                StudioDocument.from_cif(
-                    cif,
-                    str(metadata.get("name", "structure")),
-                    condition_provider=self._condition_provider,
-                    validation_provider=self._validation_provider,
-                ),
+            document = StudioDocument.from_cif(
+                cif,
+                str(metadata.get("name", "structure")),
+                condition_provider=self._condition_provider,
+                validation_provider=self._validation_provider,
             )
+            # What the document remembers beside its atoms: each chain as loaded and what new residues replaced.
+            document.restore_design_state(metadata.get("design"))
+            return str(metadata.get("owner_id", "local")), document
         except (IndexError, KeyError, OSError, ValueError):
             path.unlink(missing_ok=True)
             return None
@@ -492,6 +492,96 @@ class RealizeMutation(BaseModel):
     seed: int | None = None
 
 
+class InternalCoordsMutation(ConditionOperationMutation):
+    """Rigid-body marking; `group_id` joins that rigid group instead of making a new one."""
+
+    group_id: int | None = Field(default=None, ge=1)
+
+
+class ChainPart(BaseModel):
+    """One part of a chain's plan: a run of the chain as loaded, a block of new residues, or residues it lacks."""
+
+    model_config = {"extra": "ignore"}
+
+    kind: Literal["kept", "new", "own"]
+    # kept: source indices ("from", "to") or source residue numbers ("lo", "hi")
+    from_: int | None = Field(default=None, alias="from")
+    to: int | None = None
+    lo: int | None = None
+    hi: int | None = None
+    # new: an existing block's placeholder atom, or a length range for a new one
+    atom: int | None = None
+    min: int | None = Field(default=None, ge=0, le=10_000)
+    max: int | None = Field(default=None, ge=0, le=10_000)
+    # own: the atoms kept as they are
+    atoms: list[int] = Field(default_factory=list, max_length=1_000_000)
+
+    @model_validator(mode="after")
+    def kept_names_its_residues(self):
+        if self.kind == "kept" and not (
+            (self.from_ is not None and self.to is not None) or (self.lo is not None and self.hi is not None)
+        ):
+            raise ValueError("a kept part needs from and to, or lo and hi")
+        return self
+
+    def as_part(self) -> dict[str, Any]:
+        return self.model_dump(by_alias=True, exclude_none=True)
+
+
+class RebuildMutation(BaseModel):
+    chain_id: str = Field(min_length=1, max_length=16)
+    parts: list[ChainPart] = Field(max_length=1000)
+
+
+class ChainOrderMutation(BaseModel):
+    chain_ids: list[str] = Field(max_length=1000)
+
+
+class ClearCoordinatesMutation(SelectionRequest):
+    # Atoms to move to the front of their residues (a residue that keeps only some atoms is read from one of them).
+    lead: list[int] = Field(default_factory=list, max_length=100_000)
+
+
+class SegmentRangeMutation(BaseModel):
+    atom_index: int = Field(ge=0)
+    minimum: int = Field(ge=1, le=10_000)
+    maximum: int = Field(ge=1, le=10_000)
+
+
+class SegmentReplaceMutation(SelectionRequest):
+    minimum: int = Field(ge=1, le=10_000)
+    maximum: int = Field(ge=1, le=10_000)
+
+
+class SegmentRestoreMutation(BaseModel):
+    atom_index: int = Field(ge=0)
+
+
+class ScaffoldMutation(BaseModel):
+    # In the order given: with `ordered`, the motif residues take the order they are listed in.
+    atom_indices: list[int] = Field(min_length=1, max_length=100_000)
+    spread: float = Field(default=0.25, ge=0, le=10)
+    sidechains_only: bool = False
+    unindexed: bool = False
+    ordered: bool = False
+    total_min: int | None = Field(default=None, ge=1, le=10_000)
+    total_max: int | None = Field(default=None, ge=1, le=10_000)
+
+    @field_validator("atom_indices")
+    @classmethod
+    def non_negative(cls, value: list[int]) -> list[int]:
+        if any(index < 0 for index in value):
+            raise ValueError("atom indices must be non-negative")
+        return value
+
+
+class LigandBinderMutation(BaseModel):
+    remove_protein: bool = True
+    pose_fixed: bool = True
+    minimum: int = Field(default=100, ge=1, le=10_000)
+    maximum: int = Field(default=150, ge=1, le=10_000)
+
+
 class CombineMutation(BaseModel):
     session_ids: list[str] = Field(min_length=1, max_length=16)
 
@@ -609,6 +699,8 @@ async def create_session(
     remove_waters: bool | None = Form(None),
     hydrogen_policy: Literal["keep", "remove"] | None = Form(None),
     advanced_options: str = Form("{}"),
+    keep_unresolved: bool | None = Form(None),
+    fix_all: bool = Form(False),
 ) -> dict:
     filename = Path(file.filename or "structure.cif").name
     if not filename.lower().endswith((".cif", ".mmcif")):
@@ -629,6 +721,10 @@ async def create_session(
                 "remove_waters": remove_waters,
                 "hydrogen_policy": hydrogen_policy,
                 "advanced_options": json.loads(advanced_options),
+                # The design card's way of opening an entry: heavy atoms of the template only, no buffer ions, no
+                # unresolved residues unless `keep_unresolved`, and (`fix_all`) everything held as it is.
+                **({"keep_unresolved": keep_unresolved} if keep_unresolved is not None else {}),
+                **({"fix_all": True} if fix_all else {}),
             },
             condition_provider=condition_provider,
             validation_provider=validation_provider,
@@ -915,17 +1011,16 @@ def infer_bonds_from_ccd(session_id: str) -> dict:
 
 
 @app.post("/api/sessions/{session_id}/internal-coords")
-def set_internal_coordinates(session_id: str, mutation: ConditionOperationMutation) -> dict:
-    transform = condition_operations.get("internal_coordinate")
-    if transform is None:
+def set_internal_coordinates(session_id: str, mutation: InternalCoordsMutation) -> dict:
+    if condition_operations.get("internal_coordinate") is None:
         raise HTTPException(status_code=422, detail="internal-coordinate conditioning is not available")
     return _apply(
         session_id,
-        lambda document: document.apply_selection_transform(
+        lambda document: document.set_internal_coordinates(
             mutation.atom_indices,
-            mutation.scope,
-            transform,
             mutation.enabled,
+            scope=mutation.scope,
+            group_id=mutation.group_id,
             allow_target_discard=mutation.allow_target_discard,
             expected_revision=mutation.expected_revision,
         ),
@@ -934,17 +1029,13 @@ def set_internal_coordinates(session_id: str, mutation: ConditionOperationMutati
 
 @app.post("/api/sessions/{session_id}/internal-coords/clear-targets")
 def clear_internal_targets(session_id: str, mutation: ConditionOperationMutation) -> dict:
-    transform = condition_operations.get("clear_internal_targets")
-    if transform is None:
+    if condition_operations.get("clear_internal_targets") is None:
         raise HTTPException(status_code=422, detail="internal-coordinate target editing is not available")
     return _apply(
         session_id,
-        lambda document: document.apply_selection_transform(
+        lambda document: document.clear_internal_targets(
             mutation.atom_indices,
-            mutation.scope,
-            transform,
-            True,
-            allow_target_discard=True,
+            scope=mutation.scope,
             expected_revision=mutation.expected_revision,
         ),
     )
@@ -1003,6 +1094,110 @@ def realize_segments(session_id: str, mutation: RealizeMutation) -> dict:
 @app.post("/api/sessions/{session_id}/segments/collapse")
 def collapse_segments(session_id: str) -> dict:
     return _apply(session_id, lambda document: document.collapse_segments())
+
+
+@app.post("/api/sessions/{session_id}/chains/rebuild")
+def rebuild_chain(session_id: str, mutation: RebuildMutation) -> dict:
+    """Rebuild a chain from its plan: kept runs of the chain as loaded, new residues, residues it lacks."""
+    parts = [part.as_part() for part in mutation.parts]
+    return _apply(session_id, lambda document: document.rebuild_chain(mutation.chain_id, parts))
+
+
+@app.post("/api/sessions/{session_id}/chains/preview")
+def preview_chain(session_id: str, mutation: RebuildMutation) -> dict:
+    """The document's CIF with a chain rebuilt to the parts, the session unchanged."""
+    parts = [part.as_part() for part in mutation.parts]
+    try:
+        cif = _call(session_id, lambda document: document.preview_rebuild(mutation.chain_id, parts))
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail=str(error.args[0])) from error
+    except (ValueError, IndexError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return {"cif": cif}
+
+
+@app.post("/api/sessions/{session_id}/chains/order")
+def order_chains(session_id: str, mutation: ChainOrderMutation) -> dict:
+    return _apply(session_id, lambda document: document.reorder_chains(mutation.chain_ids))
+
+
+@app.get("/api/sessions/{session_id}/chains/{chain_id}/plan")
+def get_chain_plan(session_id: str, chain_id: str) -> dict:
+    """A chain as a plan: `{chain, source: [{num, ins, name, label}], parts: [...]}`."""
+    return _call(session_id, lambda document: document.chain_plan(chain_id))
+
+
+@app.get("/api/sessions/{session_id}/chains/{chain_id}/source")
+def get_chain_source(session_id: str, chain_id: str) -> dict:
+    """The chain as it was loaded, as an overlay mmCIF (`{chain, cif}`); 404 when it has no source."""
+    try:
+        found = _call(session_id, lambda document: document.chain_source_cif(chain_id))
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail=str(error.args[0])) from error
+    if found is None:
+        raise HTTPException(status_code=404, detail=f"chain {chain_id} has no source")
+    return found
+
+
+@app.post("/api/sessions/{session_id}/coordinates/clear")
+def clear_coordinates(session_id: str, mutation: ClearCoordinatesMutation) -> dict:
+    return _apply(session_id, lambda document: document.clear_coordinates(mutation.atom_indices, mutation.lead))
+
+
+@app.post("/api/sessions/{session_id}/segments/range")
+def set_segment_range(session_id: str, mutation: SegmentRangeMutation) -> dict:
+    return _apply(
+        session_id,
+        lambda document: document.set_segment_range(mutation.atom_index, mutation.minimum, mutation.maximum),
+    )
+
+
+@app.post("/api/sessions/{session_id}/segments/replace")
+def replace_with_segments(session_id: str, mutation: SegmentReplaceMutation) -> dict:
+    return _apply(
+        session_id,
+        lambda document: document.replace_with_segments(mutation.atom_indices, mutation.minimum, mutation.maximum),
+    )
+
+
+@app.post("/api/sessions/{session_id}/segments/restore")
+def restore_segment(session_id: str, mutation: SegmentRestoreMutation) -> dict:
+    return _apply(session_id, lambda document: document.restore_segment(mutation.atom_index))
+
+
+@app.get("/api/sessions/{session_id}/segments/origins")
+def get_segment_origins(session_id: str) -> dict:
+    """What each block of new residues replaced: `{origins: {"<atom index>": {count, keys}}}`."""
+    return {"origins": _call(session_id, lambda document: document.segment_origins())}
+
+
+@app.post("/api/sessions/{session_id}/segments/scaffold")
+def scaffold_motif(session_id: str, mutation: ScaffoldMutation) -> dict:
+    return _apply(
+        session_id,
+        lambda document: document.scaffold_motif(
+            mutation.atom_indices,
+            spread=mutation.spread,
+            sidechains_only=mutation.sidechains_only,
+            unindexed=mutation.unindexed,
+            ordered=mutation.ordered,
+            total_min=mutation.total_min,
+            total_max=mutation.total_max,
+        ),
+    )
+
+
+@app.post("/api/sessions/{session_id}/segments/ligand-binder")
+def design_around_ligand(session_id: str, mutation: LigandBinderMutation) -> dict:
+    return _apply(
+        session_id,
+        lambda document: document.design_around_ligand(
+            remove_protein=mutation.remove_protein,
+            pose_fixed=mutation.pose_fixed,
+            minimum=mutation.minimum,
+            maximum=mutation.maximum,
+        ),
+    )
 
 
 @app.post("/api/sessions/{session_id}/conditions/reset")

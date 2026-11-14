@@ -171,10 +171,19 @@ def prepare_for_design(array: AtomArrayPlus, *, keep_unresolved: bool) -> AtomAr
         for start, stop in zip(bounds[:-1], bounds[1:], strict=True):
             if not coordinates[start:stop][~drop[start:stop]].any():
                 drop[start:stop] = True
-    if not drop.any():
-        return array
-    result = array[~drop]
-    refresh_chain_derived_annotations(result)
+    result = array[~drop] if drop.any() else array
+    # An assembly with copies of a chain names every chain by its instance ("A_1", "A_2"), for good: the names then
+    # stay what a written CIF shows however many copies an edit leaves.
+    transformations = np.asarray(result.transformation_id).astype(str) if "transformation_id" in result.get_annotation_categories() else None
+    if transformations is not None:
+        chain_ids = np.asarray(result.chain_id).astype(str)
+        copies = {c: {t for t, c2 in zip(transformations, chain_ids, strict=True) if c2 == c} for c in set(chain_ids)}
+        if any(len(t) > 1 for t in copies.values()):
+            names = np.array([f"{c}_{t}" for c, t in zip(chain_ids, transformations, strict=True)])
+            result.set_annotation("chain_id", names)
+            drop = np.ones(1, dtype=bool)
+    if drop.any():
+        refresh_chain_derived_annotations(result)
     return result
 
 
@@ -261,6 +270,7 @@ class StudioDocument(ChainPlanMixin):
             name,
             condition_provider=condition_provider,
             validation_provider=validation_provider,
+            track_sources=False,
         )
         if fix_all and len(document.array):
             everything = list(range(len(document.array)))
@@ -270,6 +280,8 @@ class StudioDocument(ChainPlanMixin):
             )
             document.clear_history()
             document.revision = 0
+        # Each chain as loaded, conditions included: what residues cropped from a chain come back as.
+        document._init_design_state()
         return document
 
     def clone(self) -> StudioDocument:
@@ -1000,12 +1012,29 @@ class StudioDocument(ChainPlanMixin):
     def clear_internal_targets(
         self, indices: list[int], *, scope: ConditionScope = "atom", expected_revision: int | None = None
     ) -> dict[str, object] | None:
-        """Forget the saved shapes of the selected rigid groups (the pipeline centres and turns the body)."""
+        """Forget the saved shapes of the selected rigid groups (the pipeline centres and turns the body).
+
+        Groups with no saved shape are left as they are: marking atoms rigid leaves their shapes unset, so clearing
+        them is a step that changes nothing (still one undo step, as a sequence of edits expects).
+        """
         from .providers import load_providers  # noqa: PLC0415
 
         transform = load_providers().condition_operations.get("clear_internal_targets")
         if transform is None:
             raise ValueError("internal-coordinate target editing is not available")
+        groups_cls = STANDARD_ANNOTATIONS.get("condition_CoordinateGroup_1_atom")
+        targets_cls = STANDARD_ANNOTATIONS.get("condition_InternalCoordinate_1_atom")
+        selected = self.resolve_indices(indices, scope)
+        groups = np.asarray(groups_cls.annotation(self.array, default="generate"))
+        wanted = np.unique(groups[selected])
+        wanted = wanted[wanted > groups_cls.KNOWN_ABSOLUTE_COORDS]
+        targets = np.asarray(targets_cls.annotation(self.array, default="generate"))
+        if not np.isfinite(targets[np.isin(groups, wanted)]).any():
+            if expected_revision is not None and self.revision != expected_revision:
+                raise DocumentRevisionConflictError(expected_revision, self.revision)
+            with self.edit():
+                pass
+            return {"affected_count": 0, "message": "The selected internal-coordinate groups have no saved targets."}
         return self.apply_selection_transform(
             indices, scope, transform, True, allow_target_discard=True, expected_revision=expected_revision
         )

@@ -125,7 +125,13 @@ async function open(spec) {
     : {};
   // Offline by default: CCD lookups only change bond tables and ion charges, which the comparison does not use.
   const doc = o.ccd ? await createStudioDocWithCcd(text, name, opts) : new StudioDoc(text, name, opts);
-  doc.undoStack = o.keep_history ? doc.undoStack : [];
+  if (o.drop_names) {
+    const names = new Set(o.drop_names);
+    const drop = [];
+    for (let i = 0; i < doc.atoms.nAtoms; i += 1) if (names.has(String(doc.atoms.atom_name[i]))) drop.push(i);
+    doc.deleteAtoms(drop);
+  }
+  doc.undoStack = [];
   return doc;
 }
 

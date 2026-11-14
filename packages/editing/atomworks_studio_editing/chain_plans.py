@@ -198,8 +198,29 @@ def align_custom_annotations(arrays: list[AtomArrayPlus]) -> list[AtomArrayPlus]
 
 
 def concatenate_documents(arrays: list[AtomArrayPlus], *, policy: str = "raise") -> AtomArrayPlus:
+    """Concatenate document arrays; annotations some of them lack are filled with their defaults."""
     arrays = align_custom_annotations(arrays)
-    return concatenate_atom_array_plus(arrays, fill_missing_standard_annotations=True, on_annotation_mismatch_policy=policy)
+    try:
+        return concatenate_atom_array_plus(
+            arrays, fill_missing_standard_annotations=True, on_annotation_mismatch_policy=policy
+        )
+    except ValueError:
+        # Bookkeeping annotations (is_standard_aa, ...) some inputs lack: fill them with their defaults too.
+        arrays = [array.copy() for array in arrays]
+        examples: dict[str, np.ndarray] = {}
+        for array in arrays:
+            for name in array.get_annotation_categories():
+                if not name.startswith(("condition_", "annotation_", "mask_")):
+                    examples.setdefault(name, np.asarray(array.get_annotation(name)))
+        for array in arrays:
+            present = set(array.get_annotation_categories())
+            for name, example in examples.items():
+                if name not in present:
+                    shape = (len(array), *example.shape[1:])
+                    array.set_annotation(name, np.full(shape, _custom_default(example), dtype=example.dtype))
+        return concatenate_atom_array_plus(
+            arrays, fill_missing_standard_annotations=True, on_annotation_mismatch_policy=policy
+        )
 
 
 def _bond_pairs(array: AtomArrayPlus) -> np.ndarray:
@@ -401,7 +422,10 @@ class ChainPlanMixin:
     # -- plans ---------------------------------------------------------------------------------------------------
     def chain_plan(self, chain: str) -> dict[str, Any]:
         """Chain as a plan: ``{chain, source: [{num, ins, name, label}], parts: [...]}`` (JSON-safe)."""
-        key = self.chain_key(chain)
+        try:
+            key = self.chain_key(chain)
+        except KeyError:
+            return {"chain": str(chain), "source": [], "parts": []}
         info = self._source_index(key)
         a = self.array
         keys = chain_key_array(a)
@@ -569,16 +593,20 @@ class ChainPlanMixin:
                 res_id, shift = prev_id + 1, True
         else:
             res_id = int(res_ids[chain_idx[0]]) - 1
-        result = insert_expandable_segment(a, minimum, maximum, atom_idx=anchor, insert_before=before)
-        if not shift:
-            # `insert_expandable_segment` numbers by its own rule: put every residue back and number the placeholder.
-            old_ids = np.insert(res_ids, position, res_id)
-            old_ins = np.insert(ins, position, ins_code)
-            result.set_annotation("res_id", old_ids.astype(res_ids.dtype))
-            result.set_annotation("ins_code", old_ins.astype("<U4"))
-        else:
-            result.res_id[position] = res_id
-            result.set_annotation("ins_code", np.insert(ins, position, "").astype("<U4"))
+        # The insertion helper numbers by its own rule and wants numbers that only increase: give it each residue's
+        # place, then number every residue as above.
+        surrogate = a.copy()
+        surrogate.set_annotation("res_id", np.repeat(np.arange(len(bounds) - 1), np.diff(bounds)).astype(res_ids.dtype))
+        surrogate.set_annotation("ins_code", np.full(n, "", dtype="<U4"))
+        result = insert_expandable_segment(surrogate, minimum, maximum, atom_idx=anchor, insert_before=before)
+        numbers = np.insert(res_ids, position, res_id)
+        codes = np.insert(ins, position, ins_code)
+        if shift:
+            after = np.arange(len(result)) > position
+            in_chain = chain_key_array(result) == key
+            numbers[after & in_chain & (numbers >= res_id)] += 1
+        result.set_annotation("res_id", numbers.astype(res_ids.dtype))
+        result.set_annotation("ins_code", codes.astype("<U4"))
         refresh_chain_derived_annotations(result)
         self._reset_hidden(result, position)
         self.array = result
@@ -1032,18 +1060,17 @@ class ChainPlanMixin:
             a = self.array
             a.coord[selected] = np.nan
             a.occupancy[selected] = 0
-            # Targets first: a group member without a target is a valid state, the reverse is not.
-            for full_name in ("condition_InternalCoordinate_1_atom", "condition_CoordinateGroup_1_atom",
-                              "condition_coordinate_1_atom"):
-                cls = _standard_annotation(full_name)
-                if cls is None:
-                    continue
-                values = np.asarray(cls.annotation(a, default="generate")).copy()
-                values[selected] = np.asarray(cls.default_annotation(a))[selected]
-                if full_name == "condition_CoordinateGroup_1_atom":
-                    cls.set_annotation(a, values, on_internal_coord_mismatch="clear")
-                else:
-                    cls.set_annotation(a, values)
+            definitions = self.condition_provider.definitions_by_name
+            # The coordinate condition first, then rigid-group membership and saved targets, in an order the
+            # coordinate conditions accept at every step.
+            self.set_condition("coordinate", selected.tolist(), enabled=False, allow_target_discard=True)
+            if "coordinate_group" in definitions:
+                self.set_condition("coordinate_group", selected.tolist(), enabled=False, allow_target_discard=True)
+            targets = _standard_annotation("condition_InternalCoordinate_1_atom")
+            if targets is not None and targets.has_annotation(a):
+                values = np.asarray(targets.annotation(a, default="generate")).copy()
+                values[selected] = np.asarray(targets.default_annotation(a))[selected]
+                targets.set_annotation(a, values)
             first = {int(i) for i in (lead or [])}
             if first:
                 bounds = residue_bounds(a)

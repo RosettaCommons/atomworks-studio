@@ -41,7 +41,7 @@ def open_document(spec: dict[str, Any], **kwargs) -> StudioDocument:
             options["keep_unresolved"] = bool(o["keep_unresolved"])
         options["fix_all"] = bool(o.get("fix_all", True))
     p = providers()
-    return StudioDocument.from_cif(
+    doc = StudioDocument.from_cif(
         text,
         spec.get("name", "structure"),
         parse_options=options,
@@ -49,6 +49,14 @@ def open_document(spec: dict[str, Any], **kwargs) -> StudioDocument:
         validation_provider=p.validation_provider,
         **kwargs,
     )
+    if o.get("drop_names"):
+        # AtomWorks drops the N-terminal H1/H3 of an NMR entry as not in the CCD; the page's engine keeps them.
+        names = set(o["drop_names"])
+        drop = [i for i, n in enumerate(doc.array.atom_name) if str(n) in names]
+        if drop:
+            doc.delete_atoms(drop)
+        doc.clear_history()
+    return doc
 
 
 def _res_ranges(text: str) -> list[tuple[int, int]]:
@@ -306,9 +314,11 @@ def run_js_job(job: dict[str, Any], tmp_path: Path) -> dict[str, Any]:
 # ---------------------------------------------------------------------------------------------------------------------
 # Comparison
 # ---------------------------------------------------------------------------------------------------------------------
+# `index_group` is not compared: the RFD4 provider assigns index groups to residues placed anywhere as it syncs
+# them with the index condition; the page's engine only has what the group editor sets, and the card never reads it.
 KEY_CONDITIONS = (
     "sequence", "coordinate", "index", "hotspot", "rasa", "hbond", "pistack", "pication", "saltbridge", "hydrophobic",
-    "metal_coord", "secondary_structure", "index_group", "cath_label", "chain_centroid", "coordinate_group",
+    "metal_coord", "secondary_structure", "cath_label", "chain_centroid", "coordinate_group",
     "internal_coordinate",
 )
 
@@ -366,7 +376,8 @@ def compare_states(py: dict[str, Any], js: dict[str, Any], *, tolerance: float =
     if bad:
         i = bad[0]
         problems.append(f"{where}coord: {len(bad)} atoms differ, first at {i}: py {pa['coord'][i]} js {ja['coord'][i]}")
-    bad = [i for i in range(n) if pa["src"][i] != ja["src"][i]]
+    # (A placeholder's source name is text in the page's engine, "x.x.x.x": not compared.)
+    bad = [i for i in range(n) if not pa["segment"][i] and pa["src"][i] != ja["src"][i]]
     if bad:
         problems.append(f"{where}src labels: {len(bad)} differ, first {bad[0]}: py {pa['src'][bad[0]]!r} js {ja['src'][bad[0]]!r}")
     bad = [i for i in range(n) if pa["segment"][i] and (pa["seg_min"][i], pa["seg_max"][i]) != (ja["seg_min"][i], ja["seg_max"][i])]
@@ -425,3 +436,47 @@ def compare_runs(py: dict[str, Any], js: dict[str, Any], *, tolerance: float = 1
             if "cif" in ep and not ep.get("unchanged", True):
                 problems.append(f"{where}preview changed the session")
     return problems
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Entries
+# ---------------------------------------------------------------------------------------------------------------------
+class EntryUnavailableError(RuntimeError):
+    """An RCSB entry is not cached and could not be fetched."""
+
+
+def entry_path(entry: str) -> Path:
+    """A CIF of an RCSB entry: a cached copy (`STUDIO_PARITY_CIF_DIR`, `tests/fixtures/rcsb`, the system temp dir)
+    or, failing that, the entry downloaded once. Raises `EntryUnavailableError` when it is not to be had."""
+    import tempfile  # noqa: PLC0415
+    import urllib.request  # noqa: PLC0415
+
+    name = entry.upper()
+    folders = [Path(p) for p in (os.environ.get("STUDIO_PARITY_CIF_DIR"),) if p]
+    folders += [Path(__file__).parent / "fixtures" / "rcsb", Path(tempfile.gettempdir()) / "atomworks-studio-rcsb"]
+    for folder in folders:
+        path = folder / f"{name}.cif"
+        if path.is_file() and path.stat().st_size > 1000:
+            return path
+    cache = folders[-1]
+    try:
+        cache.mkdir(parents=True, exist_ok=True)
+        with urllib.request.urlopen(f"https://files.rcsb.org/download/{name}.cif", timeout=20) as response:  # noqa: S310
+            data = response.read()
+        if len(data) < 1000:
+            raise OSError("short response")
+        (cache / f"{name}.cif").write_bytes(data)
+        return cache / f"{name}.cif"
+    except OSError as error:
+        raise EntryUnavailableError(f"{name}: {error}") from error
+
+
+def materialize(job: dict[str, Any]) -> dict[str, Any]:
+    """The job with its `entry` names replaced by file paths."""
+    documents = {}
+    for key, spec in job["documents"].items():
+        spec = dict(spec)
+        if "entry" in spec:
+            spec["path"] = str(entry_path(spec.pop("entry")))
+        documents[key] = spec
+    return {**job, "documents": documents}

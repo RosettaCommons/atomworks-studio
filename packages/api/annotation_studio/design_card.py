@@ -137,7 +137,7 @@ const frame = () => document.querySelector('iframe[title="AtomWorks Studio"]');
     } else if (data.type === 'generate') {
       const request = 'g' + (++counter);
       const { sessionId, settings = {}, task } = data.request || {};
-      pending.set(request, { kind: 'generate', id: data.id, seed: settings.seed, task });
+      pending.set(request, { kind: 'generate', id: data.id, seed: settings.seed, task, started: Date.now() });
       reply('status', { id: data.id, text: 'Waiting for the GPU…' });
       bus.emit('card_generate', { request, session_id: sessionId, settings });
     } else if (data.type === 'refold') {
@@ -188,17 +188,18 @@ const frame = () => document.querySelector('iframe[title="AtomWorks Studio"]');
     }
     if (message.type === 'frame') {
       const { fraction, label } = progressText(message);
-      reply('progress', { id: entry.id, fraction, label });
       if (!entry.noted) {
         // The first frame ends the wait for the GPU: the button says the step from here on, the status line is cleared.
         entry.noted = true;
         const text = message.designs > 1 && message.parallel ? `Generating ${message.designs} designs in parallel; showing design ${message.design + 1}.` : 'Generating…';
         reply('status', { id: entry.id, text, options: { visible: false } });
       }
-      reply('frame', { id: entry.id, cif: message.cif, options: { name: message.name || `step_${message.step + 1}.cif`, keepCamera: Boolean(message.keepCamera) } });
+      reply('frame', { id: entry.id, cif: message.cif, progress: { fraction, label }, options: { name: message.name || `step_${message.step + 1}.cif`, keepCamera: Boolean(message.keepCamera) } });
       return;
     }
     if (message.type === 'design') {
+      entry.count = (entry.count || 0) + 1;
+      (entry.stepsRun ||= []).push({ stepsRun: message.design.stepsRun, nsteps: message.nsteps });
       reply('design', { id: entry.id, design: { ...designFields(entry, message.design, message.design.index || 0), nsteps: message.nsteps ?? null } });
       return;
     }
@@ -212,10 +213,17 @@ const frame = () => document.querySelector('iframe[title="AtomWorks Studio"]');
         reply('error', { id: entry.id, message: message.error, userMessage: message.error });
         return;
       }
+      entry.count = (entry.count || 0) + message.designs.length;
+      for (const design of message.designs) (entry.stepsRun ||= []).push({ stepsRun: design.stepsRun, nsteps: message.nsteps });
       for (const [index, design] of message.designs.entries()) {
         reply('design', { id: entry.id, design: { ...designFields(entry, design, index), nsteps: message.nsteps ?? null } });
       }
-      reply('done', { id: entry.id, result: { message: (message.warnings || []).join('; ') || undefined } });
+      const seeds = entry.seed == null ? '' : entry.count > 1 ? ` with seeds ${entry.seed}–${entry.seed + entry.count - 1}` : ` with seed ${entry.seed}`;
+      const stops = (entry.stepsRun || []).filter((r) => r && r.stepsRun < r.nsteps).map((r) => `${r.stepsRun}/${r.nsteps}`);
+      const seconds = ((Date.now() - entry.started) / 1000).toFixed(2);
+      const text = `Generated from input revision ${message.revision}${seeds} (${seconds} s on ${config.engine?.badge || 'the server'}).`
+        + (stops.length ? ` Converged early at step ${stops.join(', ')}.` : '');
+      reply('done', { id: entry.id, result: { message: [text, ...(message.warnings || [])].join(' ') } });
     } else if (message.type === 'result') {
       if (message.error) reply('refold-error', { id: entry.id, message: message.error });
       else reply('refold-result', { id: entry.id, result: message.result });

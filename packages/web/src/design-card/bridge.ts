@@ -86,13 +86,35 @@ export async function connectDesignHost(parentOrigin: string, timeoutMs = 3000):
       const id = `generate-${(counter += 1)}`;
       // Frames and designs are handed over in the order they came.
       let queue: Promise<unknown> = Promise.resolve();
+      // A server makes frames faster than the viewer draws them: while one is being drawn, only the newest waits (the
+      // ones it replaced are skipped), and the progress it carries is shown when it is drawn, so the button and the
+      // viewer say the same step. A design drops the frame waiting, since the design replaces it.
+      let pending: { cif: string; options: unknown; progress?: { fraction: number; label?: string } } | null = null;
+      let scheduled = false;
       const stop = listen(id, (m) => {
         switch (m.type) {
           case "status": hooks.status(String(m.text ?? ""), m.options as { error?: boolean; visible?: boolean } | undefined); return false;
           case "progress": hooks.progress(Number(m.fraction) || 0, m.label as string | undefined); return false;
           case "loading": hooks.loading((m.text as string | null) ?? null); return false;
-          case "frame": queue = queue.then(() => hooks.frame(String(m.cif), m.options as never)); return false;
-          case "design": queue = queue.then(() => hooks.design(m.design as DesignInfo)); return false;
+          case "frame":
+            pending = { cif: String(m.cif), options: m.options, progress: m.progress as { fraction: number; label?: string } | undefined };
+            if (!scheduled) {
+              scheduled = true;
+              queue = queue.then(async () => {
+                scheduled = false;
+                const frame = pending;
+                pending = null;
+                if (!frame) return;
+                if (frame.progress) hooks.progress(Number(frame.progress.fraction) || 0, frame.progress.label);
+                await hooks.frame(frame.cif, frame.options as never);
+              });
+            }
+            return false;
+          case "design":
+            pending = null;
+            scheduled = false;
+            queue = queue.then(() => hooks.design(m.design as DesignInfo));
+            return false;
           case "done":
             request.signal.removeEventListener("abort", abort);
             void queue.then(() => resolve(m.result as { message?: string } | undefined), reject);

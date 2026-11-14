@@ -5,6 +5,7 @@ import math
 import os
 import random
 import time
+from pathlib import Path
 
 
 def helix_cif(residues: int, settle: float, models: int = 1, offset: float = 0.0) -> str:
@@ -59,6 +60,12 @@ def main():
         action="store_true",
         help="With --card: simulate a streaming model (live frames, then designs with a trajectory each)",
     )
+    parser.add_argument(
+        "--replay",
+        metavar="DIR",
+        help="With --stream: replay frames captured from a real run instead of simulated helices: DIR holds frame_*.cif "
+        "(live frames, in name order), design.cif and trajectory.cif",
+    )
     parser.add_argument("--frame-delay", type=float, default=0.15, help="Seconds between simulated live frames")
     parser.add_argument("--steps", type=int, default=12, help="Simulated sampling steps")
     parser.add_argument("--residues", type=int, default=40, help="Residues of the simulated design")
@@ -89,6 +96,21 @@ def main():
     def simulate_stream(cif, options):
         """The streaming convention: frames of design 0 as the run goes, then the designs and their trajectories."""
         samples, steps, residues = options["samples"], args.steps, args.residues
+        if args.replay:
+            folder = Path(args.replay)
+            frames = sorted(folder.glob("frame_*.cif"), key=lambda f: int(f.stem.rsplit("_", 1)[-1]))
+            for step, file in enumerate(frames):
+                time.sleep(args.frame_delay)
+                yield {"frame": file.read_text(), "step": step, "steps": len(frames) + 1, "design": 0, "designs": samples}
+            design, trajectory = (folder / "design.cif").read_text(), (folder / "trajectory.cif").read_text()
+            yield {
+                "done": True,
+                "designs": [design] * samples,
+                "trajectories": [trajectory] * samples,
+                "steps_run": [len(frames) + 1] * samples,
+                "nsteps": len(frames) + 1,
+            }
+            return
         for step in range(steps):
             time.sleep(args.frame_delay)
             yield {

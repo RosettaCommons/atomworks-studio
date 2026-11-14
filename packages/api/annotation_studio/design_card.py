@@ -170,9 +170,11 @@ const frame = () => document.querySelector('iframe[title="AtomWorks Studio"]');
     if (message.type === 'frame') {
       const { fraction, label } = progressText(message);
       reply('progress', { id: entry.id, fraction, label });
-      if (message.designs > 1 && !entry.noted) {
+      if (!entry.noted) {
+        // The first frame ends the wait for the GPU: the button says the step from here on, the status line is cleared.
         entry.noted = true;
-        reply('status', { id: entry.id, text: `Generating ${message.designs} designs in parallel; showing design ${message.design + 1}.`, options: { visible: false } });
+        const text = message.designs > 1 ? `Generating ${message.designs} designs in parallel; showing design ${message.design + 1}.` : 'Generating…';
+        reply('status', { id: entry.id, text, options: { visible: false } });
       }
       reply('frame', { id: entry.id, cif: message.cif, options: { name: message.name || `step_${message.step + 1}.cif`, keepCamera: Boolean(message.keepCamera) } });
       return;

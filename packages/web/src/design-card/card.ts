@@ -569,7 +569,7 @@ export function mountDesignCard(
         overlays: { ...runCtx.overlays, ...given.overlays },
       } : given;
       const index = (designCounter += 1);
-      const stem = info.filenameStem ?? `design-${index}`;
+      const stem = info.filenameStem ?? `design-${index}${info.seed != null ? `-seed${info.seed}` : ""}`;
       const sid = await createSession(info.cif, stem);
       const record: DesignRecord = { ...info, id: sid, label: info.name, index };
       const view: View = {

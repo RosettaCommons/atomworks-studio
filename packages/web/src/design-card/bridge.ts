@@ -81,6 +81,11 @@ export async function connectDesignHost(parentOrigin: string, timeoutMs = 3000):
     settings: config.settings,
     zipTitle: config.zipTitle,
     refold,
+    // The host names each design by its seed (the card sends one with every request), as the page does.
+    refoldPanel: {
+      nameHeader: { label: "Seed", title: "Each design is named by its seed: the same seed and settings make it again" },
+      describe: (design) => `seed ${design.name}`,
+    },
     guide: config.guideUrl ? { url: config.guideUrl } : config.guide ? () => send("guide") : undefined,
     generate: (request, hooks: GenerateHooks) => new Promise((resolve, reject) => {
       const id = `generate-${(counter += 1)}`;

@@ -170,7 +170,6 @@ const frame = () => document.querySelector('iframe[title="AtomWorks Studio"]');
     const name = seed != null ? String(seed) : design.name;
     return {
       name, cif: design.cif, seed, kind: kinds[entry.task] ?? null,
-      filenameStem: 'design-' + name,
       trajectoryCif: design.trajectoryCif ?? null,
       stepsRun: design.stepsRun ?? null,
       designedChains: design.designedChains,

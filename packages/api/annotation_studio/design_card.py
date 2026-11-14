@@ -37,8 +37,8 @@ _OPTION_NAMES = {
 def card_config(provider: Any) -> dict[str, Any] | None:
     """The provider's card as JSON-safe data, or None when it does not opt in.
 
-    `design_card()` returns `{"engine": {"badge": "ZeroGPU", "title": "..."}, "settings": {...}}`; `settings` overrides
-    `DEFAULT_CARD_SETTINGS` per key (None drops a control).
+    `design_card()` returns `{"engine": {"badge": "ZeroGPU"}, "settings": {...}, "guide": {"url": "..."}}`; `settings`
+    overrides `DEFAULT_CARD_SETTINGS` per key (None drops a control), `guide` makes the card show its Guide button.
     """
     hook = getattr(provider, "design_card", None)
     given = hook() if hook is not None else None
@@ -59,7 +59,13 @@ def card_config(provider: Any) -> dict[str, Any] | None:
         thinking["default"] = thinking["options"][0]
     # The card reads `false` as "this engine does not take it": the control is hidden and left out of the request.
     settings = {key: (False if value is None else value) for key, value in settings.items()}
-    return json.loads(json.dumps({"engine": engine, "settings": settings}))
+    config: dict[str, Any] = {"engine": engine, "settings": settings}
+    guide = given.get("guide")
+    if guide:
+        # The Guide button opens this address in a new tab (the page shows its guide as a popup it owns).
+        config["guide"] = True
+        config["guideUrl"] = str(guide["url"] if isinstance(guide, dict) else guide)
+    return json.loads(json.dumps(config))
 
 
 def card_options(provider: Any, settings: dict) -> dict:
@@ -134,6 +140,9 @@ const frame = () => document.querySelector('iframe[title="AtomWorks Studio"]');
       const request = 'r' + (++counter);
       pending.set(request, { kind: 'refold', id: data.id });
       bus.emit('refold', { request, cif: data.design?.cif, options: data.settings });
+    } else if (data.type === 'guide') {
+      // The click happened in the frame, which gives this page (its parent) the user activation a new tab needs.
+      if (config.guideUrl) window.open(config.guideUrl, '_blank', 'noopener');
     } else if (data.type === 'abort') {
       // Stop abandons the wait; the server finishes the call it has started.
       for (const [request, entry] of pending) if (entry.id === data.id) pending.delete(request);

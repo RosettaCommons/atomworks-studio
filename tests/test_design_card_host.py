@@ -60,6 +60,9 @@ def test_the_card_config_has_the_reference_defaults_and_hides_what_the_engine_la
     assert config["settings"]["partialDiffusion"] == {"percent": 40} and config["settings"]["seed"] is True
     assert config["settings"]["backboneK"]["default"] == 16 and config["settings"]["latentK"]["default"] == 4
     assert design_card.card_config(object()) is None
+    guided = design_card.card_config(CardProvider(guide={"url": "https://example.org/guide/"}))
+    assert guided["guide"] is True and guided["guideUrl"] == "https://example.org/guide/"
+    assert "guide" not in config
     with pytest.raises(ValueError, match="badge"):
         design_card.card_config(CardProvider(engine={}))
     with pytest.raises(ValueError, match="Unknown design-card setting"):

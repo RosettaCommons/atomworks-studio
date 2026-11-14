@@ -1,0 +1,15 @@
+import { chromium } from 'playwright-core';
+import { chromiumLaunchOptions } from '../../../scripts/browser.mjs';
+const browser = await chromium.launch(chromiumLaunchOptions());
+const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
+page.on('console', (m) => console.log('console', m.type(), m.text().slice(0, 200)));
+page.on('pageerror', (e) => console.log('pageerror', e.message));
+page.on('requestfailed', (r) => console.log('failed', r.url().slice(0,120)));
+await page.goto(process.env.URL);
+await page.waitForTimeout(8000);
+const f = page.frames();
+for (const fr of f) console.log('frame', fr.url().slice(0, 150));
+const fr = f.find((x) => x.url().includes('embed=1'));
+if (fr) console.log(await fr.evaluate(() => ({ body: document.body.className, card: !!document.querySelector('.rfd4p-card'), tasks: document.querySelectorAll('.rfd4p-task-card').length, api: !!window.atomworksStudio, status: document.querySelector('#status')?.textContent })));
+await page.screenshot({ path: process.env.OUT + '/probe.png' });
+await browser.close();

@@ -72,6 +72,8 @@ class RFD4GenerationProvider:
         self.card = card
         # Markdown a deployment shows above the card (data handling, terms); the card's own page has no such line.
         self.notice = ""
+        # Where the card's Guide button leads (a new tab); no button when empty.
+        self.guide_url = ""
 
     def controls(self) -> dict[str, gr.Component]:
         with gr.Row():
@@ -123,8 +125,9 @@ class RFD4GenerationProvider:
         if not self.card:
             return None
         return {
-            "engine": {"badge": "ZeroGPU", "title": "Designs run on a GPU on the server"},
+            "engine": {"badge": "ZeroGPU"},
             "notice": self.notice or None,
+            "guide": {"url": self.guide_url} if self.guide_url else None,
             "settings": {
                 "backboneK": {"min": 1, "max": BACKBONE_K_MAX, "step": 0.1, "default": self.k_defaults[0]},
                 "latentK": {"min": 1, "max": LATENT_K_MAX, "step": 0.1, "default": self.k_defaults[1]},

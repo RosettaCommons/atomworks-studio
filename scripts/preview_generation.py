@@ -15,6 +15,11 @@ def main():
         action="store_true",
         help="Also offer Studio's Refold panel, with a simulated refold (no model runs)",
     )
+    parser.add_argument(
+        "--card",
+        action="store_true",
+        help="Show the design card (the RFD4-Proteina page's interface) in Studio's sidebar, with simulated generation",
+    )
     parser.add_argument("--refold-delay", type=float, default=1.5, help="Seconds each simulated refold takes")
     args = parser.parse_args()
     if args.delay < 0:
@@ -26,7 +31,7 @@ def main():
     from annotation_studio.gradio import create_app
     from atomworks_studio_rfd4.generation import RFD4GenerationProvider
 
-    provider = RFD4GenerationProvider(k_defaults=(16.0, 4.0))
+    provider = RFD4GenerationProvider(k_defaults=(16.0, 4.0), card=args.card)
     provider.title = (
         "RFD4-Proteina · local UI preview\n\n"
         f"Simulated generation: waits {args.delay:g} seconds, then "
@@ -40,7 +45,9 @@ def main():
         return [cif] * options["samples"]
 
     refold_fn = None
-    if args.refold:
+    if args.card:
+        provider.guide_url = "https://web.rfd4-proteina.org/help/"
+    if args.refold or args.card:
         provider.refold_models = lambda: [{"id": "af3"}, {"id": "openbind0"}]
 
         def refold_fn(cif, options):

@@ -6,7 +6,7 @@ import json
 import logging
 import tempfile
 import zipfile
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Protocol
 from urllib.parse import quote
@@ -196,6 +196,37 @@ async def _run_cifs(generate_fn: Callable[[str, dict], list[str]], cif: str, opt
     return results
 
 
+def _drain_stream(stream_fn: Callable[[str, dict], Iterator[dict]]) -> Callable[[str, dict], list[str]]:
+    """A `generate_fn` made from a deployment's `generate_stream_fn`: run the stream to its end, return its designs."""
+
+    def generate(cif: str, options: dict) -> list[str]:
+        final = None
+        for item in stream_fn(cif, options):
+            if item.get("done"):
+                final = item
+        return list((final or {}).get("designs") or [])
+
+    return generate
+
+
+_END = object()
+
+
+def _stream_design_fields(final: dict, index: int) -> dict:
+    """What the stream's last item says about design `index` besides its structure."""
+
+    def of(key: str):
+        values = final.get(key)
+        return values[index] if isinstance(values, list | tuple) and index < len(values) else None
+
+    fields = {
+        "trajectoryCif": of("trajectories"),
+        "stepsRun": of("steps_run"),
+        "designedChains": of("designed_chains"),
+    }
+    return {key: value for key, value in fields.items() if value is not None}
+
+
 def _refold_handlers(provider, refold_fn, models: list[dict], limits: dict) -> tuple[Callable, Callable]:
     """`refold_cif` (the route) and `refold_design` (the panel's request, answered over the bridge): one refold."""
     check_refold = getattr(provider, "validate_refold", None) or (
@@ -234,6 +265,7 @@ def _create_card_demo(
     provider: GenerationProvider,
     card: dict,
     generate_fn: Callable[[str, dict], list[str]],
+    generate_stream_fn: Callable[[str, dict], Iterator[dict]] | None,
     refold_fn: Callable[[str, dict], dict] | None,
     refold_models: list[dict],
     refold_limits: dict,
@@ -241,6 +273,8 @@ def _create_card_demo(
     """Design-card mode: the editor frame alone, with the card in its sidebar and a bridge for its requests."""
     if refold_fn is not None:
         card["refold"] = {"models": refold_models, "limits": refold_limits}
+    if generate_stream_fn is not None:
+        card["streaming"] = True
     with gr.Blocks(delete_cache=(3600, 3600)) as demo:
         notice = (provider.design_card() or {}).get("notice")
         if notice:
@@ -308,14 +342,93 @@ def _create_card_demo(
             concurrency_limit=1,
             show_progress="hidden",
         )
+        aborted: set[str] = set()
+
+        async def card_generate_stream(event: gr.EventData):
+            """The card's request against a streaming model: the bus gets one numbered message per item the stream
+            yields (frames, status, then the designs), as it yields them. Stop (`card_abort`) ends the consuming; the
+            model finishes the call it has started."""
+            data = event._data or {}
+            request = str(data.get("request", ""))
+            counter = 0
+
+            def message(kind: str, **fields) -> str:
+                nonlocal counter
+                counter += 1
+                return refold_support.panel_message(kind, request=request, seq=counter, **fields)
+
+            stream = None
+            try:
+                options = provider.validate(card_support.card_options(provider, data.get("settings") or {}))
+                snapshot = await handoff.export(str(data.get("session_id") or ""), provider.warning_checks)
+                _check_input(provider, snapshot, options)
+                stream = generate_stream_fn(snapshot["cif"], options)
+                final = None
+                while True:
+                    item = await asyncio.to_thread(next, stream, _END)
+                    if request in aborted:
+                        return
+                    if item is _END:
+                        break
+                    if item.get("done"):
+                        final = item
+                    elif "frame" in item:
+                        yield message(
+                            "frame",
+                            cif=item["frame"],
+                            step=item.get("step", 0),
+                            steps=item.get("steps", 1),
+                            design=item.get("design", 0),
+                            designs=item.get("designs", 1),
+                            name=item.get("name"),
+                            keepCamera=bool(item.get("keep_camera")),
+                        )
+                    elif "status" in item:
+                        yield message("status", text=str(item["status"]))
+                if final is None or not final.get("designs"):
+                    raise gr.Error("The model returned no structures")
+                designs = []
+                for index, cif in enumerate(final["designs"]):
+                    session_id, _ = await handoff.open(f"design-{index + 1}.cif", cif)
+                    designs.append(
+                        {
+                            "id": session_id,
+                            "name": f"Design {index + 1}",
+                            "cif": cif,
+                            **_stream_design_fields(final, index),
+                        }
+                    )
+                warnings = [issue["message"] for issue in snapshot["issues"]] + list(final.get("warnings") or [])
+                yield message(
+                    "generated", designs=designs, warnings=warnings, revision=snapshot["revision"], nsteps=final.get("nsteps")
+                )
+            except Exception as error:
+                logging.getLogger(__name__).exception("Studio generation failed")
+                reason = error.message if isinstance(error, gr.Error) else "The model request failed. Please retry."
+                if isinstance(error, ValueError) and not isinstance(error, gr.Error):
+                    reason = str(error)
+                yield message("generated", error=reason)
+            finally:
+                aborted.discard(request)
+                if stream is not None:
+                    try:
+                        await asyncio.to_thread(stream.close)
+                    except Exception:  # still running its last step: it ends when that returns
+                        pass
+
+        def card_abort(event: gr.EventData) -> None:
+            aborted.add(str((event._data or {}).get("request", "")))
+
         bus.card_generate(
-            card_generate,
+            card_generate_stream if generate_stream_fn is not None else card_generate,
             None,
             bus,
             api_name=False,
             concurrency_limit=1,
             show_progress="hidden",
         )
+        if generate_stream_fn is not None:
+            bus.card_abort(card_abort, None, None, api_name=False, concurrency_limit=None, show_progress="hidden")
         if refold_fn is not None:
             refold_cif, refold_design = _refold_handlers(provider, refold_fn, refold_models, refold_limits)
             refold_api_cif = gr.Textbox(visible=False)
@@ -347,7 +460,8 @@ def create_demo(
     studio: FastAPI,
     *,
     provider: GenerationProvider,
-    generate_fn: Callable[[str, dict], list[str]],
+    generate_fn: Callable[[str, dict], list[str]] | None = None,
+    generate_stream_fn: Callable[[str, dict], Iterator[dict]] | None = None,
     refold_fn: Callable[[str, dict], dict] | None = None,
     editor_path: str = "/",
 ) -> gr.Blocks:
@@ -356,7 +470,15 @@ def create_demo(
     `refold_fn(design_cif, options) -> dict`, optional, folds one design again (`options` is `{model, seed, recycles,
     steps}`) and returns `cif`, `ligand_cif`, `metrics`, `text` and `passed` (`annotation_studio.refold`). It takes
     effect with a provider that names its `refold_models`.
+
+    `generate_stream_fn(cif, options)`, optional (instead of or beside `generate_fn`), is a generator that yields the
+    run as it goes, for a provider with `design_card`: live frames, then the designs. See docs/INTEGRATIONS.md, "Design
+    card in a frame". Without a card, or when only `generate_fn` is given, nothing changes.
     """
+    if generate_fn is None and generate_stream_fn is None:
+        raise ValueError("give generate_fn, generate_stream_fn, or both")
+    if generate_fn is None:
+        generate_fn = _drain_stream(generate_stream_fn)
     handoff = StudioHandoff(studio, editor_path)
     refold_models = refold_support.refold_models(provider)
     if refold_fn is not None and not refold_models:
@@ -370,6 +492,7 @@ def create_demo(
             provider=provider,
             card=card,
             generate_fn=generate_fn,
+            generate_stream_fn=generate_stream_fn,
             refold_fn=refold_fn,
             refold_models=refold_models,
             refold_limits=refold_limits,
@@ -588,7 +711,8 @@ def create_demo(
 def create_app(
     *,
     provider: GenerationProvider,
-    generate_fn: Callable[[str, dict], list[str]],
+    generate_fn: Callable[[str, dict], list[str]] | None = None,
+    generate_stream_fn: Callable[[str, dict], Iterator[dict]] | None = None,
     refold_fn: Callable[[str, dict], dict] | None = None,
 ) -> FastAPI:
     """Mount the optional generation UI at /design beside the existing editor.
@@ -607,7 +731,13 @@ def create_app(
 
     app = gr.mount_gradio_app(
         app,
-        create_demo(studio, provider=provider, generate_fn=generate_fn, refold_fn=refold_fn),
+        create_demo(
+            studio,
+            provider=provider,
+            generate_fn=generate_fn,
+            generate_stream_fn=generate_stream_fn,
+            refold_fn=refold_fn,
+        ),
         path="/design",
         theme=gr.themes.Default(primary_hue="blue"),
         css=STUDIO_CSS + getattr(provider, "css", ""),

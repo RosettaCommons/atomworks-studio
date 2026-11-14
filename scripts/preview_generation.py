@@ -1,8 +1,42 @@
 """Preview the real Gradio generation UI locally without loading a model."""
 
 import argparse
+import math
 import os
+import random
 import time
+
+
+def helix_cif(residues: int, settle: float, models: int = 1, offset: float = 0.0) -> str:
+    """A helix-like backbone (N, CA, C) of one chain; `settle` 0 is a noisy blob, 1 a clean helix. Models 1..models."""
+    rows = [
+        "data_stream_frame",
+        "loop_",
+        *(
+            f"_atom_site.{field}"
+            for field in (
+                "group_PDB id type_symbol label_atom_id label_alt_id label_comp_id label_asym_id label_entity_id "
+                "label_seq_id pdbx_PDB_ins_code Cartn_x Cartn_y Cartn_z occupancy B_iso_or_equiv auth_seq_id "
+                "auth_comp_id auth_asym_id auth_atom_id pdbx_PDB_model_num"
+            ).split()
+        ),
+    ]
+    atom = 0
+    for model in range(1, models + 1):
+        rng = random.Random(model * 7919 + int(offset))
+        for residue in range(residues):
+            angle = residue * 100 * math.pi / 180
+            for name, element, shift in (("N", "N", -0.5), ("CA", "C", 0.0), ("C", "C", 0.5)):
+                spread = (1 - settle) * 6
+                x = 2.3 * math.cos(angle) + shift + rng.uniform(-spread, spread)
+                y = 2.3 * math.sin(angle) + rng.uniform(-spread, spread)
+                z = 1.5 * residue + shift + rng.uniform(-spread, spread)
+                atom += 1
+                rows.append(
+                    f"ATOM {atom} {element} {name} . ALA A 1 {residue + 1} ? {x:.3f} {y:.3f} {z:.3f} 1.00 80.00 "
+                    f"{residue + 1} ALA A {name} {model}"
+                )
+    return "\n".join(rows) + "\n#\n"
 
 
 def main():
@@ -20,6 +54,13 @@ def main():
         action="store_true",
         help="Show the design card (the RFD4-Proteina page's interface) in Studio's sidebar, with simulated generation",
     )
+    parser.add_argument(
+        "--stream",
+        action="store_true",
+        help="With --card: simulate a streaming model (live frames, then designs with a trajectory each)",
+    )
+    parser.add_argument("--frame-delay", type=float, default=0.15, help="Seconds between simulated live frames")
+    parser.add_argument("--steps", type=int, default=12, help="Simulated sampling steps")
     parser.add_argument("--refold-delay", type=float, default=1.5, help="Seconds each simulated refold takes")
     args = parser.parse_args()
     if args.delay < 0:
@@ -44,6 +85,30 @@ def main():
             raise RuntimeError("Simulated generation failure")
         return [cif] * options["samples"]
 
+    def simulate_stream(cif, options):
+        """The streaming convention: frames of design 0 as the run goes, then the designs and their trajectories."""
+        samples, steps, residues = options["samples"], args.steps, 40
+        for step in range(steps):
+            time.sleep(args.frame_delay)
+            yield {
+                "frame": helix_cif(residues, (step + 1) / steps),
+                "step": step,
+                "steps": steps,
+                "design": 0,
+                "designs": samples,
+                "name": f"step_{step + 1}.cif",
+                "keep_camera": step > 0,
+            }
+        if args.fail:
+            raise RuntimeError("Simulated generation failure")
+        yield {
+            "done": True,
+            "designs": [helix_cif(residues, 1.0, offset=k) for k in range(samples)],
+            "trajectories": [helix_cif(residues, 1.0, models=steps, offset=k) for k in range(samples)],
+            "steps_run": [steps] * samples,
+            "nsteps": steps,
+        }
+
     refold_fn = None
     if args.card:
         provider.guide_url = "https://web.rfd4-proteina.org/help/"
@@ -60,7 +125,14 @@ def main():
             }
 
     uvicorn.run(
-        create_app(provider=provider, generate_fn=simulate, refold_fn=refold_fn), host="127.0.0.1", port=args.port
+        create_app(
+            provider=provider,
+            generate_fn=simulate,
+            generate_stream_fn=simulate_stream if args.card and args.stream else None,
+            refold_fn=refold_fn,
+        ),
+        host="127.0.0.1",
+        port=args.port,
     )
 
 

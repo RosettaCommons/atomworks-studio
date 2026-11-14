@@ -171,3 +171,29 @@ def test_a_provider_without_design_card_keeps_its_layout():
         assert "generate" in _callbacks(demo)
     finally:
         demo.close()
+
+
+def test_the_rfd4_provider_offers_the_card_with_every_setting_but_early_stop():
+    from atomworks_studio_rfd4.generation import RFD4GenerationProvider
+
+    assert design_card.card_config(RFD4GenerationProvider(k_defaults=(16.0, 4.0))) is None, "opt in"
+    provider = RFD4GenerationProvider(k_defaults=(16.0, 4.0), card=True)
+    config = design_card.card_config(provider)
+    assert config["settings"]["earlyStop"] is None
+    assert config["settings"]["thinking"]["options"] == ["none", "low", "medium", "high"]
+    assert (config["settings"]["backboneK"]["default"], config["settings"]["latentK"]["default"]) == (16, 4)
+    options = provider.validate(
+        design_card.card_options(
+            provider,
+            {
+                "samples": 2,
+                "thinking": "none",
+                "seed": 5,
+                "partialDiffusion": True,
+                "partialPercent": 40,
+                "backboneK": 16,
+                "latentK": 4,
+            },
+        )
+    )
+    assert options["thinking"] == "none" and options["partial_diffusion_percent"] == 40

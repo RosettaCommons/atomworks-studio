@@ -605,13 +605,14 @@ exactly as the browser page does, with no card code of its own:
 
 | Yielded item | Meaning |
 | --- | --- |
-| `{"frame": cif, "step": i, "steps": n, "design": k, "designs": m, "name"?: "step_3.cif", "keep_camera"?: bool}` | A live frame of design `k` (0-based) at sampling step `i` of `n` (0-based). The button reads `design 1 of 3 · step 24/60` (`step 24/60` for one design). `keep_camera` leaves the camera where the person put it, as `FrameOptions.keepCamera`. |
+| `{"frame": cif, "step": i, "steps": n, "design": k, "designs": m, "name"?: "step_3.cif", "keep_camera"?: bool}` | A live frame of design `k` (0-based) at sampling step `i` of `n` (0-based). The button reads `design 1 of 3 · step 24/60` (`step 24/60` for one design) and the bar runs across all the designs. A server makes frames faster than the viewer draws them, so while one is being drawn only the newest waits, and its progress is shown when it is drawn. `keep_camera` leaves the camera where the person put it, as `FrameOptions.keepCamera`. |
+| `{"design": cif, "index": k, "trajectory"?: cif, "steps_run"?: n, "nsteps"?: n, "designed_chains"?: [chain, …]}` | Design `k` is finished: it opens as a Studio document and joins the card's list the moment it arrives (the page's flow: frames of design 1, design 1, frames of design 2, …). Frames of a design that is made one at a time carry no extra field; a model that runs the designs as one batch adds `"parallel": true` to its frames (the bar then fills with the one design shown) and sends every design in the last item instead. |
 | `{"status": "text"}` | A status line (not progress). |
-| `{"done": True, "designs": [cif, …], "trajectories"?: [multi-model cif or None, …], "steps_run"?: [int or None, …], "nsteps"?: n, "designed_chains"?: [[chain, …], …], "warnings"?: [str, …]}` | The last item. The designs open as Studio documents; a `trajectories` entry is that design's `DesignInfo.trajectoryCif` (Show trajectory and the zip), `steps_run` and `nsteps` its `stepsRun` and `nsteps`. |
+| `{"done": True, "designs"?: [cif, …], "trajectories"?: [multi-model cif or None, …], "steps_run"?: [int or None, …], "nsteps"?: n, "designed_chains"?: [[chain, …], …], "warnings"?: [str, …]}` | The last item. Designs not already sent as `design` items open as Studio documents; a `trajectories` entry is that design's `DesignInfo.trajectoryCif` (Show trajectory and the zip), `steps_run` and `nsteps` its `stepsRun` and `nsteps`. |
 
 An error is the generator raising: the card shows it as it shows a failed `generate_fn`.
 A model that runs all samples of a request as one batch sends frames for one design only
-(`designs` says how many are being made); the other designs arrive in `done`. A provider
+(`designs` says how many are being made, `parallel` that they are not one after the other); the other designs arrive in `done`. A provider
 without `generate_stream_fn` behaves exactly as before, and a deployment that gives only
 the stream still gets the `/generate_cif` route (the stream is run to its end).
 

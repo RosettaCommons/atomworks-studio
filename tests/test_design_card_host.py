@@ -369,6 +369,40 @@ def test_a_streaming_model_sends_the_bus_one_numbered_message_per_item_in_order(
         demo.close()
 
 
+def test_a_streaming_model_hands_over_each_design_as_it_finishes(stable_cif_metadata):
+    pytest.importorskip("gradio")
+    from annotation_studio.gradio import StudioHandoff
+
+    def stream(cif, options):
+        for design in range(2):
+            for step in range(2):
+                yield {"frame": f"d{design}s{step}", "step": step, "steps": 2, "design": design, "designs": 2}
+            yield {"design": cif, "index": design, "trajectory": f"t{design}", "steps_run": 2, "nsteps": 2}
+        yield {"done": True, "warnings": ["w"]}
+
+    demo = _stream_demo(stream)
+    try:
+        callbacks = _callbacks(demo)
+
+        async def run():
+            session, _ = await StudioHandoff(app).open("input.cif", DESIGN)
+            messages = await _collect(
+                callbacks["card_generate_stream"], {"request": "g1", "session_id": session, "settings": {"samples": 2}}
+            )
+            kinds = [m["type"] for m in messages]
+            assert kinds == ["frame", "frame", "design", "frame", "frame", "design", "generated"]
+            assert [m["seq"] for m in messages] == list(range(1, 8))
+            designs = [m["design"] for m in messages if m["type"] == "design"]
+            assert [(d["index"], d["trajectoryCif"], d["stepsRun"]) for d in designs] == [(0, "t0", 2), (1, "t1", 2)]
+            assert all(d["id"] and d["cif"] for d in designs)
+            assert messages[-1]["designs"] == [] and "w" in messages[-1]["warnings"]
+            assert not any(m.get("parallel") for m in messages if m["type"] == "frame")
+
+        asyncio.run(run())
+    finally:
+        demo.close()
+
+
 def test_a_streaming_model_that_fails_ends_the_stream_with_the_error(stable_cif_metadata):
     pytest.importorskip("gradio")
     from annotation_studio.gradio import StudioHandoff

@@ -208,11 +208,13 @@ def _drain_stream(stream_fn: Callable[[str, dict], Iterator[dict]]) -> Callable[
     """A `generate_fn` made from a deployment's `generate_stream_fn`: run the stream to its end, return its designs."""
 
     def generate(cif: str, options: dict) -> list[str]:
-        final = None
+        final, streamed = None, []
         for item in stream_fn(cif, options):
             if item.get("done"):
                 final = item
-        return list((final or {}).get("designs") or [])
+            elif "design" in item and "frame" not in item:
+                streamed.append(item["design"])
+        return list((final or {}).get("designs") or streamed)
 
     return generate
 
@@ -372,6 +374,7 @@ def _create_card_demo(
                 _check_input(provider, snapshot, options)
                 stream = generate_stream_fn(snapshot["cif"], options)
                 final = None
+                opened = 0
                 while True:
                     item = await asyncio.to_thread(next, stream, _END)
                     if request in aborted:
@@ -380,6 +383,29 @@ def _create_card_demo(
                         break
                     if item.get("done"):
                         final = item
+                    elif "design" in item and "frame" not in item:
+                        # A design finished while the run goes on: it opens and joins the card's list at once.
+                        cif_text = item["design"]
+                        session_id, _ = await handoff.open(f"design-{opened + 1}.cif", cif_text)
+                        yield message(
+                            "design",
+                            design={
+                                "id": session_id,
+                                "name": f"Design {opened + 1}",
+                                "cif": cif_text,
+                                "index": int(item.get("index", opened)),
+                                **_stream_design_fields(
+                                    {
+                                        "trajectories": [item.get("trajectory")],
+                                        "steps_run": [item.get("steps_run")],
+                                        "designed_chains": [item.get("designed_chains")],
+                                    },
+                                    0,
+                                ),
+                            },
+                            nsteps=item.get("nsteps"),
+                        )
+                        opened += 1
                     elif "frame" in item:
                         yield message(
                             "frame",
@@ -388,15 +414,16 @@ def _create_card_demo(
                             steps=item.get("steps", 1),
                             design=item.get("design", 0),
                             designs=item.get("designs", 1),
+                            parallel=bool(item.get("parallel")),
                             name=item.get("name"),
                             keepCamera=bool(item.get("keep_camera")),
                         )
                     elif "status" in item:
                         yield message("status", text=str(item["status"]))
-                if final is None or not final.get("designs"):
+                if final is None or not (final.get("designs") or opened):
                     raise gr.Error("The model returned no structures")
                 designs = []
-                for index, cif in enumerate(final["designs"]):
+                for index, cif in enumerate(final.get("designs") or []):
                     session_id, _ = await handoff.open(f"design-{index + 1}.cif", cif)
                     designs.append(
                         {

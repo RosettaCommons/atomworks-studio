@@ -948,3 +948,24 @@ body.rfd4p-building .rfd4p-piece-pop { visibility: hidden; }
 
 /* The provider's own boxes beside Generate (renderExtras): they take part in the section's grid directly. */
 .rfd4p-extras { display: contents; }
+
+/* The live designed sequence in Studio's sequence dock while a design runs (run-context.ts LiveSequenceStrip) */
+.sequence-dock.rfd4p-live #sequence-view,
+.sequence-dock.collapsed #rfd4p-live-sequence {
+  display: none;
+}
+
+.sequence-dock #rfd4p-live-sequence {
+  max-height: 98px;
+  margin-top: 5px;
+}
+
+#rfd4p-live-sequence .sequence-token {
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+#rfd4p-live-sequence .sequence-token.rfd4p-changed {
+  color: var(--accent-ink, #142038);
+  background: var(--accent, #82aaff);
+  transition: none;
+}

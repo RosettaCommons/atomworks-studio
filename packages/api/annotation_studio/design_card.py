@@ -158,9 +158,23 @@ const frame = () => document.querySelector('iframe[title="AtomWorks Studio"]');
       }
     }
   });
+  // One design at a time (as the page does): the bar runs across all of them. A batch ("parallel") shows one design.
   const progressText = (m) => {
     const label = m.designs > 1 ? `design ${m.design + 1} of ${m.designs} · step ${m.step + 1}/${m.steps}` : `step ${m.step + 1}/${m.steps}`;
-    return { fraction: (m.step + 1) / (m.steps + 1), label };
+    const within = (m.step + 1) / (m.steps + 1);
+    return { fraction: m.designs > 1 && !m.parallel ? (m.design + within) / m.designs : within, label };
+  };
+  const designFields = (entry, design, index) => {
+    // The first design takes the typed or drawn seed, later ones the next integers, as the page names them.
+    const seed = entry.seed != null ? entry.seed + index : null;
+    const name = seed != null ? String(seed) : design.name;
+    return {
+      name, cif: design.cif, seed, kind: kinds[entry.task] ?? null,
+      filenameStem: 'design-' + name,
+      trajectoryCif: design.trajectoryCif ?? null,
+      stepsRun: design.stepsRun ?? null,
+      designedChains: design.designedChains,
+    };
   };
   bus.listeners.add((message) => {
     const entry = pending.get(message.request);
@@ -178,10 +192,14 @@ const frame = () => document.querySelector('iframe[title="AtomWorks Studio"]');
       if (!entry.noted) {
         // The first frame ends the wait for the GPU: the button says the step from here on, the status line is cleared.
         entry.noted = true;
-        const text = message.designs > 1 ? `Generating ${message.designs} designs in parallel; showing design ${message.design + 1}.` : 'Generating…';
+        const text = message.designs > 1 && message.parallel ? `Generating ${message.designs} designs in parallel; showing design ${message.design + 1}.` : 'Generating…';
         reply('status', { id: entry.id, text, options: { visible: false } });
       }
       reply('frame', { id: entry.id, cif: message.cif, options: { name: message.name || `step_${message.step + 1}.cif`, keepCamera: Boolean(message.keepCamera) } });
+      return;
+    }
+    if (message.type === 'design') {
+      reply('design', { id: entry.id, design: { ...designFields(entry, message.design, message.design.index || 0), nsteps: message.nsteps ?? null } });
       return;
     }
     if (message.type === 'status') {
@@ -195,17 +213,7 @@ const frame = () => document.querySelector('iframe[title="AtomWorks Studio"]');
         return;
       }
       for (const [index, design] of message.designs.entries()) {
-        // The first design takes the typed or drawn seed, later ones the next integers, as the page names them.
-        const seed = entry.seed != null ? entry.seed + index : null;
-        const name = seed != null ? String(seed) : design.name;
-        reply('design', { id: entry.id, design: {
-          name, cif: design.cif, seed, kind: kinds[entry.task] ?? null,
-          filenameStem: 'design-' + name,
-          trajectoryCif: design.trajectoryCif ?? null,
-          stepsRun: design.stepsRun ?? null,
-          nsteps: message.nsteps ?? null,
-          designedChains: design.designedChains,
-        } });
+        reply('design', { id: entry.id, design: { ...designFields(entry, design, index), nsteps: message.nsteps ?? null } });
       }
       reply('done', { id: entry.id, result: { message: (message.warnings || []).join('; ') || undefined } });
     } else if (message.type === 'result') {

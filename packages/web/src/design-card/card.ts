@@ -7,6 +7,7 @@
  */
 import { apiText } from "../api.ts";
 import { mountRefoldPanel } from "../refold/panel.ts";
+import { frameHotspots, frameResidues, designHotspots, LiveSequenceStrip, runContext, type RunContext } from "./run-context.ts";
 import type { RefoldPanelHandle, RefoldPanelOptions } from "../refold/panel.ts";
 import type { RefoldDesign, RefoldRecord } from "../refold/types.ts";
 import type { ViewerResidue } from "../viewers/contract.ts";
@@ -137,6 +138,9 @@ export function mountDesignCard(
   let theme: "light" | "dark" = "dark";
   let refoldPanel: RefoldPanelHandle | null = null;
   let liveHotspots: ViewerResidue[] | null = null;
+  // What a run shows beside its frames and designs, read from the input: hotspots, the reference motif, the live sequence.
+  let runCtx: RunContext | null = null;
+  let strip: LiveSequenceStrip | null = null;
   let frameQueue: Promise<unknown> = Promise.resolve();
   let firstFrame = true;
   let shownOverlays = new Set<string>();
@@ -536,6 +540,14 @@ export function mountDesignCard(
       await frameQueue;
       const first = firstFrame;
       firstFrame = false;
+      if (runCtx) {
+        o = {
+          ...o,
+          hotspots: o.hotspots ?? frameHotspots(runCtx.hotspots),
+          overlays: { ...runCtx.overlays, ...o.overlays },
+        };
+      }
+      try { strip?.update(frameResidues(cif)); } catch { /* a frame without residues */ }
       // The first frame's hotspots: none while it replaces the input, then in the job's numbering.
       frameQueue = (first ? Promise.resolve(panel.clearHighlight("hotspots")) : Promise.resolve())
         .then(() => s.renderFrame!(cif, o.name ?? "frame.cif", { keepCamera: o.keepCamera }))
@@ -549,8 +561,13 @@ export function mountDesignCard(
         .then(() => (first ? refoldPanel?.setSelected(null) : undefined))
         .catch(() => undefined);
     },
-    design: async (info: DesignInfo): Promise<DesignRecord> => {
+    design: async (given: DesignInfo): Promise<DesignRecord> => {
       await frameQueue;
+      const info: DesignInfo = runCtx ? {
+        ...given,
+        hotspots: given.hotspots ?? designHotspots(given.cif, runCtx.hotspots),
+        overlays: { ...runCtx.overlays, ...given.overlays },
+      } : given;
       const index = (designCounter += 1);
       const stem = info.filenameStem ?? `design-${index}`;
       const sid = await createSession(info.cif, stem);
@@ -612,6 +629,9 @@ export function mountDesignCard(
       const firstNew = thisRun.designs.length;
       renderDesigns();
       firstFrame = true;
+      runCtx = runContext(doc.atoms);
+      strip = new LiveSequenceStrip();
+      strip.start(runCtx.hotspots);
       s?.setLiveMode?.(true);
       emit({ type: "run", running: true });
       let result: { message?: string } | void = undefined;
@@ -652,6 +672,9 @@ export function mountDesignCard(
     } finally {
       if (active === controller) {
         active = null;
+        strip?.stop();
+        strip = null;
+        runCtx = null;
         liveHotspots = null;
         panel.showHotspots();
       }

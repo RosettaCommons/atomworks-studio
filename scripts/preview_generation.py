@@ -61,6 +61,7 @@ def main():
     )
     parser.add_argument("--frame-delay", type=float, default=0.15, help="Seconds between simulated live frames")
     parser.add_argument("--steps", type=int, default=12, help="Simulated sampling steps")
+    parser.add_argument("--residues", type=int, default=40, help="Residues of the simulated design")
     parser.add_argument("--refold-delay", type=float, default=1.5, help="Seconds each simulated refold takes")
     args = parser.parse_args()
     if args.delay < 0:
@@ -87,7 +88,7 @@ def main():
 
     def simulate_stream(cif, options):
         """The streaming convention: frames of design 0 as the run goes, then the designs and their trajectories."""
-        samples, steps, residues = options["samples"], args.steps, 40
+        samples, steps, residues = options["samples"], args.steps, args.residues
         for step in range(steps):
             time.sleep(args.frame_delay)
             yield {

@@ -111,6 +111,7 @@ def test_card_mode_shows_only_the_editor_and_the_bridge():
         html_blocks = [b for b in demo.blocks.values() if type(b).__name__ == "HTML"]
         assert sorted(b.elem_id for b in html_blocks if b.elem_id) == [
             "design-card-bridge",
+            "design-card-style",
             "refold-bus",
             "studio-editor",
         ]

@@ -67,6 +67,11 @@ def main():
         help="With --stream: replay frames captured from a real run instead of simulated helices: DIR holds "
         "frame_*.cif (live frames, in name order), design.cif and trajectory.cif",
     )
+    parser.add_argument(
+        "--sequential",
+        action="store_true",
+        help="With --stream: make the designs one at a time, as the Space does (frames of each, the design the moment it is done)",
+    )
     parser.add_argument("--frame-delay", type=float, default=0.15, help="Seconds between simulated live frames")
     parser.add_argument("--steps", type=int, default=12, help="Simulated sampling steps")
     parser.add_argument("--residues", type=int, default=40, help="Residues of the simulated design")
@@ -97,6 +102,26 @@ def main():
     def simulate_stream(cif, options):
         """The streaming convention: frames of design 0 as the run goes, then the designs and their trajectories."""
         samples, steps, residues = options["samples"], args.steps, args.residues
+        if args.sequential:
+            for design in range(samples):
+                for step in range(steps):
+                    time.sleep(args.frame_delay)
+                    yield {
+                        "frame": helix_cif(residues, (step + 1) / steps),
+                        "step": step,
+                        "steps": steps,
+                        "design": design,
+                        "designs": samples,
+                    }
+                yield {
+                    "design": helix_cif(residues, 1.0, offset=design),
+                    "index": design,
+                    "trajectory": helix_cif(residues, 1.0, models=steps, offset=design),
+                    "steps_run": steps,
+                    "nsteps": steps,
+                }
+            yield {"done": True}
+            return
         if args.replay:
             folder = Path(args.replay)
             frames = sorted(folder.glob("frame_*.cif"), key=lambda f: int(f.stem.rsplit("_", 1)[-1]))

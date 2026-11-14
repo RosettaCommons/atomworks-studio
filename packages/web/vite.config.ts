@@ -99,11 +99,18 @@ export default defineConfig({
     target: "es2022",
     rollupOptions: {
       // The Refold panel is also a module of its own, at a fixed path, for a host page that is not Studio (the Gradio
-      // host mounts it above an iframe of the editor). It shares its code with the main bundle.
-      input: { index: resolve("index.html"), "refold-panel": resolve("src/refold/standalone.ts") },
+      // host mounts it above an iframe of the editor). It shares its code with the main bundle. The Design card is
+      // likewise a module of its own (`design-card.js`).
+      input: {
+        index: resolve("index.html"),
+        "refold-panel": resolve("src/refold/standalone.ts"),
+        "design-card": resolve("src/design-card/standalone.ts"),
+      },
       preserveEntrySignatures: "strict",
       output: {
-        entryFileNames: (chunk) => (chunk.name === "refold-panel" ? "refold-panel.js" : "assets/[name]-[hash].js"),
+        entryFileNames: (chunk) => (
+          chunk.name === "refold-panel" || chunk.name === "design-card" ? `${chunk.name}.js` : "assets/[name]-[hash].js"
+        ),
       },
     },
   },

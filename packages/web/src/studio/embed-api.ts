@@ -11,6 +11,7 @@
  * and the "changed" notification behave exactly as they do for a click. The document on the server stays the source
  * of truth; nothing here writes to the viewer behind its back.
  */
+import type { DesignCardHandle, DesignCardOptions, DesignCardProvider } from "../design-card";
 import type { RefoldPanelHandle, RefoldPanelOptions, RefoldProvider } from "../refold";
 import type { ViewerHighlightOptions, ViewerLoadOptions, ViewerOverlayOptions, ViewerResidue } from "../viewers";
 
@@ -95,6 +96,22 @@ export type StudioEmbedApi = {
    * refold over the shown design through `setOverlay`. See docs/INTEGRATIONS.md, "Refold panel".
    */
   mountRefoldPanel(container: HTMLElement, provider: RefoldProvider, options?: RefoldPanelOptions): RefoldPanelHandle;
+
+  /**
+   * Mount Studio's Design card: the start screen and its examples, the job editor, the run settings, Generate and
+   * Stop, the designs with the Refold panel, Save all (.zip) and the light/dark switch. With no `container` the card
+   * goes into Studio's right sidebar (its title row into the header) and Studio's own panels fold away unless the
+   * card's "Studio editor" is ticked; with a `container` it is a block there. The host supplies a
+   * `DesignCardProvider` that makes the designs (`null`: an editor with no engine). A card mounted in the sidebar
+   * replaces the one `?card=1` mounted. See docs/INTEGRATIONS.md, "Design card".
+   */
+  mountDesignCard(container: HTMLElement | null, provider: DesignCardProvider | null, options?: DesignCardOptions): DesignCardHandle;
+
+  /** The id of the session Studio shows, or null with nothing open. */
+  getSessionId(): string | null;
+
+  /** Undo the last edit of the open document, as the Undo button does. */
+  undo(): Promise<void>;
 };
 
 declare global {

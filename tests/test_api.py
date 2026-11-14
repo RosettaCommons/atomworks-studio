@@ -284,7 +284,7 @@ def test_selection_scope_and_atomworks_query_api() -> None:
     assert 0 in residue.json()["atom_indices"]
     assert residue.json()["count"] > 1
 
-    expression = f"(chain_iid == {atom['chain']!r}) & (res_id == {atom['residue_id']})"
+    expression = f"(chain_iid == {atom['chain_iid']!r}) & (res_id == {atom['residue_id']})"
     queried = client.post(
         f"/api/sessions/{session_id}/selections/query",
         json={"expression": expression, "syntax": "expression"},

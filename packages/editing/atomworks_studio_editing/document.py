@@ -57,6 +57,7 @@ from .chain_plans import (
     ChainPlanMixin,
     chain_key_array,
     concatenate_documents,
+    display_chain_array,
     ensure_hidden,
     reinstall_sentinel_bonds,
     residue_bounds,
@@ -542,15 +543,17 @@ class StudioDocument(ChainPlanMixin):
                             }
                         )
                 elif spec.kind == "vector3":
-                    for chain in np.unique(self.array.chain_iid[mask]):
-                        chain_mask = mask & (self.array.chain_iid == chain)
+                    keys = chain_key_array(self.array)
+                    names = display_chain_array(self.array)
+                    for chain in np.unique(keys[mask]):
+                        chain_mask = mask & (keys == chain)
                         indices = atom_indices(chain_mask)
                         if not indices:
                             continue
                         xyz = annotation[indices[0]]
                         values.append(
                             {
-                                "label": f"Chain {chain}",
+                                "label": f"Chain {names[indices[0]]}",
                                 "value": [float(value) for value in xyz],
                                 "count": len(indices),
                                 "atom_indices": indices,
@@ -740,11 +743,11 @@ class StudioDocument(ChainPlanMixin):
                     "value": float(value),
                 }
             )
-        chain_key = "chain_iid" if "chain_iid" in self.array.get_annotation_categories() else "chain_id"
         result: dict[str, Any] = {
             "atom_index": index,
-            "chain": str(self.array.get_annotation(chain_key)[index]),
+            "chain": str(display_chain_array(self.array)[index]),
             "chain_id": str(self.array.chain_id[index]),
+            "chain_iid": str(chain_key_array(self.array)[index]),
             "residue_id": int(self.array.res_id[index]),
             "residue_name": str(self.array.res_name[index]),
             "atom_name": str(self.array.atom_name[index]),
@@ -1113,14 +1116,17 @@ class StudioDocument(ChainPlanMixin):
             raise ValueError(f"{name} is not a chain centroid condition")
         annotation = spec.condition.annotation(self.array, default="generate")
         result = []
-        for chain in np.unique(self.array.chain_iid):
-            mask = self.array.chain_iid == chain
+        keys = chain_key_array(self.array)
+        names = display_chain_array(self.array)
+        for chain in np.unique(keys):
+            mask = keys == chain
             coords = self.array.coord[mask]
             current = np.nanmean(coords, axis=0) if np.isfinite(coords).any(axis=0).all() else None
             target = annotation[mask][0]
             result.append(
                 {
-                    "chain": str(chain),
+                    "chain": str(names[mask][0]),
+                    "chain_iid": str(chain),
                     "current": current.tolist() if current is not None and np.isfinite(current).all() else None,
                     "target": target.tolist() if np.isfinite(target).all() else None,
                 }
@@ -1135,11 +1141,13 @@ class StudioDocument(ChainPlanMixin):
         *,
         expected_revision: int | None = None,
     ) -> dict[str, Any]:
-        if chain not in {entry["chain"] for entry in self.chain_centroids(name)}:
-            raise ValueError(f"Unknown chain: {chain}")
+        try:
+            key = self.chain_key(chain)
+        except KeyError:
+            raise ValueError(f"Unknown chain: {chain}") from None
         self.set_condition(
             name,
-            np.flatnonzero(self.array.chain_iid == chain).tolist(),
+            np.flatnonzero(chain_key_array(self.array) == key).tolist(),
             scope="chain",
             value=value,
             enabled=value is not None,
@@ -1452,6 +1460,7 @@ class StudioDocument(ChainPlanMixin):
     def distance_restraints(self) -> list[dict[str, Any]]:
         annotation = C_DIS.annotation(self.array, default="generate")
         restraints = []
+        names = display_chain_array(self.array)
         seen: set[tuple[int, int]] = set()
         for pair, value in zip(annotation.pairs, annotation.values, strict=True):
             atom1, atom2 = sorted((int(pair[0]), int(pair[1])))
@@ -1462,19 +1471,21 @@ class StudioDocument(ChainPlanMixin):
                 {
                     "atom1": atom1,
                     "atom2": atom2,
-                    "atom1_label": self.atom_label(atom1),
-                    "atom2_label": self.atom_label(atom2),
+                    "atom1_label": self.atom_label(atom1, names),
+                    "atom2_label": self.atom_label(atom2, names),
                     "distance": float(value),
                     "current_distance": self.atom_distance(atom1, atom2),
                 }
             )
         return restraints
 
-    def atom_label(self, index: int) -> str:
+    def atom_label(self, index: int, names: np.ndarray | None = None) -> str:
+        """`chain/residue number/atom`, the chain by the name a written CIF carries (`names`: that for every atom)."""
         self.resolve_indices([index])
         array = self.array
+        names = display_chain_array(array) if names is None else names
         ins = array.ins_code[index] if "ins_code" in array.get_annotation_categories() else ""
-        return f"{array.chain_iid[index]}/{array.res_name[index]} {array.res_id[index]}{ins}/{array.atom_name[index]}"
+        return f"{names[index]}/{array.res_name[index]} {array.res_id[index]}{ins}/{array.atom_name[index]}"
 
     def atom_distance(self, atom1: int, atom2: int) -> float | None:
         self.resolve_indices([atom1, atom2])
@@ -1621,7 +1632,8 @@ class StudioDocument(ChainPlanMixin):
 
     def sequence_view(self) -> list[dict[str, Any]]:
         """Return a compact chain/residue model for the interactive sequence strip."""
-        chain_key = "chain_iid" if "chain_iid" in self.array.get_annotation_categories() else "chain_id"
+        chain_keys = chain_key_array(self.array)
+        chain_names = display_chain_array(self.array)
         residue_bounds = struc.get_residue_starts(self.array, add_exclusive_stop=True)
         if len(residue_bounds) < 2:
             return []
@@ -1641,12 +1653,13 @@ class StudioDocument(ChainPlanMixin):
         residue_index = 0
         while residue_index < len(residue_bounds) - 1:
             start = int(residue_bounds[residue_index])
-            chain_id = str(self.array.get_annotation(chain_key)[start])
+            chain_id = str(chain_keys[start])
+            chain_start = start
             items: list[dict[str, Any]] = []
             while residue_index < len(residue_bounds) - 1:
                 start = int(residue_bounds[residue_index])
                 stop = int(residue_bounds[residue_index + 1])
-                if str(self.array.get_annotation(chain_key)[start]) != chain_id:
+                if str(chain_keys[start]) != chain_id:
                     break
                 if segment_mask[start]:
                     realized = str(self.array.res_name[start]) == MASKED
@@ -1656,7 +1669,7 @@ class StudioDocument(ChainPlanMixin):
                     while residue_index + 1 < len(residue_bounds) - 1:
                         next_start = int(residue_bounds[residue_index + 1])
                         if (
-                            str(self.array.get_annotation(chain_key)[next_start]) != chain_id
+                            str(chain_keys[next_start]) != chain_id
                             or not segment_mask[next_start]
                             or (str(self.array.res_name[next_start]) == MASKED) != realized
                             or int(segment_min[next_start]) != minimum
@@ -1689,11 +1702,10 @@ class StudioDocument(ChainPlanMixin):
                         }
                     )
                 residue_index += 1
-            chains.append({"chain_id": chain_id, "items": items})
+            chains.append({"chain_id": str(chain_names[chain_start]), "items": items})
         return chains
 
     def summary(self) -> dict[str, Any]:
-        chain_key = "chain_iid" if "chain_iid" in self.array.get_annotation_categories() else "chain_id"
         details = self.annotation_details()
         annotations = [
             {
@@ -1733,7 +1745,7 @@ class StudioDocument(ChainPlanMixin):
             if "charge" in self.array.get_annotation_categories()
             else [],
             "condition_editors": self.condition_editor_state(),
-            "chain_ids": sorted(str(value) for value in np.unique(self.array.get_annotation(chain_key))),
+            "chain_ids": sorted(str(value) for value in np.unique(display_chain_array(self.array))),
             "next_chain_id": self.next_chain_id(),
             "sequence": self.sequence_view(),
             "condition_counts": {entry["name"]: entry["count"] for entry in details},

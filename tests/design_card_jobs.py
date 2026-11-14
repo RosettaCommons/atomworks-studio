@@ -8,6 +8,7 @@ own atoms at the step (see `tests/parity/js_engine_driver.mjs`).
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 RCSB = {"preset": "rcsb", "assembly": "1", "keep_unresolved": True}
@@ -352,4 +353,116 @@ JOBS = {
     "partial_diffusion": partial_diffusion,
     "rebuild_parts": rebuild_parts,
     "undo_after_each": undo_after_each,
+}
+
+
+# -- chain labels ---------------------------------------------------------------------------------------------------
+GLYCEROL_ATOMS = [
+    ("C1", "C", (0.0, 0.0, 0.0)),
+    ("C2", "C", (1.5, 0.0, 0.0)),
+    ("C3", "C", (2.2, 1.3, 0.0)),
+    ("O1", "O", (-0.7, 1.2, 0.0)),
+    ("O2", "O", (2.2, -1.1, 0.4)),
+    ("O3", "O", (3.6, 1.2, 0.1)),
+]
+
+
+def ligand_cif(chain: str = "L", code: str = "GOL") -> str:
+    """A one-residue ligand file as the card's `+ lig` writes it (`ligandCifFromCcd`)."""
+    columns = (
+        "group_PDB id type_symbol label_atom_id label_comp_id label_asym_id label_entity_id label_seq_id auth_seq_id "
+        "auth_comp_id auth_asym_id auth_atom_id Cartn_x Cartn_y Cartn_z occupancy B_iso_or_equiv pdbx_formal_charge "
+        "pdbx_PDB_model_num pdbx_PDB_ins_code label_alt_id"
+    ).split()
+    lines = [f"data_{code}", "loop_", *(f"_atom_site.{c}" for c in columns)]
+    for k, (name, element, (x, y, z)) in enumerate(GLYCEROL_ATOMS, start=1):
+        lines.append(
+            f"HETATM {k} {element} {name} {code} {chain} 1 . 1 {code} {chain} {name} {x:.3f} {y:.3f} {z:.3f} "
+            "1.00 0.00 0 1 ? ."
+        )
+    return "\n".join([*lines, ""])
+
+
+def _new_chain(before: bool = False) -> dict[str, Any]:
+    """The card's `+ new`: a protein of 60-100 residues in a chain of its own (the next free letter)."""
+    return {"op": "insert_segment", "minimum": 60, "maximum": 100, "new_chain": True, "before": before}
+
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def label_single_chain() -> dict[str, Any]:
+    """One chain (2KL8 as a file): `+ new`, renamed, reordered, a second `+ new`, undone."""
+    return {
+        "documents": {"main": {"path": str(FIXTURES / "inverse_folding_2kl8.cif"), "name": "2kl8"}},
+        "ops": [
+            _new_chain(),
+            {"op": "assign_chain", "select": {"chain": "A"}, "chain_id": "Q"},
+            {"op": "order", "chain_ids": ["B", "Q"]},
+            _new_chain(),
+            {"op": "undo"},
+            {"op": "undo"},
+        ],
+    }
+
+
+def label_ligand_only() -> dict[str, Any]:
+    """A ligand and nothing else, as `+ lig` starts a job: `+ new` beside it, the protein of another file combined."""
+    return {
+        "documents": {
+            "main": {"path": "<ligand>", "name": "GOL"},
+            "other": {"path": str(FIXTURES / "inverse_folding_2kl8.cif"), "name": "2kl8"},
+        },
+        "ops": [
+            _new_chain(),
+            {"op": "combine", "with": "other"},
+            {"op": "assign_chain", "select": {"chain": "L"}, "chain_id": "Z"},
+            {"op": "order", "chain_ids": ["Z", "A", "M"]},
+            {"op": "undo"},
+        ],
+    }
+
+
+def label_combine_and_rename() -> dict[str, Any]:
+    """1J79 reduced to chains A, C, E (renamed A, B, C as the enzyme recipe does), a ligand combined, `+ new`."""
+    return {
+        "documents": {
+            "main": _entry("1J79"),
+            "other": {"path": "<ligand>", "name": "GOL"},
+        },
+        "ops": [
+            {"op": "delete", "select": {"chain": ["B", "D", "F", "G", "H", "I"]}},
+            {"op": "assign_chain", "select": {"chain": "C"}, "chain_id": "B"},
+            {"op": "assign_chain", "select": {"chain": "E"}, "chain_id": "C"},
+            {"op": "combine", "with": "other"},
+            _new_chain(),
+            {"op": "order", "chain_ids": ["C", "B", "A"]},
+            {"op": "undo"},
+            {"op": "undo"},
+            {"op": "undo"},
+        ],
+    }
+
+
+def label_assembly_copies() -> dict[str, Any]:
+    """1XVA's assembly: its chains named A_1, A_2 ... for good; `+ new`, a rename, reorder and combine keep that."""
+    return {
+        "documents": {"main": _entry("1XVA"), "other": {"path": "<ligand>", "name": "GOL"}},
+        "ops": [
+            _new_chain(),
+            {"op": "assign_chain", "select": {"chain": "A_2"}, "chain_id": "Q"},
+            {"op": "order", "chain_ids": ["Q", "A_1"]},
+            {"op": "combine", "with": "other"},
+            {"op": "delete", "select": {"chain": ["B_1", "B_2"]}},
+            {"op": "undo"},
+            {"op": "undo"},
+        ],
+    }
+
+
+LABEL_JOBS = {
+    "single_chain": label_single_chain,
+    "ligand_only": label_ligand_only,
+    "combine_and_rename": label_combine_and_rename,
+    "assembly_copies": label_assembly_copies,
 }

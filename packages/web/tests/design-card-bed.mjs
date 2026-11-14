@@ -57,7 +57,7 @@ export async function startBed({ viewport = { width: 1400, height: 1000 }, color
     base = server.resolvedUrls.local[0];
   }
   const browser = await chromium.launch(chromiumLaunchOptions());
-  const context = await browser.newContext({ viewport, colorScheme });
+  const context = await browser.newContext({ viewport, colorScheme, serviceWorkers: 'block' });
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));

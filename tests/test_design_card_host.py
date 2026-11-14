@@ -180,7 +180,20 @@ def test_a_provider_without_design_card_keeps_its_layout():
         demo.close()
 
 
-def test_the_rfd4_provider_offers_the_card_with_every_setting_but_early_stop():
+def test_the_rfd4_provider_offers_early_stop_only_when_its_adapter_has_it():
+    from atomworks_studio_rfd4.generation import GenerationOptions, RFD4GenerationProvider
+
+    plain = RFD4GenerationProvider(k_defaults=(16.0, 4.0), card=True)
+    assert design_card.card_config(plain)["settings"]["earlyStop"] is False, "hidden: the adapter does not stop early"
+    assert GenerationOptions().early_stop is False
+    provider = RFD4GenerationProvider(k_defaults=(16.0, 4.0), card=True, early_stop=True)
+    assert design_card.card_config(provider)["settings"]["earlyStop"] == {"default": True}
+    options = provider.validate(design_card.card_options(provider, {"earlyStop": False, "samples": 2}))
+    assert options["early_stop"] is False and options["samples"] == 2
+    assert provider.validate(design_card.card_options(provider, {"earlyStop": True}))["early_stop"] is True
+
+
+def test_the_rfd4_provider_offers_the_card_with_every_setting():
     from atomworks_studio_rfd4.generation import RFD4GenerationProvider
 
     assert design_card.card_config(RFD4GenerationProvider(k_defaults=(16.0, 4.0))) is None, "opt in"

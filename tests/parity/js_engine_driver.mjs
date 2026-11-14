@@ -72,6 +72,26 @@ function resolve(doc, sel) {
   return [...out].sort((x, y) => x - y);
 }
 
+/** The chain as loaded as a minimal overlay mmCIF: the page's `atomsCif` (web/design-panel.js), as the source route sends it. */
+function sourceCif(src) {
+  const atoms = src.atoms;
+  const nums = new Set();
+  for (let i = 0; i < atoms.nAtoms; i += 1) if (String(atoms.chain_id[i]) === src.chain) nums.add(Number(atoms.res_id[i]));
+  const rows = ['data_overlay', 'loop_', ...['group_PDB', 'id', 'type_symbol', 'label_atom_id', 'label_comp_id', 'label_asym_id',
+    'label_entity_id', 'label_seq_id', 'auth_seq_id', 'auth_asym_id', 'Cartn_x', 'Cartn_y', 'Cartn_z', 'occupancy', 'B_iso_or_equiv',
+    'pdbx_PDB_model_num'].map((k) => `_atom_site.${k}`)];
+  let id = 0;
+  for (let i = 0; i < atoms.nAtoms; i += 1) {
+    if (String(atoms.chain_id[i]) !== src.chain || !nums.has(Number(atoms.res_id[i]))) continue;
+    const c = atoms.coord[i];
+    if (!c || !Number.isFinite(c[0])) continue;
+    const el = String(atoms.element?.[i] ?? String(atoms.atom_name[i])[0]).toUpperCase() || 'C';
+    const name = String(atoms.atom_name[i]);
+    rows.push(`ATOM ${++id} ${el} ${/['"\s]/.test(name) ? `"${name}"` : name} ${atoms.res_name[i]} ${src.chain} 1 ${atoms.res_id[i]} ${atoms.res_id[i]} ${src.chain} ${c[0].toFixed(3)} ${c[1].toFixed(3)} ${c[2].toFixed(3)} 1.00 0.00 1`);
+  }
+  return id ? `${rows.join('\n')}\n` : '';
+}
+
 const num = (v) => (Number.isFinite(v) ? Math.round(v * 1e4) / 1e4 : null);
 
 /** Everything the parity test compares, as plain JSON. */
@@ -201,7 +221,7 @@ for (const op of job.ops) {
       step.extra = { origins };
     } else if (op.op === 'source') {
       const src = doc.chainSources?.get(op.chain);
-      step.extra = { source: src ? { chain: src.chain, residues: doc.sourceResidues?.(op.chain) ?? null } : null };
+      step.extra = { source: src ? { chain: src.chain, cif: sourceCif(src) } : null };
     } else {
       step.result = JSON.parse(JSON.stringify(apply(op) ?? null));
     }

@@ -277,7 +277,6 @@ def rebuild_parts() -> dict[str, Any]:
             {"op": "plan", "chain": "A"},
             {"op": "delete", "select": {"chain": "A", "res": "12-14"}},
             {"op": "plan", "chain": "A"},
-            {"op": "source", "chain": "A"},
             *_undo(5),
             {
                 "op": "insert_segment",
@@ -308,6 +307,40 @@ def rebuild_parts() -> dict[str, Any]:
     }
 
 
+def undo_after_each() -> dict[str, Any]:
+    """Every kind of edit, each followed by its undo: the document must come back to what it was."""
+    edits = [
+        {
+            "op": "rebuild",
+            "chain": "A",
+            "parts": [{"kind": "kept", "lo": 2, "hi": 60}, {"kind": "new", "min": 4, "max": 8}],
+        },
+        {"op": "replace", "select": {"chain": "A", "res": "20-30"}, "minimum": 6, "maximum": 6},
+        {
+            "op": "scaffold",
+            "select": [{"chain": "A", "res": "10"}, {"chain": "A", "res": "50"}],
+            "sidechains_only": True,
+        },
+        {"op": "clear_coordinates", "select": {"chain": "A", "res": "70", "names": ["CB", "CG"]}},
+        {"op": "insert_segment", "minimum": 3, "maximum": 4, "select": {"chain": "A", "res": "80", "names": ["CA"]}},
+        {"op": "assign_chain", "select": {"chain": "A", "res": "100-114"}, "chain_id": "Q"},
+        {"op": "conditions", "edits": [{"condition": "hotspot", "select": {"chain": "A", "res": "40-45"}}]},
+        {"op": "order", "chain_ids": ["A"]},
+        {"op": "delete", "select": {"chain": "A", "res": "90-95"}},
+    ]
+    ops: list[dict[str, Any]] = []
+    for edit in edits:
+        ops += [edit, {"op": "plan", "chain": "A"}, {"op": "undo"}]
+    # And after a replace, restored and undone twice.
+    ops += [
+        edits[1],
+        {"op": "origins"},
+        {"op": "restore", "select": {"chain": "A", "kind": "segment", "k": 0}},
+        *_undo(2),
+    ]
+    return {"documents": {"main": _entry("4Z18")}, "ops": [{"op": "delete", "select": {"chain": ["B"]}}, *ops]}
+
+
 JOBS = {
     "protein_binder": protein_binder,
     "small_molecule_binder": small_molecule_binder,
@@ -318,4 +351,5 @@ JOBS = {
     "inverse_folding": inverse_folding,
     "partial_diffusion": partial_diffusion,
     "rebuild_parts": rebuild_parts,
+    "undo_after_each": undo_after_each,
 }

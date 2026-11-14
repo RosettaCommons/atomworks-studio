@@ -621,7 +621,8 @@ def _apply(session_id: str, operation: Callable[[StudioDocument], Any]) -> dict:
             detail={"code": "revision_conflict", "revision": error.revision, "message": str(error)},
         ) from error
     except (ValueError, IndexError, KeyError) as error:
-        raise HTTPException(status_code=422, detail=str(error)) from error
+        detail = str(error.args[0]) if isinstance(error, KeyError) and error.args else str(error)
+        raise HTTPException(status_code=422, detail=detail) from error
     return {
         **_session_response(session_id, structure),
         "edit_result": {

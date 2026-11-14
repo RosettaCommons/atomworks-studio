@@ -476,6 +476,8 @@ def compare_runs(
                 )
             if "plan" in ep and _plan_shape(ep["plan"]) != _plan_shape(ej["plan"]):
                 problems.append(f"{where}plan: py {_plan_shape(ep['plan'])} js {_plan_shape(ej['plan'])}")
+            if "source" in ep and ep["source"] != ej["source"]:
+                problems.append(f"{where}source: py {str(ep['source'])[:200]} js {str(ej['source'])[:200]}")
             if "origins" in ep and ep["origins"] != ej["origins"]:
                 problems.append(f"{where}origins: py {ep['origins']} js {ej['origins']}")
             if "cif" in ep and not ep.get("unchanged", True):

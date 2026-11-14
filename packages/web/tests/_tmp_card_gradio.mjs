@@ -16,7 +16,7 @@ await frame.locator('#predict:not([disabled])').waitFor({ timeout: 60000 });
 console.log('early stop visible', await frame.locator('#early-stop').isVisible().catch(() => false));
 await page.screenshot({ path: out + '/space-job.png' });
 await frame.locator('#predict').click();
-await frame.locator('#design-results:not([hidden])').waitFor({ timeout: 90000 });
+try { await frame.locator('#design-results:not([hidden])').waitFor({ timeout: 30000 }); } catch (e) { console.log('NO RESULT; status:', await frame.locator('#rfd4p-status-message').textContent()); console.log(logs.join('\n')); await page.screenshot({ path: out + '/space-fail.png' }); await browser.close(); process.exit(1); }
 await page.waitForTimeout(1500);
 console.log('rows', await frame.locator('#design-results table tbody tr').count());
 console.log('status', await frame.locator('#rfd4p-status-message').textContent());

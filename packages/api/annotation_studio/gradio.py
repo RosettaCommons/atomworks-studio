@@ -88,6 +88,16 @@ STUDIO_CSS = """
 }
 """
 
+# Card mode: Gradio's own margins and width limit go, so the editor frame is as wide and tall as the page's.
+CARD_CSS = """
+.gradio-container { max-width: none !important; padding: 0 !important; }
+.gradio-container .main, .gradio-container .wrap, .gradio-container .contain {
+    padding: 0 !important; gap: 0 !important;
+}
+#studio-editor { padding: 0 !important; margin: 0 !important; border: 0 !important; }
+#design-card-notice { padding: 4px 12px; margin: 0; font-size: 12px; opacity: 0.8; }
+"""
+
 HOST_BRIDGE = """
 const configure = () => {
   const frame = element.querySelector('iframe');
@@ -146,7 +156,7 @@ class StudioHandoff:
             query += "&amp;example=" + html.escape(quote(example, safe=""))
         if card:
             query += "&amp;card=1"
-        height = "height:calc(100vh - 24px);min-height:560px" if card else "height:76vh;min-height:620px"
+        height = "height:100vh;min-height:560px" if card else "height:76vh;min-height:620px"
         return (
             f'<iframe src="{self.editor_path}?{query}" title="AtomWorks Studio" '
             f'style="width:100%;{height};border:0" '
@@ -242,11 +252,9 @@ def _create_card_demo(
             elem_id="design-card-bridge",
             js_on_load=card_support.bridge_js(card),
         )
-        gr.HTML(
-            handoff.frame(example=getattr(provider, "default_example", None), card=True),
-            elem_id="studio-editor",
-            js_on_load=HOST_BRIDGE,
-        )
+        # The editor fills the window as the page does, and opens on the card's start screen, not on an example.
+        gr.HTML(f"<style>{CARD_CSS}</style>", padding=False)
+        gr.HTML(handoff.frame(card=True), elem_id="studio-editor", js_on_load=HOST_BRIDGE)
         api_cif = gr.Textbox(visible=False)
         api_options = gr.JSON(visible=False)
         api_result = gr.JSON(visible=False)

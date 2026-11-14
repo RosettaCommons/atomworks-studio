@@ -109,7 +109,11 @@ def test_card_mode_shows_only_the_editor_and_the_bridge():
     demo = _demo(CardProvider(), refold_fn=lambda cif, options: {"cif": "x"})
     try:
         html_blocks = [b for b in demo.blocks.values() if type(b).__name__ == "HTML"]
-        assert sorted(b.elem_id for b in html_blocks) == ["design-card-bridge", "refold-bus", "studio-editor"]
+        assert sorted(b.elem_id for b in html_blocks if b.elem_id) == [
+            "design-card-bridge",
+            "refold-bus",
+            "studio-editor",
+        ]
         editor = next(b for b in html_blocks if b.elem_id == "studio-editor")
         assert "card=1" in editor.value
         assert "design-card-notice" not in [b.elem_id for b in demo.blocks.values()]
@@ -118,7 +122,7 @@ def test_card_mode_shows_only_the_editor_and_the_bridge():
         assert card["engine"]["badge"] == "Test GPU"
         assert card["refold"]["models"] == [{"id": "openbind0"}]
         assert "'design-card'" in bridge.js_on_load and "'refold-result'" in bridge.js_on_load
-        assert "example=enzyme_design" in editor.value
+        assert "example=" not in editor.value, "opens on the card's start screen"
         assert any(e["api_name"] == "generate_cif" for e in demo.config["dependencies"])
         assert any(e["api_name"] == "refold_cif" for e in demo.config["dependencies"])
         names = {type(b).__name__ for b in demo.blocks.values()}

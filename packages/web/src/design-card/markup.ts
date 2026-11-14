@@ -5,7 +5,7 @@
 export function cardMarkup(): string {
   return `
         <div class="card-title-row">
-            <h2 id="rfd4p-title">RFD4-Proteina</h2>
+            <h2>RFD4-Proteina</h2>
             <span id="webgpu-badge" class="viewer-backend"></span>
             <button id="rfd4p-theme-btn" type="button" class="secondary compact rfd4p-theme-btn" title="Light mode" aria-label="Light mode">☀</button>
             <button id="rfd4p-guide-btn" type="button" class="secondary compact rfd4p-guide-btn" title="How to set up, run and compare designs" hidden>Guide</button>
@@ -114,8 +114,7 @@ export function cardMarkup(): string {
                 </label>
             </div>
         </details>
-        <!-- The engine's own boxes (the page's speed hint) go here: provider.renderExtras. -->
-        <div id="rfd4p-extras" class="rfd4p-extras"></div>
+        <!-- The engine's own boxes (the page's speed hint) go here: provider.renderExtras (card.ts adds the container). -->
         <div id="generation-status" class="rfd4p-status-box" hidden>
             <p id="rfd4p-status-message" class="inline-feedback muted" aria-live="polite"></p>
             <div id="rfd4p-model-load" class="rfd4p-model-load" hidden>

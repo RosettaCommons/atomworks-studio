@@ -20,6 +20,7 @@ const packageVersion = JSON.parse(readFileSync(new URL("../package.json", import
 const MEMBERS = [
   "renderFrame", "setOverlay", "setHighlight", "setLiveMode", "showDocument", "closeDocument", "openSession",
   "openFile", "openExample", "applyEdit", "getSelection", "setSelection", "centerOn", "setTheme", "chainColor", "mountRefoldPanel",
+  "mountDesignCard", "getSessionId", "undo",
 ];
 
 const browser = await chromium.launch(chromiumLaunchOptions());

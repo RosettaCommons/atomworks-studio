@@ -89,6 +89,8 @@ is one Undo step and the document on the server stays the source of truth.
 | `getSelection()` | The selection, as document atom indices. |
 | `chainColor(chainId)` | The colour Studio draws a chain in, so your own UI can match. |
 | `mountRefoldPanel(container, provider, options)` | Mount Studio's Refold panel and give it a folding backend. See [Refold panel](#refold-panel). |
+| `mountDesignCard(container, provider, options)` | Mount Studio's Design card: the start screen, the job editor, the run settings, Generate and the designs. See [Design card](#design-card). |
+| `getSessionId()` / `undo()` | The session Studio shows (or `null`), and Undo of its last edit, as the button does. |
 | `version` | The Studio release the page was built from. |
 
 A host that serves the bundle itself usually does not want Studio's offline cache
@@ -375,6 +377,155 @@ Stop in the panel abandons the wait; a fold the server has already started runs 
 the end, since the queue does not cancel running jobs. `python
 scripts/preview_generation.py --refold` shows the panel locally with a simulated
 fold.
+
+## Design card
+
+The Design card is the whole interface for making designs, owned by Studio so every
+host shows the same one: the RFD4-Proteina page and a Gradio Space mount it and
+supply only the engine. It holds a start screen (**+ new**, **+ pdb**, **+ lig**
+and ten examples), the job editor (every chain as pieces you click: structure,
+sequence, position, hotspots, shape, exposure, interactions, fold, lengths, the
+"+" between pieces, the chain's name and order, ligands), the **Thinking** and
+**More settings** run controls (designs, seed and its dice, partial diffusion,
+backbone and latent K, early stop), **Generate design** (which becomes **Stop** and
+fills with the run's progress), a status line, the **Outputs** tab with the
+[Refold panel](#refold-panel) and **Save all (.zip)**, the **Studio editor** switch
+that swaps in Studio's own tools, and the light/dark switch. It reads and edits
+the open document only through Studio's REST API and `window.atomworksStudio`, so
+it needs no design engine and runs against the Python server and against a page's
+in-browser implementation of the same API alike.
+
+Mount it in Studio's page: `window.atomworksStudio.mountDesignCard(null, provider,
+options)` puts the card in the right sidebar (its title row in the header) and
+folds Studio's own panels away until **Studio editor** is ticked; with a
+`container` it is a block there and leaves the rest of the page alone. Opening
+Studio with `?card=1` mounts the card with no engine (an editor with Generate off);
+a host's own `mountDesignCard(null, …)` replaces it. A page that never mounts the
+card is unchanged. Without Studio's page around it, import the same code from
+`design-card.js` beside the bundle: `import { mountDesignCard } from "/design-card.js"`.
+
+```ts
+const card = window.atomworksStudio.mountDesignCard(null, {
+  engine: { badge: "WebGPU FP16" },        // beside the title; `disabled: "message"` turns Generate off and says why
+  // Which run settings the engine takes. Omit a key for the reference page's values; `false` hides the control (and
+  // leaves it out of `request.settings`), an object changes its range or default.
+  settings: {
+    samples: { min: 1, max: 8, default: 1 },
+    thinking: { options: ["none", "low", "medium", "high"], default: "none" },
+    seed: true,
+    partialDiffusion: { percent: 40 },
+    backboneK: { min: 1, max: 20, step: 0.1, default: 16 },
+    latentK: { min: 1, max: 6, step: 0.1, default: 4 },
+    earlyStop: { default: true },
+  },
+  // Make `request.settings.samples` designs of the input. Never called while another run is under way.
+  async generate({ sessionId, cif, name, revision, spec, settings, signal }, hooks) {
+    hooks.status("Loading the model…", { visible: true });  // the status box; `{ error: true }` for a failure
+    hooks.progress(0.4, "design 1 of 3 · step 24/60");      // the button fills; it reads "Stop · " + the label
+    hooks.loading("weights 40%");                           // optional: the model-load line; null clears it
+    await hooks.frame(frameCif, { name: "step_24.cif", keepCamera: true, hotspots, overlays });  // a live frame
+    const record = await hooks.design({ name: "163509", cif, trajectoryCif, pdb, kind: "binder", seed: 163509, designedChains: ["B"], data });
+    return { message: "Generated from input revision 3 …" };   // optional: the status box ends on this
+  },
+  refold: refoldProvider,          // optional: Studio's RefoldProvider; the card hosts the Refold panel in Outputs
+  refoldPanel: { nameHeader: { label: "Seed" }, describe: (d) => `seed ${d.name}` },
+  renderExtras(container) {},      // optional: an engine-specific box beside Generate (the page's speed hint)
+  guide() {},                      // optional: the Guide button is shown only when this exists
+  zipFiles: ({ input, designs }) => [{ name: "notes.txt", text: "…" }],   // optional: more files in Save all
+  zipTitle: "RFD4-Proteina (WebGPU) results",
+  inputChanged(spec) {},           // optional: the job changed; get ready (load weights)
+}, { theme: "dark", themeKey: "rfd4p.theme", examples: undefined, studioEditor: true });
+```
+
+`request.settings` carries the settings the engine takes, as the person left them:
+`samples`, `thinking`, `seed` (the first design's; later ones take the next
+integers), `partialDiffusion` (the percent, or `null` when off), `backboneK`,
+`latentK`, `earlyStop`. `request.cif` is the annotated input
+(`GET /sessions/{sid}/cif`); `request.spec` is what the card reads from it (task,
+chains, lengths, contig). Designs of an input that has not changed since join the
+earlier ones; after an edit, or from another input, the next run starts the list
+again.
+
+`hooks.design` opens the design as a session of its own (`POST /sessions`) and adds
+its row. `trajectoryCif` is shown by Studio's **Show trajectory**; `hotspots`
+(`{ chain, residue, insCode? }`, the viewer's numbering) are coloured amber while
+the design is shown, `overlays` (`{ key: { cif, options } }`, through `setOverlay`)
+drawn beside it. `data` is yours: it comes back as `RefoldDesign.data`. `hooks.frame`
+draws a live frame (frames stay in order, one in flight); the card puts the viewer
+in live mode for the run and restores it. A reject with a `userMessage` string says
+it in the person's words; an abort ends in "Generation stopped. Your input is
+unchanged."
+
+The handle: `element`, `refold` (the Refold panel handle), `setEngine({ badge,
+title, disabled })`, `setTheme` / `theme()`, `designs()`, `settings()`,
+`inputSessionId()`, `spec()`, `generate()` (Stop while a run goes), `stop()`,
+`zip()` (the bytes **Save all** would download), `setStatus`, `onChange(listener)`
+(`input`, `designs`, `run`, `settings`, `theme` events) and `destroy()`.
+
+**What the card needs from the server.** Reads: `GET /sessions/{sid}` (name,
+revision, undo depth), `GET /sessions/{sid}/cif` (the annotated CIF, parsed in the
+browser), `GET /sessions/{sid}/chains/{cid}/plan` (the chain as kept runs of the
+chain as loaded and blocks of new residues), `POST /sessions/{sid}/chains/preview`
+(`{ chain_id, parts }` → `{ cif }`, the session unchanged), `GET
+/sessions/{sid}/chains/{cid}/source` (`{ chain, cif }`, the chain as loaded; 404
+for a chain made in the session) and `GET /sessions/{sid}/segments/origins`
+(`{ origins: { "<atom index>": { count, keys: ["A:41:"] } } }`, what each block of
+new residues replaced). Writes: `/conditions/batch`, `/delete`, `/combine`,
+`/segments` (+ `/range`, `/replace`, `/restore`, `/scaffold`, `/ligand-binder`),
+`/chains` (+ `/order`, `/rebuild`), `/coordinates/clear`, `/internal-coords` (+
+`/clear-targets`), `/undo`, and `POST /sessions` (multipart `file` and import
+options: `parse_preset`, `assembly`, `keep_unresolved`). Ligands by dictionary code
+are fetched from `files.rcsb.org/ligands/view/<CODE>.cif` and built into a CIF in the
+browser; the examples fetch their PDB entries from `files.rcsb.org`. An example
+being built lives in a hidden session and is shown once, finished. The card's Undo
+goes no further back than where an example opened (it counts the session's
+`undo_depth` from there); Studio's own Undo, under **Studio editor**, is not limited.
+
+**Differences from the RFD4-Proteina page's card.** Same markup, ids, labels,
+tooltips, CSS and behaviour; where they differ it is because the page's card read a
+`StudioDoc` object in the same page and this one reads the API:
+
+- **Save all (.zip)** is a store-only zip (no compression; the page used JSZip with
+  DEFLATE and a CDN script). Same files, same contents.
+- **+ pdb** takes `.cif`, `.mmcif`, `.pdb` and `.ent` files (a PDB file is converted to
+  mmCIF in the browser, as the server takes mmCIF only); `.cif.zst` is not read.
+- A file dropped on the start screen opens through `openFile`, as Open CIF does.
+- Designs open as sessions made from the design's CIF (the page registered them in its
+  in-page store); a design's trajectory is a blob URL for Show trajectory.
+- The Undo button stops at where an example was opened (see above).
+- Live frames, motif overlays, hotspot numbering and weights loading are the provider's
+  (`hooks.frame`, `DesignInfo.hotspots/overlays`, `hooks.loading`, `inputChanged`), not
+  the card's; the card keeps the viewer's live mode and the order of frames.
+- A DOM container `#rfd4p-extras` (no box of its own) holds what `renderExtras` adds.
+
+### Design card in a frame
+
+A host that keeps Studio in an iframe (the Gradio host: ZeroGPU wants the call to come
+from the top-level page) opens it with `?embed=1&card=1&parent_origin=<the host's
+origin>`. The card then asks the parent for an engine and sends generate and refold
+requests to it with `postMessage`. Every message the frame sends is
+`{ source: "atomworks-studio", channel: "design-card", type, ... }` to `parent_origin`;
+every message the parent sends is `{ source: "atomworks-design-host", type, ... }`, and the
+frame accepts only those from its parent's window and origin.
+
+| Frame → parent | Meaning |
+| --- | --- |
+| `hello` | The card started; answer with `config`. It waits 3 s, then runs with no engine. |
+| `generate` `{ id, request }` | `request` is `{ sessionId, cif, name, revision, task, settings }` (`settings` as `RunSettings`). |
+| `refold` `{ id, design, settings }` | `design` is `{ id, name, cif, kind, data }`, `settings` the Refold box's. |
+| `abort` `{ id }` | Stop was pressed. |
+| `guide` | The Guide button was pressed. |
+
+| Parent → frame | Meaning |
+| --- | --- |
+| `config` `{ engine, settings?, refold?: { models, limits? }, guide?, zipTitle? }` | What a `DesignCardProvider` has: the badge, which settings the engine takes, the refold models, whether there is a Guide. |
+| `status` / `progress` / `loading` `{ id, … }` | `hooks.status(text, options)`, `hooks.progress(fraction, label)`, `hooks.loading(text)`. |
+| `frame` `{ id, cif, options }` / `design` `{ id, design }` | `hooks.frame`, `hooks.design` (a `DesignInfo`). Handled in the order sent. |
+| `done` `{ id, result? }` / `error` `{ id, message, userMessage? }` | The run ended; `result` is `{ message? }`. |
+| `refold-status` / `refold-result` / `refold-error` `{ id, … }` | A refold's progress, its `RefoldResult`, or why it failed. |
+
+All of it is JSON: a design's CIF travels as a string. `prepare` (fetching the refold
+model ahead of the click) is not forwarded; the host prepares on its own.
 
 ## NIM and other inference services
 

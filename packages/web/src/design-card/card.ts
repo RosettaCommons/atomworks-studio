@@ -12,7 +12,7 @@ import type { RefoldDesign, RefoldRecord } from "../refold/types.ts";
 import type { ViewerResidue } from "../viewers/contract.ts";
 import cardCss from "./card.css?inline";
 import cardModeCss from "./card-mode.css?inline";
-import { SessionDoc, createSession } from "./doc.ts";
+import { SessionDoc, createSession, deleteSession } from "./doc.ts";
 import { cardMarkup } from "./markup.ts";
 import { DesignPanel } from "./panel.ts";
 import type { PanelHost } from "./panel.ts";
@@ -67,7 +67,9 @@ function installStyle(id: string, css: string): void {
   const style = document.createElement("style");
   style.id = id;
   style.textContent = css;
-  document.head.append(style);
+  // First in the head, as the page's own stylesheet is: Studio's rules of equal weight (its `.card`) come after and win,
+  // so the card sits in the sidebar as Studio's cards do.
+  document.head.prepend(style);
 }
 
 const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
@@ -98,8 +100,9 @@ export function mountDesignCard(
   // ---- markup -------------------------------------------------------------------------------------------------
   const root = h("section", { id: "rfd4p-studio-card", class: "card rfd4p-card", "aria-label": "RFD4-Proteina generation controls" });
   root.innerHTML = cardMarkup();
-  const $ = <T extends HTMLElement = HTMLElement>(id: string): T => root.querySelector<T>(`#${id}`) as T;
   const titleRow = root.querySelector<HTMLElement>(".card-title-row")!;
+  // The title row may move into Studio's header, so it is looked in too.
+  const $ = <T extends HTMLElement = HTMLElement>(id: string): T => (root.querySelector<T>(`#${id}`) ?? titleRow.querySelector<T>(`#${id}`)) as T;
 
   const popover = sidebar ? (container ?? document.getElementById("atomworks-studio-popover")) : container;
   if (!popover) throw new Error("mountDesignCard: no container, and no Studio sidebar to mount into");
@@ -166,10 +169,8 @@ export function mountDesignCard(
     downloads: $("downloads"),
     downloadAll: $("download-all-btn"),
     badge: $("webgpu-badge"),
-    title: $("rfd4p-title"),
     themeBtn: $("rfd4p-theme-btn"),
     guideBtn: $("rfd4p-guide-btn"),
-    extras: $("rfd4p-extras"),
     accordion: $<HTMLDetailsElement>("sampling-accordion"),
   };
 
@@ -295,7 +296,8 @@ export function mountDesignCard(
   };
   const applyEngine = (): void => {
     els.badge.textContent = engine.badge;
-    if (engine.title) els.title.textContent = engine.title;
+    const heading = titleRow.querySelector("h2");
+    if (engine.title && heading) heading.textContent = engine.title;
     syncGenerateEnabled();
     if (engine.disabled) setStatus(engine.disabled, true);
   };
@@ -310,7 +312,8 @@ export function mountDesignCard(
   theme = initial;
   const applyTheme = (): void => {
     const light = theme === "light";
-    root.dataset.rfd4pTheme = theme;
+    // Without Studio's page around it (an inline card) the card carries its theme itself.
+    if (!sidebar) root.dataset.rfd4pTheme = theme;
     if (sidebar) {
       document.documentElement.dataset.hostTheme = theme;
       document.body.dataset.hostTheme = theme;
@@ -588,7 +591,13 @@ export function mountDesignCard(
       // edited or another input, it starts over.
       const last = runs[0];
       if (runsInput !== doc.sid || !last || last.inputRevision !== revision) {
-        for (const [sid, v] of views) if (sid !== doc.sid) { if (v.trajectoryUrl) URL.revokeObjectURL(v.trajectoryUrl); views.delete(sid); }
+        for (const [sid, v] of views) {
+          if (sid === doc.sid) continue;
+          if (v.trajectoryUrl) URL.revokeObjectURL(v.trajectoryUrl);
+          views.delete(sid);
+          // The sessions of designs that are no longer listed go with them.
+          if (v.record) void deleteSession(sid);
+        }
         runs = [{ designs: [], inputRevision: revision }];
         designCounter = 0;
         runsInput = doc.sid;
@@ -703,7 +712,12 @@ export function mountDesignCard(
   els.downloadAll.onclick = saveAll;
 
   // ---- the engine's own boxes ---------------------------------------------------------------------------------------
-  if (provider?.renderExtras) extrasCleanup = provider.renderExtras(els.extras);
+  if (provider?.renderExtras) {
+    // A container with no box of its own (`display: contents`), where the status box would otherwise start.
+    const extras = h("div", { id: "rfd4p-extras", class: "rfd4p-extras" });
+    $("generation-status").before(extras);
+    extrasCleanup = provider.renderExtras(extras);
+  }
 
   panel.render();
   renderDesigns();

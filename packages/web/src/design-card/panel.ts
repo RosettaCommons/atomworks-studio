@@ -321,12 +321,9 @@ export class DesignPanel {
   async syncInput(): Promise<void> {
     const doc = this.inputDoc;
     if (!doc) return;
-    const before = doc.revision;
     try { await doc.refresh(); } catch (err) { console.warn("Could not refresh the input:", err); return; }
-    if (this.inputDoc === doc) {
-      if (doc.revision !== before || !this.lastNotified) this.render();
-      else this._markSelected();
-    }
+    // Drawn again whether or not the document changed: what Studio shows (the input or a design) decides read-only.
+    if (this.inputDoc === doc) this.render();
   }
 
   /** The input document (what Generate will use), if the Studio has one open. */
@@ -460,7 +457,8 @@ export class DesignPanel {
     const actions = this.els.startPdb?.parentElement;
     if (!actions) return;
     const id = this._structureInput();
-    const fileInput = el("input", { type: "file", accept: ".cif,.mmcif", hidden: true });
+    // Not in the page: opening a file here is Studio's own (`openFile`), as the page uses Studio's file input.
+    const fileInput = el("input", { type: "file", accept: ".cif,.mmcif,chemical/x-mmcif" });
     fileInput.addEventListener("change", () => {
       const file = fileInput.files?.[0];
       fileInput.value = "";
@@ -468,7 +466,7 @@ export class DesignPanel {
     });
     const fileBtn = el("button", { type: "button", class: "secondary compact", text: "Open a file…", onclick: () => fileInput.click() });
     const { form, status } = this._addForm({
-      label: "Add a structure", button: "Add", input: id, extra: [fileBtn, fileInput], note: STRUCTURE_NOTE,
+      label: "Add a structure", button: "Add", input: id, extra: [fileBtn], note: STRUCTURE_NOTE,
       onClose: () => { form.hidden = true; },
       onSubmit: (st) => { void this._fetchPdb(id.value, st); },
     });
@@ -745,7 +743,10 @@ export class DesignPanel {
       const doc = new SessionDoc(await createSession(text, "design"));
       await doc.refresh();
       const seg = doc.atoms.res_name.findIndex((r) => SENTINEL.test(String(r)));
-      if (seg >= 0) await doc.post("/segments/range", { atom_index: seg, minimum: 60, maximum: 100 });
+      if (seg >= 0) {
+        await doc.post("/segments/range", { atom_index: seg, minimum: 60, maximum: 100 });
+        await doc.refresh(true);
+      }
       return doc;
     }));
     els.startPdb?.addEventListener("click", () => {

@@ -235,6 +235,21 @@ repeating the original request. Export files before leaving the app; sessions
 and the generation queue are temporary. See [integrations](INTEGRATIONS.md#model-enabled-gradio-host)
 to host a model with Studio.
 
+## The Design card
+
+Open the editor with `?card=1` (or let a host mount it, see [integrations](INTEGRATIONS.md#design-card))
+and the right sidebar becomes the Design card: an **Input** tab with **+ new**,
+**+ pdb**, **+ lig** and ten examples, then the design as chains made of pieces you
+click (structure, sequence, position, hotspots, lengths, shape, exposure, interactions,
+fold; a "+" between pieces adds residues; the chain's letter opens its name and order;
+**Undo** and **Clear** sit at the tab row's right end). Under it, the **Thinking** and
+**More settings** controls and **Generate design**, which becomes **Stop** and fills
+with the run's progress. Designs gather in the **Outputs** tab with the Refold panel and
+**Save all (.zip)**. **Studio editor** brings back every Studio tool in place of the
+card's editor; the ☀ / ☾ switch changes the theme. A page that does not mount the card
+looks and works as before. With no engine connected, Generate stays off and the rest
+is an editor for design inputs.
+
 ## Use inside VS Code or Cursor
 
 The extension embeds the same service and UI:

@@ -3,6 +3,7 @@ import { TrajectoryController } from "./studio/trajectory-controller";
 import { chainColorCss } from "./chain-colors";
 import { chainKindLabel, designSummary, ROLE_LABELS } from "./studio/design-summary";
 import { mountDesignCard } from "./design-card";
+import { connectDesignHost } from "./design-card/bridge";
 import { mountRefoldPanel } from "./refold";
 import { HOST_MESSAGE_SOURCE, installEmbedApi, notifyEmbedder } from "./studio/embed-api";
 import type { ChainRole, ChainSummary } from "./studio/design-summary";
@@ -764,7 +765,12 @@ async function initialize(): Promise<void> {
   });
   // Card mode (`?card=1`): the Design card in the sidebar, Studio's page as the design interface. A host that brings an
   // engine mounts its own card with `window.atomworksStudio.mountDesignCard`, which replaces this one.
-  if (query.get("card") === "1") defaultCard = mountDesignCard(null, null);
+  if (query.get("card") === "1") {
+    // In a frame of a host that brings an engine (`parent_origin`), the card asks it for one; otherwise it has none.
+    const parentOrigin = query.get("parent_origin");
+    const provider = parentOrigin ? await connectDesignHost(parentOrigin) : null;
+    defaultCard = mountDesignCard(null, provider);
+  }
   // Start in the scope the menu shows (residues by default: a click on the cartoon selects that residue).
   selectionController.setScope(pickScope.value as SelectionScope);
   pickScope.addEventListener("change", () => {

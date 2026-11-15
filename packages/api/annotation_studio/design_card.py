@@ -228,7 +228,10 @@ const frame = () => document.querySelector('iframe[title="AtomWorks Studio"]');
       const seconds = ((Date.now() - entry.started) / 1000).toFixed(2);
       const text = `Generated from input revision ${message.revision}${seeds} (${seconds} s on ${config.engine?.badge || 'the server'}).`
         + (stops.length ? ` Converged early at step ${stops.join(', ')}.` : '');
-      reply('done', { id: entry.id, result: { message: [text, ...(message.warnings || [])].join(' ') } });
+      // The input checks of the server (a missing heavy atom in a fetched entry) belong to the editor's own
+      // validation; the status says what the page's says. They stay in the console.
+      for (const warning of message.warnings || []) console.warn('design card: ' + warning);
+      reply('done', { id: entry.id, result: { message: text } });
     } else if (message.type === 'result') {
       if (message.error) reply('refold-error', { id: entry.id, message: message.error });
       else reply('refold-result', { id: entry.id, result: message.result });

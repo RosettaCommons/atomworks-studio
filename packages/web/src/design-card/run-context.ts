@@ -3,6 +3,7 @@
  * live designed sequence. All of it is read from the input document and from the frames and designs themselves (mmCIF
  * text), so a browser engine and a server engine are drawn the same way, by the same code.
  */
+import { inputAnchors, type Anchors } from "./align.ts";
 import { parseCifBlock, parseCifToAtoms, catRows } from "./cif.ts";
 import type { DesignOverlay } from "./types.ts";
 import type { AtomArray } from "./types.ts";
@@ -116,13 +117,14 @@ export function motifOverlayCif(a: AtomArray): string | null {
 }
 
 /** What a run shows beside every frame and design, made once from the input. */
-export type RunContext = { hotspots: Set<string>; overlays: Record<string, DesignOverlay> };
+export type RunContext = { hotspots: Set<string>; overlays: Record<string, DesignOverlay>; anchors: Anchors };
 
 export function runContext(a: AtomArray): RunContext {
   const motif = motifOverlayCif(a);
   return {
     hotspots: hotspotKeys(a),
     overlays: motif ? { motif: { cif: motif, options: MOTIF_OVERLAY_OPTIONS } } : {},
+    anchors: inputAnchors(a),
   };
 }
 

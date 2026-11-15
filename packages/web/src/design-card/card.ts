@@ -6,6 +6,7 @@
  * `window.atomworksStudio`. See docs/INTEGRATIONS.md, "Design card".
  */
 import { apiText } from "../api.ts";
+import { alignToInput } from "./align.ts";
 import { mountRefoldPanel } from "../refold/panel.ts";
 import { frameHotspots, frameResidues, designHotspots, LiveSequenceStrip, runContext, type RunContext } from "./run-context.ts";
 import type { RefoldPanelHandle, RefoldPanelOptions } from "../refold/panel.ts";
@@ -563,9 +564,13 @@ export function mountDesignCard(
     },
     design: async (given: DesignInfo): Promise<DesignRecord> => {
       await frameQueue;
-      const info: DesignInfo = runCtx ? {
+      // In the input's frame whatever engine made it (a server's model may place it anywhere).
+      const aligned = runCtx ? alignToInput(runCtx.anchors, given.cif, given.trajectoryCif) : null;
+      const info: DesignInfo = runCtx && aligned ? {
         ...given,
-        hotspots: given.hotspots ?? designHotspots(given.cif, runCtx.hotspots),
+        cif: aligned.cif,
+        trajectoryCif: aligned.trajectoryCif ?? given.trajectoryCif,
+        hotspots: given.hotspots ?? designHotspots(aligned.cif, runCtx.hotspots),
         overlays: { ...runCtx.overlays, ...given.overlays },
       } : given;
       const index = (designCounter += 1);

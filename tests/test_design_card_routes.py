@@ -404,3 +404,26 @@ def test_session_files_keep_sources_and_origins(tmp_path) -> None:
     assert reloaded.segment_origin(segments(reloaded, "A")[0]) == expected
     reloaded.restore_segment(segments(reloaded, "A")[0])
     assert plan_of(reloaded, "A") == [("kept", 20, 159)]
+
+
+def test_new_residues_between_kept_pieces_share_their_neighbours_index_group() -> None:
+    """The model rejects backbone-bonded residues in different index groups, so a block of new residues starts in
+    the group of the piece before it (the nanobody example: two kept pieces of group 2 around a block of group 0)."""
+    from atomworks_studio_rfd4.reporting import C_IDXGRP
+
+    doc = load()
+    # A document that carries index groups (a combined one numbers them from 2; new residues were left in group 0).
+    condition_provider.after_condition_update("index", doc.array)
+    C_IDXGRP.set_annotation(doc.array, np.full(len(doc.array), 2))
+    doc.rebuild_chain(
+        "A",
+        [
+            {"kind": "kept", "lo": 29, "hi": 40},
+            {"kind": "new", "min": 5, "max": 9},
+            {"kind": "kept", "lo": 45, "hi": 51},
+        ],
+    )
+    array = doc.array
+    chain = np.flatnonzero(np.asarray(array.chain_id) == "A")
+    groups = np.asarray(C_IDXGRP.annotation(array, default="raise"))[chain]
+    assert len(set(groups.tolist())) == 1

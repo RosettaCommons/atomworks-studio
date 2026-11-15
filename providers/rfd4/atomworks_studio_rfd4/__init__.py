@@ -21,7 +21,7 @@ from .internal_coordinate import (
     separate_coordinate_groups,
     set_internal_coordinate_conditioning,
 )
-from .model import C_CRDGRP, C_INTCRD, conditions
+from .model import C_CRDGRP, C_IDXGRP, C_INTCRD, conditions
 
 
 class RFD4ConditionProvider(ConditionProvider):
@@ -53,6 +53,23 @@ class RFD4ConditionProvider(ConditionProvider):
         original = C_INTCRD.annotation(before, default="generate")
         edited = C_INTCRD.annotation(after, default="generate")
         return int((np.isfinite(original).any(axis=1) & ~np.isfinite(edited).any(axis=1)).sum())
+
+    def inherit_segment_conditions(self, array: AtomArrayPlus, position: int) -> None:
+        """A new-residue placeholder joins the index group of the residue before it (after it, at a chain's start).
+
+        Without this it starts in group 0 between kept pieces of group 2, and the model rejects the backbone bond
+        between them ("Backbone-bonded H22-H38 have different index groups").
+        """
+        if not C_IDXGRP.has_annotation(array):
+            return
+        chains = np.asarray(array.chain_id)
+        neighbour = next(
+            (n for n in (position - 1, position + 1) if 0 <= n < len(array) and chains[n] == chains[position]), None
+        )
+        if neighbour is not None:
+            groups = np.asarray(C_IDXGRP.annotation(array, default="raise")).copy()
+            groups[position] = groups[neighbour]
+            C_IDXGRP.set_annotation(array, groups)
 
     def prepare_combination(self, arrays: list[AtomArrayPlus]) -> list[AtomArrayPlus]:
         return separate_coordinate_groups(arrays)

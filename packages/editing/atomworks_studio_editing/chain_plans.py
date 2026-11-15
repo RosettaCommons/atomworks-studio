@@ -672,6 +672,10 @@ class ChainPlanMixin:
         self._reset_hidden(result, position)
         self.array = result
         install_sentinel_bonds(self.array, position)
+        # A model's own conditions the placeholder should share with its neighbours (RFD4: the index group).
+        inherit = getattr(self.condition_provider, "inherit_segment_conditions", None)
+        if inherit is not None:
+            inherit(self.array, position)
         return position
 
     @staticmethod

@@ -51,6 +51,9 @@ node "${root}/packages/web/tests/refold-panel.mjs" | tee "${artifact_dir}/refold
 ANNOTATION_STUDIO_URL="${accept_url}/" node "${root}/packages/web/tests/embed-api.mjs" \
   | tee "${artifact_dir}/embed-api.log"
 
+ANNOTATION_STUDIO_URL="${accept_url}/" node "${root}/packages/web/tests/design-card.mjs" \
+  | tee "${artifact_dir}/design-card.log"
+
 for viewer in patinae molstar; do
   VIEWER_MODE="${viewer}" ANNOTATION_STUDIO_URL="${accept_url}" \
     "${pnpm_cmd[@]}" --dir "${root}/packages/web" test:e2e \

@@ -1,0 +1,273 @@
+/*
+ * Studio's own page in card mode (`body.studio-card-mode`, set when the Design card is mounted into the sidebar): the
+ * simple view the RFD4-Proteina page gives Studio, ported from its web/styles.css. Only the card's host page is
+ * touched, and only in card mode: a page that does not mount the card is unchanged.
+ *
+ * Simple view: the card, the viewer, the sequence and Open / Style / picking. "Studio editor" (`body.rfd4p-advanced`,
+ * the card's switch) brings back every Studio tool.
+ */
+body.studio-card-mode {
+  --rfd4p-sidebar: #161719;
+  --rfd4p-hotspot: #f59e0b;
+}
+body.studio-card-mode:is([data-host-theme="light"], [data-host-theme="high-contrast-light"]) {
+  --rfd4p-sidebar: #eceef1;
+  --danger-soft: #fbe5e5;
+  --warning-soft: #fbf0d9;
+  --success-soft: #def3ec;
+}
+
+body.studio-card-mode #atomworks-studio-popover { background: var(--rfd4p-sidebar); }
+
+/* ============================================================================
+ * Single-Row Viewer Toolbar & Organized Style / Analyze / Mol* Controls
+ * ========================================================================== */
+body.studio-card-mode #viewer-toolbar.viewer-toolbar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 4px 10px;
+}
+
+body.studio-card-mode .viewer-menus-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+body.studio-card-mode .viewer-toolbar-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border, #383a3f);
+  flex-shrink: 0;
+}
+
+body.studio-card-mode #viewer-toolbar .picking-toolbar {
+  flex: 1 1 auto;
+  flex-basis: auto;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+body.studio-card-mode #viewer-toolbar .picking-toolbar > .selection-actions {
+  flex-basis: auto;
+  flex-shrink: 0;
+}
+
+body.studio-card-mode #viewer-toolbar .picking-toolbar .selection-help {
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.studio-card-mode #viewer-toolbar .viewer-backend {
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+/* Organized Style & Analyze Popovers */
+body.studio-card-mode .viewer-menu-popover.viewer-menu-popover-wide {
+  width: 310px;
+  padding: 12px;
+}
+
+body.studio-card-mode .viewer-menu-section-label {
+  margin: 8px 0 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted, #b1b3b9);
+  letter-spacing: 0.01em;
+}
+
+body.studio-card-mode .viewer-menu-grid.viewer-menu-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+body.studio-card-mode .viewer-menu-grid.viewer-menu-grid-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+body.studio-card-mode .viewer-measure-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+body.studio-card-mode .viewer-measure-row > button {
+  margin-bottom: 0;
+}
+
+/* Clean up Mol* floating viewport controls inside #viewer */
+body.studio-card-mode #viewer .msp-viewport-controls {
+  top: 10px;
+  right: 10px;
+}
+
+body.studio-card-mode #viewer .msp-viewport-controls-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface-panel, #191a1c) 82%, transparent);
+  border: 1px solid var(--border, #383a3f);
+  backdrop-filter: blur(6px);
+}
+
+body.studio-card-mode #viewer .msp-viewport-controls-buttons .msp-semi-transparent-background {
+  display: none;
+}
+
+/* Every layer behind the viewer is the background it draws, so nothing flashes before its first frame (Mol*'s
+   stylesheet makes its canvas near-white): black, or white in light mode. */
+body.studio-card-mode #viewer,
+body.studio-card-mode #viewer .msp-plugin,
+body.studio-card-mode #viewer .msp-viewport,
+body.studio-card-mode #viewer .msp-canvas { background: #000 !important; }
+
+/* Mol*'s frame is its own colour (blue-grey, or beige in its light skin), unlike every other edge here; Studio's panels
+   already draw the lines around the viewer. */
+body.studio-card-mode #viewer .msp-layout-standard { border: 0 !important; }
+
+body.studio-card-mode[data-host-theme="light"] #viewer,
+body.studio-card-mode[data-host-theme="light"] #viewer .msp-plugin,
+body.studio-card-mode[data-host-theme="light"] #viewer .msp-viewport,
+body.studio-card-mode[data-host-theme="light"] #viewer .msp-canvas { background: #fff !important; }
+
+/* Hide redundant / layout-breaking Mol* internal buttons */
+body.studio-card-mode #viewer .msp-viewport-controls-buttons > div:has(> button[title="Toggle Controls Panel"]),
+body.studio-card-mode #viewer .msp-viewport-controls-buttons > div:has(> button[title="Toggle Expanded Viewport"]),
+body.studio-card-mode #viewer .msp-viewport-controls-buttons > div:has(> button[title*="Augmented/Virtual Reality"]) {
+  display: none !important;
+}
+
+body.studio-card-mode #empty-open,
+body.studio-card-mode #structure-edit-feedback:empty {
+  display: none !important;
+}
+
+/* Compact sequence dock: letter-width residue cells, no gaps, so more of a long chain fits without scrolling. */
+body.studio-card-mode .sequence-dock .sequence-track {
+  gap: 0;
+}
+
+body.studio-card-mode .sequence-dock .sequence-token {
+  width: 9px;
+  min-width: 9px;
+  height: 15px;
+  font-size: 10px;
+  line-height: 13px;
+  border-radius: 1px;
+}
+
+body.studio-card-mode .sequence-dock .sequence-token.sequence-segment {
+  width: auto;
+  min-width: 48px;
+  padding: 0 4px;
+}
+
+body.studio-card-mode .sequence-dock .sequence-chain {
+  gap: 4px;
+}
+
+/* The dashed index-condition outline boxes every letter at this width; mark it with a dashed underline instead. */
+body.studio-card-mode .sequence-dock .sequence-token.condition-index {
+  outline: none;
+  border-bottom: 1px dashed var(--condition-index);
+}
+
+/* ---- Simple mode (default): only the RFD4-Proteina card, the viewer, the sequence and Open/Style/picking.
+   "Studio editor" (body.rfd4p-advanced, web/design-panel.js) brings back every AtomWorks Studio tool. ---- */
+/* Studio's status bar: its loader's notes ("Mol* loaded 1823 atoms…") and a second Guide. The card has its own status
+   and Guide, and Studio's errors have their banner, so it shows only with the Studio editor. */
+body.studio-card-mode:not(.rfd4p-advanced) .status-bar { display: none; }
+
+body.studio-card-mode:not(.rfd4p-advanced) .header-actions .load-options,
+body.studio-card-mode:not(.rfd4p-advanced) .header-actions label.file-button,
+body.studio-card-mode:not(.rfd4p-advanced) .header-actions label.file-button.secondary,
+body.studio-card-mode:not(.rfd4p-advanced) .header-actions #download,
+body.studio-card-mode:not(.rfd4p-advanced) #viewer-toolbar details[data-menu="analyze"],
+body.studio-card-mode:not(.rfd4p-advanced) #viewer-backend,
+body.studio-card-mode:not(.rfd4p-advanced) #picking-help,
+body.studio-card-mode:not(.rfd4p-advanced) #viewer-command-form,
+body.studio-card-mode:not(.rfd4p-advanced) #atomworks-studio-popover > :not(#rfd4p-studio-card) {
+  display: none !important;
+}
+
+/* With the Studio editor the card's own editor goes: its chain list and + new / + pdb / + lig edit the same conditions as
+   Studio's Structure card and panels below it, so showing both was two editors for one document. The card keeps the
+   input's warnings, the start screen, Generate and the designs. */
+body.studio-card-mode.rfd4p-advanced #rfd4p-task-detail,
+body.studio-card-mode.rfd4p-advanced #rfd4p-chain-list,
+body.studio-card-mode.rfd4p-advanced #rfd4p-design .rfd4p-chain-actions {
+  display: none !important;
+}
+
+/* The card's Undo, Clear and Examples already do what these do. (The card's Undo clicks Studio's #undo, hidden or not.) */
+body.studio-card-mode.rfd4p-advanced #examples-panel,
+body.studio-card-mode.rfd4p-advanced #undo,
+body.studio-card-mode.rfd4p-advanced #close-structure {
+  display: none !important;
+}
+
+/* A design is a result, not an input: on Outputs Studio's editor goes too, as the card's does. */
+body.studio-card-mode.rfd4p-advanced:has(#rfd4p-job[data-tab="outputs"]) #atomworks-studio-popover > :not(#rfd4p-studio-card) {
+  display: none !important;
+}
+
+/* Chain colours (studio-src/src/chain-colors.ts), shared by viewer, sequence bar and design panel. */
+body.studio-card-mode .sequence-chain {
+  --chain-color: var(--text-muted, #b1b3b9);
+}
+
+body.studio-card-mode .sequence-chain-label {
+  align-self: start;
+  padding: 1px 4px;
+  border-radius: 3px;
+  color: #101114 !important;
+  background: var(--chain-color);
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Studio's own example cards: this site drives the task choice from the RFD4-Proteina card instead. */
+body.studio-card-mode #example-cards { display: none; }
+
+/* One renderer (Mol*) is offered, so Studio's "Backend" menu (renderer choice) has nothing to choose. */
+body.studio-card-mode .viewer-menu[data-menu="overflow"],
+body.studio-card-mode #viewer-backend { display: none !important; }
+
+body.studio-card-mode:not(.rfd4p-advanced) .sequence-token.condition-coordinate:not(.selected):not(:hover) { border-color: transparent; }
+
+body.studio-card-mode:not(.rfd4p-advanced) button.sequence-token:not(.condition-coordinate):not(.condition-sequence):not(.sequence-segment) {
+  color: var(--accent, #82aaff);
+}
+
+body.studio-card-mode:not(.rfd4p-advanced) .sequence-token.condition-hotspot {
+  color: #1a1206;
+  background: var(--rfd4p-hotspot);
+  font-weight: 700;
+}
+
+body.studio-card-mode:not(.rfd4p-advanced) .sequence-token.condition-hotspot:not(.selected):not(.partially-selected):not(:hover) { border-color: var(--rfd4p-hotspot); }
+
+/* The side panel's scrollbar always shown (macOS hides overlay scrollbars until a scroll), so a long card reads as
+   scrollable. Styling ::-webkit-scrollbar makes Chrome draw a classic, always-visible bar. */
+body.studio-card-mode #atomworks-studio-popover::-webkit-scrollbar { width: 10px; }
+
+body.studio-card-mode #atomworks-studio-popover::-webkit-scrollbar-track { background: var(--surface-recessed, #1b1c1e); }
+
+body.studio-card-mode #atomworks-studio-popover::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-muted, #b1b3b9) 55%, transparent); border: 2px solid var(--surface-recessed, #1b1c1e); border-radius: 5px;
+}
+
+body.studio-card-mode #atomworks-studio-popover::-webkit-scrollbar-thumb:hover { background: var(--text-muted, #b1b3b9); }

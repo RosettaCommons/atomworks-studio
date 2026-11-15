@@ -109,9 +109,12 @@ Names must be stored annotations, supported query functions, or annotations that
 AtomWorks can derive. Derived fields are evaluated on a temporary copy; selecting
 atoms does not change the saved document or undo history.</p>
 <p><code class="docutils literal notranslate"><span class="pre">chain_id</span></code> is the source chain identifier. Assembly copies can share it.
-<code class="docutils literal notranslate"><span class="pre">chain_iid</span></code> identifies the chain instance shown in Studio; for example,
-<code class="docutils literal notranslate"><span class="pre">chain_iid</span> <span class="pre">==</span> <span class="pre">'A_1'</span></code> selects that instance if it exists. Inspect your structure
-before assuming either identifier. <code class="docutils literal notranslate"><span class="pre">res_id</span></code> is a residue number, not its position
+<code class="docutils literal notranslate"><span class="pre">chain_iid</span></code> identifies the chain instance (chain and transformation); for example,
+<code class="docutils literal notranslate"><span class="pre">chain_iid</span> <span class="pre">==</span> <span class="pre">'A_1'</span></code> selects transformation 1 of chain A if it exists. Studio
+labels a chain with the name its CIF carries, which is <code class="docutils literal notranslate"><span class="pre">chain_id</span></code> unless assembly
+copies make that ambiguous (then it is <code class="docutils literal notranslate"><span class="pre">chain_iid</span></code>, <code class="docutils literal notranslate"><span class="pre">A_1</span></code> and <code class="docutils literal notranslate"><span class="pre">A_2</span></code>). The
+annotations of an atom report all three: <code class="docutils literal notranslate"><span class="pre">chain</span></code> (the label), <code class="docutils literal notranslate"><span class="pre">chain_id</span></code> and
+<code class="docutils literal notranslate"><span class="pre">chain_iid</span></code>. Inspect your structure before assuming either identifier. <code class="docutils literal notranslate"><span class="pre">res_id</span></code> is a residue number, not its position
 in the displayed sequence; <code class="docutils literal notranslate"><span class="pre">atom_id</span></code> is an annotation, not a zero-based row index.</p>
 </section>
 <section id="selection-paths">

@@ -167,3 +167,22 @@ source indices. Missing coordinates and design placeholders stay in the editable
 they must never enter geometry, focus surroundings, camera bounds, or picking. The shared
 coordinate filter also constrains Patinae representation changes. The close/reopen regression
 in `packages/web/tests/unresolved-rendering.mjs` checks scene isolation and sequence coverage.
+
+## Design card parity
+
+The design card edits a job through Studio's REST API. The RFD4-Proteina page serves that API in the browser with its
+own engine (`web/studio-api.js`), so the Python server must give the same atoms for the same edits.
+`tests/test_design_card_parity.py` runs the card's recipes (protein and small-molecule binders, motif scaffolding,
+enzyme, antibody, nanobody, inverse folding, partial diffusion, and every kind of part a chain can be rebuilt from)
+through both engines and compares atom order, chain names, residue numbers and names, coordinates, bonds, the
+conditions the card reads, plans, origins and previews, with an Undo after each. Opening the RCSB entries the
+recipes use is compared too.
+
+```bash
+RFD4P_PAGE_DIR=/path/to/rfd4-proteina-webgpu uv run python scripts/run_pytest.py -q tests/test_design_card_parity.py
+```
+
+It needs node, and skips without `RFD4P_PAGE_DIR` or an entry. Entries are looked up in `STUDIO_PARITY_CIF_DIR`,
+`tests/fixtures/rcsb` and the system temp directory, and downloaded once otherwise.
+`tests/parity/js_engine_driver.mjs` is the page side of the comparison; `tests/test_design_card_routes.py` covers the
+same operations and routes without it.

@@ -301,6 +301,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/chains/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** V1 Order Chains */
+        post: operations["v1_order_chains_api_v1_sessions__session_id__chains_order_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/chains/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * V1 Preview Chain
+         * @description The document's CIF with a chain rebuilt to the parts, the session unchanged.
+         */
+        post: operations["v1_preview_chain_api_v1_sessions__session_id__chains_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/chains/rebuild": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * V1 Rebuild Chain
+         * @description Rebuild a chain from its plan: kept runs of the chain as loaded, new residues, residues it lacks.
+         */
+        post: operations["v1_rebuild_chain_api_v1_sessions__session_id__chains_rebuild_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/chains/{chain_id}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * V1 Get Chain Plan
+         * @description A chain as a plan: `{chain, source: [{num, ins, name, label}], parts: [...]}`.
+         */
+        get: operations["v1_get_chain_plan_api_v1_sessions__session_id__chains__chain_id__plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/chains/{chain_id}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * V1 Get Chain Source
+         * @description The chain as it was loaded, as an overlay mmCIF (`{chain, cif}`); 404 when it has no source.
+         */
+        get: operations["v1_get_chain_source_api_v1_sessions__session_id__chains__chain_id__source_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions/{session_id}/charges": {
         parameters: {
             query?: never;
@@ -397,6 +494,23 @@ export interface paths {
         put?: never;
         /** V1 Reset Conditions */
         post: operations["v1_reset_conditions_api_v1_sessions__session_id__conditions_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/coordinates/clear": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** V1 Clear Coordinates */
+        post: operations["v1_clear_coordinates_api_v1_sessions__session_id__coordinates_clear_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -625,6 +739,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/segments/ligand-binder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** V1 Design Around Ligand */
+        post: operations["v1_design_around_ligand_api_v1_sessions__session_id__segments_ligand_binder_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/segments/origins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * V1 Get Segment Origins
+         * @description What each block of new residues replaced: `{origins: {"<atom index>": {count, keys}}}`.
+         */
+        get: operations["v1_get_segment_origins_api_v1_sessions__session_id__segments_origins_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/segments/range": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** V1 Set Segment Range */
+        post: operations["v1_set_segment_range_api_v1_sessions__session_id__segments_range_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions/{session_id}/segments/realize": {
         parameters: {
             query?: never;
@@ -636,6 +804,57 @@ export interface paths {
         put?: never;
         /** V1 Realize Segments */
         post: operations["v1_realize_segments_api_v1_sessions__session_id__segments_realize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/segments/replace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** V1 Replace With Segments */
+        post: operations["v1_replace_with_segments_api_v1_sessions__session_id__segments_replace_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/segments/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** V1 Restore Segment */
+        post: operations["v1_restore_segment_api_v1_sessions__session_id__segments_restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/segments/scaffold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** V1 Scaffold Motif */
+        post: operations["v1_scaffold_motif_api_v1_sessions__session_id__segments_scaffold_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -728,8 +947,15 @@ export interface components {
             assembly: string;
             /** File */
             file: string;
+            /**
+             * Fix All
+             * @default false
+             */
+            fix_all: boolean;
             /** Hydrogen Policy */
             hydrogen_policy?: ("keep" | "remove") | null;
+            /** Keep Unresolved */
+            keep_unresolved?: boolean | null;
             /** Model */
             model?: number | null;
             /**
@@ -781,6 +1007,38 @@ export interface components {
             /** Chain Id */
             chain_id: string;
         };
+        /** ChainOrderMutation */
+        ChainOrderMutation: {
+            /** Chain Ids */
+            chain_ids: string[];
+        };
+        /**
+         * ChainPart
+         * @description One part of a chain's plan: a run of the chain as loaded, a block of new residues, or residues it lacks.
+         */
+        ChainPart: {
+            /** Atom */
+            atom?: number | null;
+            /** Atoms */
+            atoms?: number[];
+            /** From */
+            from?: number | null;
+            /** Hi */
+            hi?: number | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "kept" | "new" | "own";
+            /** Lo */
+            lo?: number | null;
+            /** Max */
+            max?: number | null;
+            /** Min */
+            min?: number | null;
+            /** To */
+            to?: number | null;
+        };
         /** ChargeMutation */
         ChargeMutation: {
             /** Atom Indices */
@@ -789,6 +1047,13 @@ export interface components {
             delta?: number | null;
             /** Value */
             value?: number | null;
+        };
+        /** ClearCoordinatesMutation */
+        ClearCoordinatesMutation: {
+            /** Atom Indices */
+            atom_indices: number[];
+            /** Lead */
+            lead?: number[];
         };
         /** CombineMutation */
         CombineMutation: {
@@ -955,6 +1220,57 @@ export interface components {
             /** Target Atom Indices */
             target_atom_indices?: number[];
         };
+        /**
+         * InternalCoordsMutation
+         * @description Rigid-body marking; `group_id` joins that rigid group instead of making a new one.
+         */
+        InternalCoordsMutation: {
+            /**
+             * Allow Target Discard
+             * @default false
+             */
+            allow_target_discard: boolean;
+            /** Atom Indices */
+            atom_indices: number[];
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** Expected Revision */
+            expected_revision?: number | null;
+            /** Group Id */
+            group_id?: number | null;
+            /**
+             * Scope
+             * @default atom
+             * @enum {string}
+             */
+            scope: "atom" | "residue" | "chain";
+        };
+        /** LigandBinderMutation */
+        LigandBinderMutation: {
+            /**
+             * Maximum
+             * @default 150
+             */
+            maximum: number;
+            /**
+             * Minimum
+             * @default 100
+             */
+            minimum: number;
+            /**
+             * Pose Fixed
+             * @default true
+             */
+            pose_fixed: boolean;
+            /**
+             * Remove Protein
+             * @default true
+             */
+            remove_protein: boolean;
+        };
         /** ProtonationRequest */
         ProtonationRequest: {
             /**
@@ -967,6 +1283,13 @@ export interface components {
         RealizeMutation: {
             /** Seed */
             seed?: number | null;
+        };
+        /** RebuildMutation */
+        RebuildMutation: {
+            /** Chain Id */
+            chain_id: string;
+            /** Parts */
+            parts: components["schemas"]["ChainPart"][];
         };
         /** ResetConditionsRequest */
         ResetConditionsRequest: {
@@ -984,6 +1307,35 @@ export interface components {
             ][];
             /** Values */
             values: number[];
+        };
+        /** ScaffoldMutation */
+        ScaffoldMutation: {
+            /** Atom Indices */
+            atom_indices: number[];
+            /**
+             * Ordered
+             * @default false
+             */
+            ordered: boolean;
+            /**
+             * Sidechains Only
+             * @default false
+             */
+            sidechains_only: boolean;
+            /**
+             * Spread
+             * @default 0.25
+             */
+            spread: number;
+            /** Total Max */
+            total_max?: number | null;
+            /** Total Min */
+            total_min?: number | null;
+            /**
+             * Unindexed
+             * @default false
+             */
+            unindexed: boolean;
         };
         /** SegmentMutation */
         SegmentMutation: {
@@ -1007,6 +1359,29 @@ export interface components {
              * @default false
              */
             new_chain: boolean;
+        };
+        /** SegmentRangeMutation */
+        SegmentRangeMutation: {
+            /** Atom Index */
+            atom_index: number;
+            /** Maximum */
+            maximum: number;
+            /** Minimum */
+            minimum: number;
+        };
+        /** SegmentReplaceMutation */
+        SegmentReplaceMutation: {
+            /** Atom Indices */
+            atom_indices: number[];
+            /** Maximum */
+            maximum: number;
+            /** Minimum */
+            minimum: number;
+        };
+        /** SegmentRestoreMutation */
+        SegmentRestoreMutation: {
+            /** Atom Index */
+            atom_index: number;
         };
         /** SelectionQuery */
         SelectionQuery: {
@@ -1668,6 +2043,185 @@ export interface operations {
             };
         };
     };
+    v1_order_chains_api_v1_sessions__session_id__chains_order_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChainOrderMutation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    v1_preview_chain_api_v1_sessions__session_id__chains_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RebuildMutation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    v1_rebuild_chain_api_v1_sessions__session_id__chains_rebuild_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RebuildMutation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    v1_get_chain_plan_api_v1_sessions__session_id__chains__chain_id__plan_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                chain_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    v1_get_chain_source_api_v1_sessions__session_id__chains__chain_id__source_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                chain_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     v1_set_charge_api_v1_sessions__session_id__charges_post: {
         parameters: {
             query?: never;
@@ -1859,6 +2413,43 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ResetConditionsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    v1_clear_coordinates_api_v1_sessions__session_id__coordinates_clear_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClearCoordinatesMutation"];
             };
         };
         responses: {
@@ -2144,7 +2735,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ConditionOperationMutation"];
+                "application/json": components["schemas"]["InternalCoordsMutation"];
             };
         };
         responses: {
@@ -2381,6 +2972,113 @@ export interface operations {
             };
         };
     };
+    v1_design_around_ligand_api_v1_sessions__session_id__segments_ligand_binder_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LigandBinderMutation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    v1_get_segment_origins_api_v1_sessions__session_id__segments_origins_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    v1_set_segment_range_api_v1_sessions__session_id__segments_range_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SegmentRangeMutation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     v1_realize_segments_api_v1_sessions__session_id__segments_realize_post: {
         parameters: {
             query?: never;
@@ -2393,6 +3091,117 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RealizeMutation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    v1_replace_with_segments_api_v1_sessions__session_id__segments_replace_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SegmentReplaceMutation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    v1_restore_segment_api_v1_sessions__session_id__segments_restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SegmentRestoreMutation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    v1_scaffold_motif_api_v1_sessions__session_id__segments_scaffold_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScaffoldMutation"];
             };
         };
         responses: {

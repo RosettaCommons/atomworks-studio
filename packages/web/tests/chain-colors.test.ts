@@ -6,7 +6,7 @@ test("plain chain letters follow the alphabet, with or without a first-copy suff
   assert.equal(chainColorIndex("A"), 0);
   assert.equal(chainColorIndex("B"), 1);
   assert.equal(chainColorIndex("C"), 2);
-  // Documents written by the API label chains "A_1", "B_1", … — they must land on the same slots.
+  // Chains of an assembly are named "A_1", "B_1", … — they must land on the same slots as plain letters.
   for (const [plain, suffixed] of [["A", "A_1"], ["B", "B-1"], ["C", "C1"]]) {
     assert.equal(chainColorIndex(suffixed), chainColorIndex(plain), `${suffixed} matches ${plain}`);
   }

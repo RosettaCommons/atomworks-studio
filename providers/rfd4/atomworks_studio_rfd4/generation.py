@@ -21,13 +21,17 @@ class GenerationOptions(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid", strict=True)
-    thinking: Literal["low", "medium", "high"] = "medium"
+    # "none" is no extra recycling passes (depth 1 at every step); the Gradio controls offer low to high.
+    thinking: Literal["none", "low", "medium", "high"] = "medium"
     samples: int = Field(default=1, ge=1, le=8)
     seed: int = Field(default=42, ge=0, lt=2**32)
     backbone_k: float | None = Field(default=None, ge=1, le=BACKBONE_K_MAX, allow_inf_nan=False)
     latent_k: float | None = Field(default=None, ge=1, le=LATENT_K_MAX, allow_inf_nan=False)
     partial_diffusion: bool = False
     partial_diffusion_percent: float = Field(default=70, ge=1, le=100, allow_inf_nan=False)
+    # Stop once the structure and the sequence have stopped changing (the browser engine's "Early stop when
+    # converged"). Only a deployment whose model adapter implements it offers it (`early_stop=True` on the provider).
+    early_stop: bool = False
 
 
 class RFD4GenerationProvider:
@@ -65,8 +69,19 @@ class RFD4GenerationProvider:
     }
     """
 
-    def __init__(self, *, k_defaults: tuple[float, float]):
+    def __init__(self, *, k_defaults: tuple[float, float], card: bool = False, early_stop: bool = False):
         self.k_defaults = k_defaults
+        # The deployment's model adapter takes `early_stop` (see GenerationOptions): the card then offers the checkbox.
+        self.early_stop = early_stop
+        # Show the design card (the RFD4-Proteina page's interface) in place of the Gradio controls.
+        self.card = card
+        # Markdown a deployment shows above the card (data handling, terms); the card's own page has no such line.
+        self.notice = ""
+        # The card's Guide: a directory of the guide's pages (`index.html` and its images) the app serves at /help/
+        # (`create_app` reads this member), and the address of the page the Guide button shows as a popup over the
+        # designer. With only `guide_dir` the button shows /help/index.html; with neither there is no button.
+        self.guide_dir = ""
+        self.guide_url = ""
 
     def controls(self) -> dict[str, gr.Component]:
         with gr.Row():
@@ -111,6 +126,22 @@ class RFD4GenerationProvider:
             partial_diffusion_percent=partial_diffusion_percent,
             partial_diffusion=partial_diffusion,
         )
+
+    def design_card(self) -> dict | None:
+        """The design card the RFD4-Proteina page has, with this engine's badge; None unless `card=True`. "Early stop
+        when converged" is shown when the deployment's adapter implements it (`early_stop=True`), else hidden."""
+        if not self.card:
+            return None
+        return {
+            "engine": {"badge": "ZeroGPU"},
+            "notice": self.notice or None,
+            "guide": {"url": self.guide_url or "/help/index.html"} if (self.guide_url or self.guide_dir) else None,
+            "settings": {
+                "backboneK": {"min": 1, "max": BACKBONE_K_MAX, "step": 0.1, "default": self.k_defaults[0]},
+                "latentK": {"min": 1, "max": LATENT_K_MAX, "step": 0.1, "default": self.k_defaults[1]},
+                "earlyStop": {"default": True} if self.early_stop else None,
+            },
+        }
 
     def validate(self, options: dict) -> dict:
         return GenerationOptions.model_validate(options).model_dump()

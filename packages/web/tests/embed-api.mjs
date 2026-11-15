@@ -20,6 +20,7 @@ const packageVersion = JSON.parse(readFileSync(new URL("../package.json", import
 const MEMBERS = [
   "renderFrame", "setOverlay", "setHighlight", "setLiveMode", "showDocument", "closeDocument", "openSession",
   "openFile", "openExample", "applyEdit", "getSelection", "setSelection", "centerOn", "setTheme", "chainColor", "mountRefoldPanel",
+  "mountDesignCard", "getSessionId", "undo",
 ];
 
 const browser = await chromium.launch(chromiumLaunchOptions());
@@ -43,7 +44,7 @@ try {
   await page.waitForFunction(() => Number(document.querySelector("#viewer").dataset.renderedAtoms) > 0);
 
   // How many atoms the sequence bar says a residue holds, to compare with what the viewer painted.
-  const atomsOf = async (number) => (await page.locator(`.sequence-token[aria-label$=" ${number} in chain A_1"]`)
+  const atomsOf = async (number) => (await page.locator(`.sequence-token[aria-label$=" ${number} in chain A"]`)
     .first().getAttribute("data-atoms")).split(",").length;
   const viewer = (name) => page.evaluate((key) => document.querySelector("#viewer").dataset[key], name);
 

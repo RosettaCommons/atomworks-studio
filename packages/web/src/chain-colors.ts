@@ -11,8 +11,9 @@ const PALETTE = [
   0x7c8cf8, 0x80cbc4, 0x5fd3a5, 0x93b5e1, 0x2bb5c9, 0xb4a7f5,
 ];
 
-// A chain letter with an optional assembly-copy number: "A", "a", "A_1", "A-1", "A1", "A_2". Documents written by
-// the API label chains this way, so this case follows the alphabet rather than falling through to the hash.
+// A chain letter with an optional assembly-copy number: "A", "a", "A_1", "A-1", "A1", "A_2". The API names a chain as
+// the CIF does ("A", or "A_1" and "A_2" for the copies of an assembly), so this case follows the alphabet rather than
+// falling through to the hash.
 const LETTERED = /^([A-Za-z])(?:[_-]?(\d+))?$/;
 
 /**

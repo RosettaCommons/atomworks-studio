@@ -1,6 +1,6 @@
 {
   "name": "@rosettacommons/atomworks-studio-web",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,6 +14,8 @@
     "test:embed-api": "node tests/embed-api.mjs",
     "test:refold-panel": "node tests/refold-panel.mjs",
     "test:gradio-refold": "node tests/gradio-refold.mjs",
+    "test:gradio-guide": "node tests/gradio-guide.mjs",
+    "test:design-card": "node tests/design-card.mjs",
     "test:workbench": "node tests/workbench.mjs",
     "test:menus": "node tests/menu-layout.mjs",
     "test:editor": "node tests/editor-qol.mjs",

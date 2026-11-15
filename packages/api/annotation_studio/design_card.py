@@ -138,7 +138,10 @@ const frame = () => document.querySelector('iframe[title="AtomWorks Studio"]');
       const request = 'g' + (++counter);
       const { sessionId, settings = {}, task } = data.request || {};
       pending.set(request, { kind: 'generate', id: data.id, seed: settings.seed, task, started: Date.now() });
-      reply('status', { id: data.id, text: 'Waiting for the GPU…' });
+      // As on the page: the model-loading box says "Loading weights" until the first frame or design arrives (on the Space the
+      // wait is the queue, the GPU and the weights together).
+      reply('loading', { id: data.id, text: 'Loading weights' });
+      reply('status', { id: data.id, text: 'Loading weights…' });
       bus.emit('card_generate', { request, session_id: sessionId, settings });
     } else if (data.type === 'refold') {
       const request = 'r' + (++counter);
@@ -190,6 +193,7 @@ const frame = () => document.querySelector('iframe[title="AtomWorks Studio"]');
       if (!entry.noted) {
         // The first frame ends the wait for the GPU: the button says the step from here on, the status line is cleared.
         entry.noted = true;
+        reply('loading', { id: entry.id, text: null });
         const text = message.designs > 1 && message.parallel ? `Generating ${message.designs} designs in parallel; showing design ${message.design + 1}.` : 'Generating…';
         reply('status', { id: entry.id, text, options: { visible: false } });
       }
@@ -197,6 +201,7 @@ const frame = () => document.querySelector('iframe[title="AtomWorks Studio"]');
       return;
     }
     if (message.type === 'design') {
+      if (!entry.noted) { entry.noted = true; reply('loading', { id: entry.id, text: null }); }
       entry.count = (entry.count || 0) + 1;
       (entry.stepsRun ||= []).push({ stepsRun: message.design.stepsRun, nsteps: message.nsteps });
       reply('design', { id: entry.id, design: { ...designFields(entry, message.design, message.design.index || 0), nsteps: message.nsteps ?? null } });
@@ -208,6 +213,7 @@ const frame = () => document.querySelector('iframe[title="AtomWorks Studio"]');
     }
     pending.delete(message.request);
     if (message.type === 'generated') {
+      if (!entry.noted) reply('loading', { id: entry.id, text: null });
       if (message.error) {
         reply('error', { id: entry.id, message: message.error, userMessage: message.error });
         return;

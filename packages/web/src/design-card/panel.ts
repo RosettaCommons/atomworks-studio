@@ -500,7 +500,8 @@ export class DesignPanel {
     const wanted = chains.map((c) => String(c).toUpperCase());
     const raw = parseCifBlock(text);
     const open = async (assembly: string): Promise<SessionDoc> => {
-      const sid = await createSession(text, name, { preset: "rcsb", assembly, fixAll: true, ...extra });
+      // keepUnresolved false unless asked: no hydrogens AtomWorks adds and no unresolved residues, as the page's engine opens an entry.
+      const sid = await createSession(text, name, { preset: "rcsb", assembly, fixAll: true, keepUnresolved: false, ...extra });
       const doc = new SessionDoc(sid);
       await doc.refresh();
       return doc;

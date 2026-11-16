@@ -618,6 +618,18 @@ try {
       assert.equal(await page.locator('#partial-diffusion').isChecked(), id === 'partial_diffusion', 'Diversify ticks partial diffusion');
       assert.equal(await page.locator('#rfd4p-fetch-status').textContent(), '');
       assert.equal(await page.locator('#predict').isEnabled(), true);
+      // The input as saved holds no hydrogen without coordinates (AtomWorks adds them when it opens an entry; the page's
+      // engine never does, and a server's card sessions must not either).
+      const hydrogensWithoutCoordinates = await page.evaluate(async () => {
+        const text = await (await fetch(`/api/sessions/${window.atomworksStudio.getSessionId()}/cif`)).text();
+        const lines = text.split('\n');
+        const first = lines.findIndex((l) => l.startsWith('_atom_site.'));
+        const columns = [];
+        for (let i = first; lines[i]?.startsWith('_atom_site.'); i += 1) columns.push(lines[i].trim().slice('_atom_site.'.length));
+        const [element, x] = [columns.indexOf('type_symbol'), columns.indexOf('Cartn_x')];
+        return lines.filter((l) => /^(ATOM|HETATM)\s/.test(l)).map((l) => l.trim().split(/\s+/)).filter((f) => ['H', 'D'].includes(f[element]) && !Number.isFinite(Number(f[x]))).length;
+      });
+      assert.equal(hydrogensWithoutCoordinates, 0, `${id}: hydrogens without coordinates in the input`);
     });
   }
 

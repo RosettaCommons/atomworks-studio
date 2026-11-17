@@ -1,4 +1,14 @@
 :root { color-scheme: light; --ink: #262b30; --blue: #3659a6; --rule: #dce0e4; }
+/* Furo's variable names, which the shared page_feedback.css widget expects, mapped onto this Alabaster palette. */
+:root {
+  --color-foreground-primary: var(--ink);
+  --color-foreground-secondary: #59616a;
+  --color-foreground-muted: #6b737b;
+  --color-background-primary: #fff;
+  --color-background-secondary: #f7f8fa;
+  --color-background-border: var(--rule);
+  --color-brand-primary: var(--blue);
+}
 body { color: var(--ink); background: #fff; font-family: system-ui, -apple-system, sans-serif; }
 div.document { width: min(1120px, 100%); margin: 44px auto; }
 div.bodywrapper { margin-left: 245px; }

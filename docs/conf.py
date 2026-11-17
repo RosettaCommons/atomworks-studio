@@ -9,10 +9,11 @@ html_theme = "alabaster"
 html_title = project
 templates_path = ["_templates"]
 html_static_path = ["_static"]
-html_css_files = ["studio.css"]
+html_css_files = ["studio.css", "page_feedback.css"]
 html_js_files = [
         "studio.js",
         ("https://scripts.simpleanalyticscdn.com/latest.js", {"async": "async", "defer": "defer"}),
+        "page_feedback.js",
     ]
 html_sidebars = {"**": ["about.html", "navigation.html", "searchbox.html"]}
 html_theme_options = {"description": "Structure editing", "show_powered_by": False}

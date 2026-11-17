@@ -9,7 +9,8 @@
 // tests/.cache/rcsb, fetched from files.rcsb.org when missing.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { startBed, fakeProviderSource } from './design-card-bed.mjs';
+import { join } from 'node:path';
+import { startBed, fakeProviderSource, CACHE } from './design-card-bed.mjs';
 
 const bed = await startBed();
 const { page } = bed;
@@ -603,6 +604,27 @@ try {
     assert.equal(await text('#rfd4p-status-message'), 'This browser has no WebGPU, which designs need.');
     await page.evaluate(() => window.__card.setEngine({ badge: 'WebGL2', disabled: null }));
     assert.equal(await page.locator('#predict').isDisabled(), false);
+  });
+
+  // ---- a file without saved annotations ------------------------------------------------------------------------------------
+  await check('a plain mmCIF opens as an entry does: all held, no hydrogens added, on both engines', async () => {
+    await page.evaluate(() => window.__card.destroy());
+    await bed.open('card=1&viewer=molstar');
+    await mount();
+    await page.locator('#file-input').setInputFiles(join(CACHE, '1J79.cif'));
+    await page.waitForFunction(() => document.querySelectorAll('#rfd4p-chain-list .rfd4p-sub-open').length > 0);
+    assert.equal(await text('#rfd4p-task-label'), 'Nothing to design');
+    const atoms = await page.evaluate(async () => {
+      const text = await (await fetch(`/api/sessions/${window.atomworksStudio.getSessionId()}/cif`)).text();
+      const lines = text.split('\n');
+      const first = lines.findIndex((l) => l.startsWith('_atom_site.'));
+      const columns = [];
+      for (let i = first; lines[i]?.startsWith('_atom_site.'); i += 1) columns.push(lines[i].trim().slice('_atom_site.'.length));
+      const [element, x] = [columns.indexOf('type_symbol'), columns.indexOf('Cartn_x')];
+      const rows = lines.filter((l) => /^(ATOM|HETATM)\s/.test(l)).map((l) => l.trim().split(/\s+/));
+      return { all: rows.length, hydrogensWithoutCoordinates: rows.filter((f) => ['H', 'D'].includes(f[element]) && !Number.isFinite(Number(f[x]))).length };
+    });
+    assert.ok(atoms.all > 0 && atoms.hydrogensWithoutCoordinates === 0, `atoms ${JSON.stringify(atoms)}`);
   });
 
   // ---- the remaining examples ----------------------------------------------------------------------------------------------

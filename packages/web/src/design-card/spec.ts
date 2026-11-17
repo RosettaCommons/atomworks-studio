@@ -168,7 +168,7 @@ type Res = {
 
 type ChainAcc = { id: string; residues: Res[]; byKey: Map<string, Res>; atomIndices: number[] };
 
-const isSentinel = (atoms: AtomArray, i: number): boolean => {
+export const isSentinel = (atoms: AtomArray, i: number): boolean => {
   const min = atoms.annotations?.annotation_expsegmin_1_residue?.[i];
   return (typeof min === "number" && Number.isFinite(min) && min > 0) || /^\d+-\d+$/.test(String(atoms.res_name[i]));
 };

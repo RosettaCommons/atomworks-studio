@@ -28,7 +28,9 @@ try {
   }
   await assertSelection(0);
   assert.deepEqual(await page.locator("#pick-scope option").allTextContents(), ["Atoms", "Residues", "Chains"]);
-  assert.equal(await page.locator("#pick-scope").inputValue(), "atom");
+  // Residues are the default pick scope (d7e72bb): a click on the cartoon selects that residue, and the menu says so.
+  // The steps below drive the sequence bar, which does not depend on it.
+  assert.equal(await page.locator("#pick-scope").inputValue(), "residue");
   const residues = page.locator(".sequence-token[data-atoms]");
   const first = residues.nth(0);
   const second = residues.nth(1);

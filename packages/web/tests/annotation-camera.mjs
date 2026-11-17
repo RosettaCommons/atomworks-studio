@@ -27,7 +27,29 @@ try {
   },{base,backend,cif});
   // Software-rendered CI can take seconds to fit the camera to the structure; wait for it before perturbing the view.
   if(backend==='molstar') await page.waitForFunction(()=>window.adapter.viewer.plugin.canvas3d.camera.getSnapshot().radius>1,null,{timeout:30000});
-  await page.waitForTimeout(500);
+  const camera = () => page.evaluate(async backend=>{
+   if(backend==='patinae') return (await window.adapter.viewer.execute('get_view')).messages;
+   const s=window.adapter.viewer.plugin.canvas3d.camera.getSnapshot();
+   return {position:s.position,target:s.target,up:s.up,radius:s.radius,fov:s.fov,mode:s.mode};
+  },backend);
+  // A fixed sleep here would race the render: the camera is written asynchronously, and a sleep that is long
+  // enough on today's machine silently stops waiting for anything the moment the render gets faster — which is
+  // how this test passed in one CI run and failed in the next on byte-identical code. Poll instead, and treat the
+  // camera as settled only once repeated readings agree. QUIET_SAMPLES*INTERVAL is the floor, so the weakest wait
+  // here is still longer than the 100 ms sleep it replaces.
+  const INTERVAL=50, QUIET_SAMPLES=6, ATTEMPTS=600;
+  const settledCamera = async () => {
+   let previous=JSON.stringify(await camera()), agreements=0;
+   for(let attempt=0; attempt<ATTEMPTS; attempt++) {
+    await page.waitForTimeout(INTERVAL);
+    const current=JSON.stringify(await camera());
+    agreements = current===previous ? agreements+1 : 0;
+    previous=current;
+    if(agreements>=QUIET_SAMPLES) return JSON.parse(current);
+   }
+   throw new Error(`${backend}: the camera never stopped moving`);
+  };
+  await settledCamera();
   // Deliberately use a non-default view, so resetting to the whole structure fails.
   await page.evaluate(async backend=>{
    if(backend==='molstar') {
@@ -36,17 +58,11 @@ try {
     camera.setState({position:snapshot.position.map((v,i)=>v+[3,4,7][i]), target:snapshot.target.map(v=>v+2)},0);
    } else await window.adapter.executeCommand('turn y, 25');
   },backend);
-  const camera = () => page.evaluate(async backend=>{
-   if(backend==='patinae') return (await window.adapter.viewer.execute('get_view')).messages;
-   const s=window.adapter.viewer.plugin.canvas3d.camera.getSnapshot();
-   return {position:s.position,target:s.target,up:s.up,radius:s.radius,fov:s.fov,mode:s.mode};
-  },backend);
-  const original=await camera();
+  const original=await settledCamera();
   const groups=[{label:'Site A',atomIndices:[6,100],showAtoms:true},{label:'Site B',atomIndices:[350],showAtoms:true}];
   const result=await page.evaluate(groups=>window.adapter.showAnnotation(groups),groups);
   assert.equal(result.atomCount,3);
-  await page.waitForTimeout(500);
-  assert.deepEqual(await camera(),original,`${backend}: condition highlighting must preserve the camera`);
+  assert.deepEqual(await settledCamera(),original,`${backend}: condition highlighting must preserve the camera`);
   if(backend==='molstar') {
    const context=await page.evaluate(()=>{
     const plugin=window.adapter.viewer.plugin;
@@ -59,11 +75,9 @@ try {
   }
   await page.screenshot({path:`artifacts/local/annotation-camera/${backend}-highlight.png`});
   await page.evaluate(()=>window.adapter.showAnnotation([{label:'Other site',atomIndices:[200],showAtoms:true}]));
-  await page.waitForTimeout(100);
-  assert.deepEqual(await camera(),original,`${backend}: switching conditions must preserve the camera`);
+  assert.deepEqual(await settledCamera(),original,`${backend}: switching conditions must preserve the camera`);
   await page.evaluate(()=>window.adapter.clearAnnotation());
-  await page.waitForTimeout(100);
-  assert.deepEqual(await camera(),original,`${backend}: clearing conditions must preserve the camera`);
+  assert.deepEqual(await settledCamera(),original,`${backend}: clearing conditions must preserve the camera`);
   if(backend==='molstar') assert.equal(await page.evaluate(()=>window.adapter.annotationComponent),undefined);
   // Representation changes must not incorporate transient condition sticks into permanent styling.
   await page.evaluate(async groups=>{
@@ -76,16 +90,16 @@ try {
    assert.ok(labels.includes('line'));
    assert.ok(!labels.includes('Condition sites'));
   }
-  assert.deepEqual(await camera(),original,`${backend}: styling during an overlay must preserve the camera`);
+  assert.deepEqual(await settledCamera(),original,`${backend}: styling during an overlay must preserve the camera`);
   await page.evaluate(cif=>window.adapter.loadCif(cif,'enzyme'),enzyme);
-  await page.waitForTimeout(500);
-  const enzymeCamera=await camera();
-  const positioned=await page.evaluate(()=>window.adapter.showAnnotation([{label:'Mixed coordinates',atomIndices:[0,1,2,15],showAtoms:true}]));
+  const enzymeCamera=await settledCamera();
+  // Atoms 72 and 85 are the `UNK` placeholders carrying `nan` coordinates in enzyme_design.cif; every other index
+  // here is positioned. The indices matter: picking four positioned atoms would assert nothing about the filter.
+  const positioned=await page.evaluate(()=>window.adapter.showAnnotation([{label:'Mixed coordinates',atomIndices:[0,1,72,85],showAtoms:true}]));
   assert.equal(positioned.atomCount,2,'only positioned atoms enter condition geometry');
-  const missing=await page.evaluate(()=>window.adapter.showAnnotation([{label:'Missing coordinates',atomIndices:[0,15],showAtoms:true}]));
+  const missing=await page.evaluate(()=>window.adapter.showAnnotation([{label:'Missing coordinates',atomIndices:[72,85],showAtoms:true}]));
   assert.equal(missing.atomCount,0);
-  await page.waitForTimeout(100);
-  assert.deepEqual(await camera(),enzymeCamera,`${backend}: missing coordinates must not move the camera`);
+  assert.deepEqual(await settledCamera(),enzymeCamera,`${backend}: missing coordinates must not move the camera`);
   assert.deepEqual(errors,[]);
   await page.evaluate(()=>window.adapter.destroy());
   await page.close();

@@ -165,7 +165,9 @@ class ChainCentroidEditor(QtWidgets.QWidget, BaseAnnotationEditor):
         _obj_name, _arr = active
         document = self._state.document(_obj_name)
         document.condition_provider = CONDITION_PROVIDER
-        entry = next(item for item in document.chain_centroids(self._annotation_cls.name) if item["chain"] == chain_id)
+        entry = next(
+            item for item in document.chain_centroids(self._annotation_cls.name) if item["chain_iid"] == chain_id
+        )
         if entry["target"] is not None:
             for spin, value in zip((self._spin_x, self._spin_y, self._spin_z), entry["target"], strict=True):
                 spin.setValue(value)
@@ -178,7 +180,9 @@ class ChainCentroidEditor(QtWidgets.QWidget, BaseAnnotationEditor):
         obj_name, _arr = active
         document = self._state.document(obj_name)
         document.condition_provider = CONDITION_PROVIDER
-        entry = next(item for item in document.chain_centroids(self._annotation_cls.name) if item["chain"] == chain_id)
+        entry = next(
+            item for item in document.chain_centroids(self._annotation_cls.name) if item["chain_iid"] == chain_id
+        )
         if entry["current"] is None:
             QtWidgets.QMessageBox.warning(self, "No coordinates", "This chain has no resolved coordinates.")
             return

@@ -49,7 +49,7 @@ try {
   const session = await page.evaluate(() => sessionStorage.getItem('annotation-studio-session'));
   const structure = (await (await page.request.get(`${base}api/v1/sessions/${session}`)).json()).structure;
   assert.equal(structure.atom_count, 989);
-  assert.deepEqual(structure.chain_ids, ['A_1']);
+  assert.deepEqual(structure.chain_ids, ['A']);
   assert.equal(structure.condition_counts.hotspot ?? 0, 0);
 
   await mkdir('artifacts/local/unresolved-rendering', { recursive: true });

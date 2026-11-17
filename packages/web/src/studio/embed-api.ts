@@ -11,7 +11,9 @@
  * and the "changed" notification behave exactly as they do for a click. The document on the server stays the source
  * of truth; nothing here writes to the viewer behind its back.
  */
-import type { ViewerLoadOptions, ViewerOverlayOptions } from "../viewers";
+import type { DesignCardHandle, DesignCardOptions, DesignCardProvider } from "../design-card";
+import type { RefoldPanelHandle, RefoldPanelOptions, RefoldProvider } from "../refold";
+import type { ViewerHighlightOptions, ViewerLoadOptions, ViewerOverlayOptions, ViewerResidue } from "../viewers";
 
 export type StudioEmbedApi = {
   /** The Studio release this page was built from, so a host can check what it is talking to. */
@@ -30,6 +32,13 @@ export type StudioEmbedApi = {
   setOverlay(key: string, cif: string | null, options?: ViewerOverlayOptions): Promise<void>;
 
   /**
+   * Colour residues of the shown structure (chain and author residue number) under `key`, such as hotspots, in its
+   * own cartoon and sticks, or with `transparency` (0 to 1) fade them instead, such as residues still to be built;
+   * kept across documents and live frames until set to `null`.
+   */
+  setHighlight(key: string, residues: ViewerResidue[] | null, options?: ViewerHighlightOptions): Promise<void>;
+
+  /**
    * Trade picture quality for frame rate while you are streaming frames, and put the view back exactly as it was
    * when you stop. Worth doing around a run of `renderFrame` calls.
    */
@@ -37,6 +46,12 @@ export type StudioEmbedApi = {
 
   /** Go back to showing the open document, after frames or a failed run. */
   showDocument(): Promise<void>;
+
+  /**
+   * Put the editor back as it is with nothing open: an empty viewer and sequence, no selection. The session is kept,
+   * so `openSession` can bring it back; nothing asks for confirmation and the page does not reload.
+   */
+  closeDocument(): Promise<void>;
 
   /** Open a session the host created, optionally with a trajectory to scrub. */
   openSession(sessionId: string, options?: { trajectoryUrl?: string | null }): Promise<void>;
@@ -56,8 +71,47 @@ export type StudioEmbedApi = {
   /** The current selection, as document atom indices in ascending order. */
   getSelection(): number[];
 
+  /**
+   * Select these atoms (document atom indices), replacing the selection, as a click in the viewer or the sequence
+   * would: both show it, and the host hears a `selection` event.
+   */
+  setSelection(atomIndices: number[]): void;
+
+  /** Pan the view so these atoms (document indices) sit in its middle, keeping the zoom. */
+  centerOn(atomIndices: number[]): void;
+
+  /**
+   * Light or dark: Studio's colours (the same light palette a VS Code light theme gets) and the viewer's background,
+   * white or black, with the selection outline in the matching ink. Dark until set.
+   */
+  setTheme(theme: "light" | "dark"): void;
+
   /** The colour Studio draws a chain in, so a host's own UI can match it. */
   chainColor(chainId: string): string;
+
+  /**
+   * Mount Studio's Refold panel in `container`: the Designs table with each design's refold numbers, and the Refold
+   * box (model, seed, recycles, steps, Refold all / Stop) with the terms dialog a licence-gated model asks for. The
+   * host supplies a `RefoldProvider` that does the folding and gives the panel the designs; the panel draws each
+   * refold over the shown design through `setOverlay`. See docs/INTEGRATIONS.md, "Refold panel".
+   */
+  mountRefoldPanel(container: HTMLElement, provider: RefoldProvider, options?: RefoldPanelOptions): RefoldPanelHandle;
+
+  /**
+   * Mount Studio's Design card: the start screen and its examples, the job editor, the run settings, Generate and
+   * Stop, the designs with the Refold panel, Save all (.zip) and the light/dark switch. With no `container` the card
+   * goes into Studio's right sidebar (its title row into the header) and Studio's own panels fold away unless the
+   * card's "Studio editor" is ticked; with a `container` it is a block there. The host supplies a
+   * `DesignCardProvider` that makes the designs (`null`: an editor with no engine). A card mounted in the sidebar
+   * replaces the one `?card=1` mounted. See docs/INTEGRATIONS.md, "Design card".
+   */
+  mountDesignCard(container: HTMLElement | null, provider: DesignCardProvider | null, options?: DesignCardOptions): DesignCardHandle;
+
+  /** The id of the session Studio shows, or null with nothing open. */
+  getSessionId(): string | null;
+
+  /** Undo the last edit of the open document, as the Undo button does. */
+  undo(): Promise<void>;
 };
 
 declare global {

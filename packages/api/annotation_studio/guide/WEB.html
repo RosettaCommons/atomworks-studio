@@ -253,6 +253,21 @@ repeating the original request. Export files before leaving the app; sessions
 and the generation queue are temporary. See <a class="reference internal" href="INTEGRATIONS.html#model-enabled-gradio-host"><span class="std std-ref">integrations</span></a>
 to host a model with Studio.</p>
 </section>
+<section id="the-design-card">
+<h2>The Design card<a class="headerlink" href="#the-design-card" title="Link to this heading">¶</a></h2>
+<p>Open the editor with <code class="docutils literal notranslate"><span class="pre">?card=1</span></code> (or let a host mount it, see <a class="reference internal" href="INTEGRATIONS.html#design-card"><span class="std std-ref">integrations</span></a>)
+and the right sidebar becomes the Design card: an <strong>Input</strong> tab with <strong>+ new</strong>,
+<strong>+ pdb</strong>, <strong>+ lig</strong> and ten examples, then the design as chains made of pieces you
+click (structure, sequence, position, hotspots, lengths, shape, exposure, interactions,
+fold; a “+” between pieces adds residues; the chain’s letter opens its name and order;
+<strong>Undo</strong> and <strong>Clear</strong> sit at the tab row’s right end). Under it, the <strong>Thinking</strong> and
+<strong>More settings</strong> controls and <strong>Generate design</strong>, which becomes <strong>Stop</strong> and fills
+with the run’s progress. Designs gather in the <strong>Outputs</strong> tab with the Refold panel and
+<strong>Save all (.zip)</strong>. <strong>Studio editor</strong> brings back every Studio tool in place of the
+card’s editor; the ☀ / ☾ switch changes the theme. A page that does not mount the card
+looks and works as before. With no engine connected, Generate stays off and the rest
+is an editor for design inputs.</p>
+</section>
 <section id="use-inside-vs-code-or-cursor">
 <h2>Use inside VS Code or Cursor<a class="headerlink" href="#use-inside-vs-code-or-cursor" title="Link to this heading">¶</a></h2>
 <p>The extension embeds the same service and UI:</p>

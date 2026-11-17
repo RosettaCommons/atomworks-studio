@@ -2,6 +2,9 @@ import { unpositionedAtomIndices } from "./viewers/unpositioned-atoms";
 import { TrajectoryController } from "./studio/trajectory-controller";
 import { chainColorCss } from "./chain-colors";
 import { chainKindLabel, designSummary, ROLE_LABELS } from "./studio/design-summary";
+import { mountDesignCard } from "./design-card";
+import { connectDesignHost } from "./design-card/bridge";
+import { mountRefoldPanel } from "./refold";
 import { HOST_MESSAGE_SOURCE, installEmbedApi, notifyEmbedder } from "./studio/embed-api";
 import type { ChainRole, ChainSummary } from "./studio/design-summary";
 import initCifCore, { inspect_cif } from "./wasm/annotation_studio_core.js";
@@ -111,6 +114,7 @@ let conditionController: ConditionController | null = null;
 let sequenceController: SequenceController | null = null;
 let structureEditController: StructureEditController | null = null;
 let sessionFileController: SessionFileController | null = null;
+let defaultCard: ReturnType<typeof mountDesignCard> | null = null;
 const selectionController = new SelectionController(
   () => molecularViewer,
   () => updateSelectionUi(),
@@ -680,6 +684,9 @@ async function initialize(): Promise<void> {
       element("coordinate-summary").hidden = true;
       await molecularViewer.renderLiveCif(cif, name, options);
     }),
+    setHighlight: (key, residues, options) => runVisualUpdate(async () => {
+      await molecularViewer.setHighlight(key, residues, options);
+    }),
     setOverlay: (key, cif, options) => runVisualUpdate(async () => {
       if (molecularViewer.initialized) await molecularViewer.setOverlayCif(key, cif, options);
     }),
@@ -701,17 +708,71 @@ async function initialize(): Promise<void> {
         trajectoryController = new TrajectoryController(molecularViewer, async () => {
           await molecularViewer.clearAllVisuals();
           await refreshFromServer();
+          await molecularViewer.restoreOverlays();
         }, log);
         trajectoryController.bind(trajectoryUrl);
       }
       notifyHost("ready");
     }),
+    closeDocument: () => runViewerUpdate(async () => {
+      trajectoryController?.dispose();
+      trajectoryController = null;
+      sessionId = null;
+      currentName = "structure";
+      lastSummary = null;
+      selectionController.clear();
+      await molecularViewer.clearAllVisuals();
+      if (molecularViewer.initialized) await molecularViewer.loadCifs([]);
+      for (const key of ["annotation-studio-session", "annotation-studio-name", "annotation-studio-message"]) {
+        sessionStorage.removeItem(key);
+      }
+      element("document-name").textContent = "No structure open";
+      element("empty-state").hidden = false;
+      element("unpositioned-state").hidden = true;
+      element("coordinate-summary").hidden = true;
+      sequenceController?.render([]);
+      const sequenceView = element("sequence-view");
+      sequenceView.classList.add("muted");
+      sequenceView.textContent = "Open a structure to select residues.";
+      summaryElement.classList.add("muted");
+      summaryElement.textContent = "Open an annotated CIF to begin.";
+      annotationController?.reset();
+      element<HTMLButtonElement>("undo").disabled = true;
+      enableSessionControls(false);
+    }),
     openFile: async (file) => (await sessionFileController?.open(file)) ?? false,
     openExample: async (id) => { await sessionFileController?.loadPendingExample(id); },
     applyEdit: (path, body) => mutate(path, body, true),
     getSelection: () => [...selectionController.values].sort((first, second) => first - second),
+    setSelection: (atomIndices) => selectionController.replace(atomIndices.filter((index) => Number.isInteger(index) && index >= 0)),
     chainColor: chainColorCss,
+    mountRefoldPanel,
+    mountDesignCard: (container, provider, options) => {
+      // One card in the sidebar: a host's replaces the default one that card mode mounts.
+      if (!container) defaultCard?.destroy();
+      const card = mountDesignCard(container, provider, options);
+      if (!container) defaultCard = null;
+      return card;
+    },
+    getSessionId: () => sessionId,
+    undo: () => mutate("/undo", undefined, true),
+    setTheme: (theme) => {
+      const light = theme === "light";
+      document.body.dataset.hostTheme = light ? "light" : "dark";
+      try { molecularViewer.setBackground(light ? "white" : "black"); } catch { /* no renderer yet: kept for when it starts */ }
+    },
+    centerOn: (atomIndices) => molecularViewer.centerOn(atomIndices.filter((index) => Number.isInteger(index) && index >= 0)),
   });
+  // Card mode (`?card=1`): the Design card in the sidebar, Studio's page as the design interface. A host that brings an
+  // engine mounts its own card with `window.atomworksStudio.mountDesignCard`, which replaces this one.
+  if (query.get("card") === "1") {
+    // In a frame of a host that brings an engine (`parent_origin`), the card asks it for one; otherwise it has none.
+    const parentOrigin = query.get("parent_origin");
+    const provider = parentOrigin ? await connectDesignHost(parentOrigin) : null;
+    defaultCard = mountDesignCard(null, provider);
+  }
+  // Start in the scope the menu shows (residues by default: a click on the cartoon selects that residue).
+  selectionController.setScope(pickScope.value as SelectionScope);
   pickScope.addEventListener("change", () => {
     selectionController.setScope(pickScope.value as SelectionScope);
   });
@@ -758,6 +819,7 @@ async function initialize(): Promise<void> {
     trajectoryController = new TrajectoryController(molecularViewer, async () => {
       await molecularViewer.clearAllVisuals();
       await refreshFromServer();
+      await molecularViewer.restoreOverlays();
     }, log);
     trajectoryController.bind(query.get("trajectory")!);
   }

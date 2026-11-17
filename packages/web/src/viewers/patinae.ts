@@ -24,6 +24,7 @@ import {
   type ViewerMeasurement,
   type ViewerMeasurementRequest,
   type ViewerInteraction,
+  type ViewerLoadOptions,
   type ViewerObject,
   type ViewerRepresentation,
   type ViewerRepresentationAction,
@@ -64,6 +65,38 @@ function compressIndices(indices: number[]): string {
   return ranges.join("+");
 }
 
+/**
+ * The base style Patinae needs after a load, as plain commands. Frames of one design differ only in coordinates,
+ * so the same plan serves every frame of a stream and the CIF is parsed once instead of once per frame.
+ */
+type StylePlan = {
+  signature: string;
+  /** Commands whose tasks the normal path waits for, in order. */
+  awaited: string[];
+  /** Commands the normal path issues without waiting, because the next rendered frame applies them anyway. */
+  immediate: string[];
+};
+
+/** Where a live frame parks the camera across the reload. Named so it cannot collide with a user's own view. */
+const LIVE_VIEW_KEY = "_studio_live";
+
+/** The next animation frame, or a short timeout where frames are not running at all (a hidden tab). */
+function nextAnimationFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    const timer = setTimeout(done, 100);
+    requestAnimationFrame(() => {
+      clearTimeout(timer);
+      done();
+    });
+  });
+}
+
 export class PatinaeAdapter implements ViewerAdapter {
   readonly backend = "patinae" as const;
   readonly capabilities = {
@@ -92,6 +125,16 @@ export class PatinaeAdapter implements ViewerAdapter {
   ];
   private colorCommands: string[] = [];
   private backgroundCommand = "bg_color black";
+  private pickingEnabled = false;
+  private selectionOverlayEnabled = false;
+  private liveMode = false;
+  /** What picking and the overlay were set to when the stream began, so `setLiveMode(false)` puts them back. */
+  private savedLiveLook: { picking: boolean; selectionOverlay: boolean } | null = null;
+  private stylePlan: StylePlan | null = null;
+  /** A command failure a live frame did not wait for, held until a call into the viewer can throw it. */
+  private pendingRenderError: string | null = null;
+  /** Tasks from frames that were issued without waiting, drained once the stream ends. */
+  private pendingTaskIds: string[] = [];
 
   constructor(private readonly context: ViewerAdapterContext) {}
 
@@ -120,6 +163,8 @@ export class PatinaeAdapter implements ViewerAdapter {
       selectionOverlay: picking,
       memoryProfile: "auto",
     });
+    this.pickingEnabled = picking;
+    this.selectionOverlayEnabled = picking;
     await this.viewer.init();
     this.capabilities.selectionExpressions = typeof this.viewer.evaluateSelection === "function";
     this.capabilities.selectionList = typeof this.viewer.getSelectionList === "function";
@@ -151,52 +196,213 @@ export class PatinaeAdapter implements ViewerAdapter {
     return `index ${compressIndices(this.nativeIndices(documentIndices))}`;
   }
 
-  private async renderCif(): Promise<void> {
+  /** Replace the object with the current CIF and report what it loaded. Shared by the normal and the live path. */
+  private reloadObject(): void {
     if (!this.viewer || this.cif === null) throw new Error("Patinae has no loaded structure");
     for (const objectName of this.viewer.getObjectNames()) this.viewer.execute(`delete ${objectName}`);
     const loaded = this.viewer.loadData(new TextEncoder().encode(this.cif), this.name, "cif");
     if ("Err" in loaded.result) throw new Error(loaded.result.Err);
     this.atomIdentities = this.viewer.getAtomIdentityMap?.() ?? [];
+  }
+
+  private async renderCif(options?: ViewerLoadOptions): Promise<void> {
+    if (!this.viewer) throw new Error("Patinae is not initialized");
+    this.reloadObject();
     await this.applyBaseStyle();
-    this.viewer.execute("zoom all");
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    this.viewer.getObjectNames(); // Surface deferred WebGPU/render errors.
+    if (!options?.keepCamera) this.viewer.execute("zoom all");
+    await this.surfaceRenderErrors();
+  }
+
+  /**
+   * Patinae records a renderer failure inside its own animation loop, where nothing is waiting for it; the next
+   * `getObjectNames` then rethrows it. So a failed frame has to have run before the check means anything, which is
+   * what the fixed 250 ms sleep here used to guess at. Waiting for the frames themselves is both quicker and exact.
+   * `tasks.wait` cannot stand in: `loadData` parses synchronously and creates no task, and the failure belongs to
+   * the render rather than to any command.
+   */
+  private async surfaceRenderErrors(): Promise<void> {
+    if (!this.viewer) return;
+    // One tick to let the pending frame run, a second so a failure in it has been recorded.
+    await nextAnimationFrame();
+    await nextAnimationFrame();
+    this.viewer.getObjectNames();
+    this.throwPendingRenderError();
+  }
+
+  /** Report a renderer failure the animation loop picked up while nothing was waiting for it. */
+  private throwPendingRenderError(): void {
+    const error = this.pendingRenderError;
+    if (error === null) return;
+    this.pendingRenderError = null;
+    throw new Error(error);
+  }
+
+  /**
+   * What the base style is computed from: the atoms and chains in play, and the styling the user has chosen. Frames
+   * of one design carry the same atoms in the same order and differ only in their coordinates, so this holds still
+   * across a stream and changes the moment anything the commands depend on does.
+   */
+  private structureSignature(): string {
+    const atoms = this.atomIdentities
+      .map((atom) => `${atom.object_name}/${atom.atom_index}/${atom.chain_id}/${atom.element}`)
+      .join("|");
+    return [atoms, this.displayCommands.join(";"), this.colorCommands.join(";"), this.backgroundCommand].join("\n");
+  }
+
+  /**
+   * The base-style commands for the loaded structure. Pure: it issues nothing, so the CIF scans behind it happen
+   * once per structure rather than once per frame.
+   *
+   * Carbons are coloured by chain from the shared palette, so chains read the same here, in the sequence bar and in
+   * Mol*. Mol* does this with a colour theme; Patinae takes commands, so the same palette is applied per chain.
+   */
+  private buildStylePlan(): StylePlan {
+    const awaited = [...this.displayCommands, "color atomic"];
+    const immediate: string[] = [];
+    if (this.cif !== null) {
+      for (const [chain, indices] of carbonIndicesByChain(this.cif)) {
+        const hex = chainColor(chain).toString(16).padStart(6, "0");
+        awaited.push(`color 0x${hex}, ${this.nativeSelection(indices)}`);
+      }
+      awaited.push(...this.colorCommands);
+      immediate.push(this.backgroundCommand);
+      const coordinateRows = parseAtomSiteBooleanColumn(
+        this.cif,
+        "_atom_site.mask_coordinate_1_atom",
+      );
+      if (coordinateRows.length) immediate.push(`show sticks, ${this.nativeSelection(coordinateRows)}`);
+      const unpositioned = unpositionedAtomIndices(this.cif);
+      if (unpositioned.length) immediate.push(`hide everything, ${this.nativeSelection(unpositioned)}`);
+    }
+    return { signature: this.structureSignature(), awaited, immediate };
   }
 
   private async applyBaseStyle(): Promise<void> {
     if (!this.viewer || this.cif === null) return;
-    for (const command of this.displayCommands) await this.executeCommand(command);
-    await this.executeCommand("color atomic");
-    await this.applyChainColors();
-    for (const command of this.colorCommands) await this.executeCommand(command);
-    this.viewer.execute(this.backgroundCommand);
-    const coordinateRows = parseAtomSiteBooleanColumn(
-      this.cif,
-      "_atom_site.mask_coordinate_1_atom",
-    );
-    if (coordinateRows.length) {
-      this.viewer.execute(`show sticks, ${this.nativeSelection(coordinateRows)}`);
-    }
-    const unpositioned = unpositionedAtomIndices(this.cif);
-    if (unpositioned.length) this.viewer.execute(`hide everything, ${this.nativeSelection(unpositioned)}`);
+    const plan = this.buildStylePlan();
+    this.stylePlan = plan;
+    await this.runStylePlan(plan);
+  }
+
+  private async runStylePlan(plan: StylePlan): Promise<void> {
+    if (!this.viewer) return;
+    for (const command of plan.awaited) await this.executeCommand(command);
+    for (const command of plan.immediate) this.viewer.execute(command);
   }
 
   /**
-   * Colour carbons by chain from the shared palette, so chains read the same here, in the sequence bar and in Mol*.
-   * Mol* does this with a colour theme; Patinae takes commands, so the same palette is applied per chain.
+   * Re-issue a known-good plan without waiting on it command by command. Each round trip into the viewer costs a
+   * frame of its own, and during a stream the next frame is along shortly. A failure still reaches us: the
+   * command's own result is checked as it arrives, its task is waited on when the stream ends, and a renderer
+   * failure sets the flag that the next `getObjectNames` rethrows.
    */
-  private async applyChainColors(): Promise<void> {
-    if (!this.viewer || this.cif === null) return;
-    for (const [chain, indices] of carbonIndicesByChain(this.cif)) {
-      const hex = chainColor(chain).toString(16).padStart(6, "0");
-      await this.executeCommand(`color 0x${hex}, ${this.nativeSelection(indices)}`);
+  private replayStylePlan(plan: StylePlan): void {
+    if (!this.viewer) return;
+    for (const command of [...plan.awaited, ...plan.immediate]) {
+      void this.viewer.execute(command).then(
+        (reply) => {
+          this.pendingTaskIds.push(...reply.task_ids);
+          if ("Err" in reply.result) this.pendingRenderError ??= reply.result.Err;
+        },
+        (error: unknown) => {
+          this.pendingRenderError ??= error instanceof Error ? error.message : String(error);
+        },
+      );
     }
   }
 
-  async loadCif(cif: string, name: string): Promise<void> {
+  /**
+   * Wait on the work the stream issued but never waited for, so a failure it ran past still becomes an error the
+   * next viewer call reports rather than one that is lost with the stream.
+   */
+  private async drainPendingTasks(): Promise<void> {
+    const viewer = this.viewer;
+    const ids = this.pendingTaskIds;
+    this.pendingTaskIds = [];
+    if (!viewer) return;
+    for (const id of ids) {
+      try {
+        const task = await viewer.tasks.wait(id, 30_000);
+        if (task.state !== "succeeded") this.pendingRenderError ??= `Patinae task ${id}: ${task.state}`;
+      } catch (error) {
+        this.pendingRenderError ??= error instanceof Error ? error.message : String(error);
+      }
+    }
+  }
+
+  async loadCif(cif: string, name: string, options?: ViewerLoadOptions): Promise<void> {
+    this.throwPendingRenderError();
     this.cif = cif;
     this.name = name;
-    await this.renderCif();
+    await this.renderCif(options);
+  }
+
+  /**
+   * See `ViewerAdapter.updateLiveCif`. Patinae has no in-place data update — its facade can only load a structure —
+   * so this is a rebuild, not the swap Mol* does. It is made cheap instead: the camera stays where the viewer put
+   * it, the base style is replayed from the plan computed for the first frame while the structure's shape holds,
+   * and nothing waits on a fixed settle.
+   */
+  async updateLiveCif(cif: string, name: string, options?: ViewerLoadOptions): Promise<void> {
+    if (!this.viewer) throw new Error("Patinae is not initialized");
+    this.throwPendingRenderError();
+    this.cif = cif;
+    this.name = name;
+    const keepCamera = options?.keepCamera ?? false;
+    // Patinae has no in-place update, and loading re-centres the view on whatever came in — so without this a
+    // stream drags the camera along with the structure's centre even though nothing asked it to move. `view`
+    // stores the whole camera state, origin and clipping and FOV included, under a name. Both halves are awaited:
+    // `loadData` parses synchronously and would otherwise overtake a command still sitting in the queue.
+    if (keepCamera) await this.executeCommand(`view ${LIVE_VIEW_KEY}, store`);
+    this.reloadObject();
+    if (keepCamera) await this.executeCommand(`view ${LIVE_VIEW_KEY}, recall`);
+    const plan = this.stylePlan;
+    const reused = plan !== null && plan.signature === this.structureSignature();
+    if (!reused) await this.applyBaseStyle();
+    else if (this.liveMode) this.replayStylePlan(plan);
+    else await this.runStylePlan(plan);
+    if (!keepCamera) this.viewer.execute("zoom all");
+    const dataset = this.context.container.dataset;
+    // Frames served by the live path. For Patinae these are cheap rebuilds, not in-place updates.
+    dataset.liveUpdates = String(Number(dataset.liveUpdates ?? 0) + 1);
+    dataset.liveStyleReplays = String(Number(dataset.liveStyleReplays ?? 0) + (reused ? 1 : 0));
+    // Cheap and synchronous: it rethrows a failure the animation loop recorded while the stream ran past it.
+    // `reloadObject` makes the same check at the top of the next frame, and `setLiveMode(false)` makes the full
+    // one, so a renderer error in the last frame of a stream is not lost either.
+    this.viewer.getObjectNames();
+    this.throwPendingRenderError();
+  }
+
+  /**
+   * See `ViewerAdapter.setLiveMode`. Patinae rebuilds its object for every frame, so the levers are the work around
+   * that rebuild: picking and the selection overlay each cost a pass per frame and nothing can usefully be clicked
+   * while frames are replacing each other, and style commands need not be waited on one at a time. Both go back
+   * exactly as they were, and the work the stream skipped waiting for is drained once it ends.
+   */
+  setLiveMode(on: boolean): void {
+    if (!this.viewer) return;
+    if (on) {
+      this.liveMode = true;
+      if (this.savedLiveLook) return;
+      this.savedLiveLook = {
+        picking: this.pickingEnabled,
+        selectionOverlay: this.selectionOverlayEnabled,
+      };
+      this.viewer.setPicking(false);
+      this.viewer.setSelectionOverlay(false);
+      return;
+    }
+    this.liveMode = false;
+    if (this.savedLiveLook) {
+      this.viewer.setPicking(this.savedLiveLook.picking);
+      this.viewer.setSelectionOverlay(this.savedLiveLook.selectionOverlay);
+      this.savedLiveLook = null;
+    }
+    this.viewer.execute(`view ${LIVE_VIEW_KEY}, clear`);
+    // The stream waited for none of this; surface now what it ran past.
+    void this.drainPendingTasks().then(() => this.surfaceRenderErrors()).catch((error: unknown) => {
+      this.pendingRenderError ??= error instanceof Error ? error.message : String(error);
+    });
   }
 
   trajectoryFrameCount(): number {
@@ -242,8 +448,8 @@ export class PatinaeAdapter implements ViewerAdapter {
     this.viewer.execute("zoom all");
     this.cif = null;
     this.name = "comparison";
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    this.viewer.getObjectNames();
+    this.stylePlan = null;
+    await this.surfaceRenderErrors();
   }
 
   async showAnnotation(groups: AnnotationGroup[]): Promise<AnnotationRenderResult> {
@@ -478,6 +684,11 @@ export class PatinaeAdapter implements ViewerAdapter {
     this.interactionNames.clear();
     this.atomIdentities = [];
     this.cif = null;
+    this.stylePlan = null;
+    this.savedLiveLook = null;
+    this.liveMode = false;
+    this.pendingRenderError = null;
+    this.pendingTaskIds = [];
   }
 }
 

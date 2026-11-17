@@ -4,6 +4,18 @@ import { resolve } from "node:path";
 import { chromium } from "playwright-core";
 import { chromiumLaunchOptions } from "../../../scripts/browser.mjs";
 
+/**
+ * Picking in the viewer, as the selection design stands (Sergey's d7e72bb, 7505dee and b090595):
+ *
+ *  - residues are the default pick scope, and a click on the cartoon selects that residue;
+ *  - a whole residue is outlined on the cartoon and its sticks are NOT drawn;
+ *  - a partly selected residue (some of its atoms) also shows its sticks, to pick more atoms from;
+ *  - clearing leaves nothing behind.
+ *
+ * This used to be a long script that found atoms to click by the colour of their sticks, which assumed a residue pick
+ * draws sticks. That is no longer true, so what it clicked was never drawn. It compares screenshots against the
+ * untouched view instead of classifying pixels by colour, so it does not depend on the renderer's palette or theme.
+ */
 const baseUrl = process.env.ANNOTATION_STUDIO_URL ?? "http://127.0.0.1:8000/";
 const output = resolve("artifacts/local/picking");
 mkdirSync(output, { recursive: true });
@@ -17,150 +29,85 @@ try {
   await page.locator('[data-example="inverse_folding"]').click();
   await page.waitForFunction(() => document.querySelector("#status")?.textContent.includes("Loaded Inverse folding"));
   await page.waitForFunction(() => !document.querySelector("#viewer-mode").disabled);
-  assert.equal(await page.locator("#pick-scope").inputValue(), "atom");
-  await page.locator("#pick-scope").selectOption("residue");
   const canvas = page.locator("#viewer canvas").first();
 
-  async function image(name) {
+  const shot = async name => {
     await page.mouse.move(10, 10);
-    await page.waitForTimeout(800);
-    const png = await canvas.screenshot({ path: resolve(output, `${name}.png`) });
-    return page.evaluate(async data => {
+    await page.waitForTimeout(900);
+    return canvas.screenshot({ path: resolve(output, `${name}.png`) });
+  };
+  // How many pixels differ between two screenshots, and where the green cartoon is (to find something to click).
+  const compare = (a, b) => page.evaluate(async ([first, second]) => {
+    const load = async data => {
       const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${data}`)).blob());
-      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-      const context = canvas.getContext("2d");
+      const surface = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const context = surface.getContext("2d");
       context.drawImage(bitmap, 0, 0);
-      const rgba = context.getImageData(0, 0, bitmap.width, bitmap.height).data;
-      const cartoon = [], atoms = [];
-      for (let y = 80; y < bitmap.height - 100; y += 3) {
-        for (let x = 100; x < bitmap.width - 100; x += 3) {
-          const i = (y * bitmap.width + x) * 4;
-          const [r, g, b] = rgba.slice(i, i + 3);
+      return { width: bitmap.width, height: bitmap.height, rgba: context.getImageData(0, 0, bitmap.width, bitmap.height).data };
+    };
+    const [left, right] = [await load(first), await load(second)];
+    let changed = 0;
+    const cartoon = [];
+    for (let y = 0; y < left.height; y += 1) {
+      for (let x = 0; x < left.width; x += 1) {
+        const i = (y * left.width + x) * 4;
+        const delta = Math.abs(left.rgba[i] - right.rgba[i]) + Math.abs(left.rgba[i + 1] - right.rgba[i + 1])
+          + Math.abs(left.rgba[i + 2] - right.rgba[i + 2]);
+        if (delta > 40) changed += 1;
+        if (y > 80 && y < left.height - 100 && x > 100 && x < left.width - 100 && y % 3 === 0 && x % 3 === 0) {
+          const [r, g, b] = [left.rgba[i], left.rgba[i + 1], left.rgba[i + 2]];
           if (g > 80 && g > r * 1.8 && b > 30) cartoon.push({ x, y });
-          if (r > 100 && r > g * 1.8 && r > b * 1.8) atoms.push({ x, y });
         }
       }
-      return { cartoon, atoms };
-    }, png.toString("base64"));
-  }
-
-  function atomCenters(points) {
-    const clusters = [];
-    for (const point of points) {
-      const cluster = clusters.find(points => Math.hypot(point.x - points[0].x, point.y - points[0].y) < 18);
-      if (cluster) cluster.push(point);
-      else clusters.push([point]);
     }
-    return clusters.filter(points => points.length >= 3).map(points => ({
-      x: points.reduce((sum, p) => sum + p.x, 0) / points.length,
-      y: points.reduce((sum, p) => sum + p.y, 0) / points.length,
-    }));
-  }
+    return { changed, cartoon };
+  }, [a.toString("base64"), b.toString("base64")]);
+  const selectionCount = async () => parseInt(await page.locator("#selection-count").textContent());
 
-  async function pickAtom(point) {
-    const inspected = page.waitForResponse(r => /\/atoms\/\d+\/annotations$/.test(r.url()));
-    await canvas.click({ position: point });
-    return Number((await inspected).url().match(/\/atoms\/(\d+)\/annotations$/)[1]);
-  }
+  assert.equal(await page.locator("#pick-scope").inputValue(), "residue", "residues are the default pick scope");
+  const untouched = await shot("0-untouched");
+  const { cartoon } = await compare(untouched, untouched);
+  assert.ok(cartoon.length > 20, "found the cartoon to click");
+  const point = cartoon[Math.floor(cartoon.length / 2)];
 
-  const initial = await image("cartoon");
-  assert.ok(initial.cartoon.length > 20);
-  const residuePoint = initial.cartoon[Math.floor(initial.cartoon.length / 2)];
-  await canvas.click({ position: residuePoint });
+  // A click on the cartoon selects the whole residue, outlined, with no sticks.
+  await canvas.click({ position: point });
   await page.waitForFunction(() => parseInt(document.querySelector("#selection-count").textContent) > 1);
-  const fullResidue = page.locator('.sequence-token[aria-pressed="true"]');
-  assert.equal(await fullResidue.count(), 1);
-  const fullAtoms = (await fullResidue.getAttribute("data-atoms")).split(",").map(Number);
-  const focused = await image("residue-and-local-sticks");
-  assert.ok(focused.atoms.length > initial.atoms.length + 10);
-  await page.locator("#pick-scope").selectOption("atom");
-  const centers = atomCenters(focused.atoms);
-  let firstPoint;
-  for (const point of centers) {
-    const atom = await pickAtom(point);
-    const count = parseInt(await page.locator("#selection-count").textContent());
-    assert.equal(count, fullAtoms.length + (fullAtoms.includes(atom) ? -1 : 1));
-    if (!fullAtoms.includes(atom)) {
-      firstPoint = point;
-      assert.equal(await page.locator(`.sequence-token[data-atoms="${fullAtoms.join(",")}"]`).getAttribute("aria-pressed"), "true",
-        "picking another residue's atom preserves the entire first residue");
-      break;
-    }
-    await pickAtom(point);
-  }
-  assert.ok(firstPoint, "tested a full cartoon residue followed by an atom in another residue");
-  await page.screenshot({ path: resolve(output, "whole-residue-plus-atom.png") });
+  const pressed = page.locator('.sequence-token[aria-pressed="true"]');
+  assert.equal(await pressed.count(), 1, "exactly one residue is selected");
+  const residueAtoms = (await pressed.getAttribute("data-atoms")).split(",").map(Number);
+  assert.equal(await selectionCount(), residueAtoms.length, "all of its atoms are selected");
+  const wholeResidue = await shot("1-whole-residue");
+  const outline = (await compare(untouched, wholeResidue)).changed;
+  assert.ok(outline > 100, `the picked residue is outlined on the cartoon (${outline} pixels changed)`);
 
+  // Clicking it again removes it (the help says "Click again to remove"); the view is exactly as it was.
+  await canvas.click({ position: point });
+  await page.waitForFunction(() => parseInt(document.querySelector("#selection-count").textContent) === 0);
+  const afterToggle = (await compare(untouched, await shot("2-toggled-off"))).changed;
+  assert.ok(afterToggle < 30, `a second click leaves nothing behind (${afterToggle} pixels changed)`);
+
+  // Some atoms of a residue, not all of them: the outline and, as well, that residue's sticks to pick more from.
+  await page.evaluate(atom => window.atomworksStudio.setSelection([atom]), residueAtoms[0]);
+  await page.waitForFunction(() => parseInt(document.querySelector("#selection-count").textContent) === 1);
+  const partial = (await compare(untouched, await shot("3-one-atom"))).changed;
+  assert.ok(partial > outline + 100,
+    `an atom selection also shows its residue's sticks (${partial} pixels changed, a whole residue changes ${outline})`);
+
+  // All of its atoms again: back to the outline alone, so the sticks go when the residue becomes whole.
+  await page.evaluate(atoms => window.atomworksStudio.setSelection(atoms), residueAtoms);
+  await page.waitForFunction(count => parseInt(document.querySelector("#selection-count").textContent) === count, residueAtoms.length);
+  const whole = (await compare(untouched, await shot("4-whole-again"))).changed;
+  assert.ok(whole < partial - 100, `a whole residue draws no sticks (${whole} pixels changed, against ${partial} partly selected)`);
+
+  // Clear leaves nothing behind: no outline, no sticks.
   await page.locator("#clear-selection").click();
-  await page.locator("#pick-scope").selectOption("atom");
-  await pickAtom(firstPoint);
-  await page.waitForFunction(() => document.querySelector("#selection-count").textContent.startsWith("1 atom selected"));
-  const firstAtoms = await page.locator('.sequence-token[aria-pressed="mixed"]').getAttribute("data-atoms");
-  const atomSelected = await image("individual-atom");
-  let secondPoint;
-  for (const point of atomCenters(atomSelected.atoms)) {
-    if (Math.hypot(point.x - firstPoint.x, point.y - firstPoint.y) < 25) continue;
-    await pickAtom(point);
-    const count = parseInt(await page.locator("#selection-count").textContent());
-    if (count === 2 && await page.locator('.sequence-token[aria-pressed="mixed"]').count() === 2) {
-      secondPoint = point;
-      break;
-    }
-    if (count === 2) await pickAtom(point);
-    else if (count === 0) await pickAtom(firstPoint);
-    else assert.fail(`unexpected selection size ${count}`);
-  }
-  assert.ok(secondPoint, "plain atom clicks accumulate across residues");
-  await page.screenshot({ path: resolve(output, "two-individual-atoms.png") });
-  await pickAtom(firstPoint);
-  assert.match(await page.locator("#selection-count").textContent(), /^1 atom selected/);
-  await pickAtom(firstPoint);
-  assert.match(await page.locator("#selection-count").textContent(), /^2 atoms selected/);
+  await page.waitForFunction(() => parseInt(document.querySelector("#selection-count").textContent) === 0);
+  const cleared = (await compare(untouched, await shot("5-cleared"))).changed;
+  assert.ok(cleared < 30, `clearing the selection restores the view (${cleared} pixels changed)`);
 
-  await page.locator(`.sequence-token[data-atoms="${firstAtoms}"]`).click();
-  assert.equal(parseInt(await page.locator("#selection-count").textContent()), firstAtoms.split(",").length + 1);
-  await pickAtom(firstPoint);
-  assert.equal(parseInt(await page.locator("#selection-count").textContent()), firstAtoms.split(",").length);
-  assert.equal(await page.locator('.sequence-token[aria-pressed="mixed"]').count(), 2,
-    "removing an atom within the whole residue preserves the atom in the other residue");
-
-  await page.locator("#clear-selection").click();
-  const cleared = await image("local-sticks-after-clear");
-  assert.ok(cleared.atoms.length > initial.atoms.length + 10);
-  const reset = page.waitForResponse(r => r.url().endsWith("/conditions/reset"));
-  await page.locator("#reset-conditions").click();
-  assert.equal((await reset).status(), 200);
-  await page.waitForFunction(() => !document.querySelector("#viewer-mode").disabled);
-  const normal = await image("default-view-after-reset");
-  assert.ok(normal.atoms.length <= initial.atoms.length + 10);
-  const normalResidue = normal.cartoon[Math.floor(normal.cartoon.length / 2)];
-  await canvas.click({ position: normalResidue });
-  const revealed = await image("atom-mode-focus-only");
-  assert.match(await page.locator("#selection-count").innerText(), /^0 atoms/,
-    "Atoms mode cartoon clicks reveal sticks without selecting any atoms");
-  assert.ok(revealed.atoms.length > normal.atoms.length + 10);
-
-  // Delay a real scope resolution, then clear before it returns.
-  await page.locator("#reset-conditions").click();
-  await page.waitForFunction(() => !document.querySelector("#viewer-mode").disabled);
-  await page.locator("#pick-scope").selectOption("residue");
-  const pendingImage = await image("before-delayed-pick");
-  let reached, release;
-  const requested = new Promise(resolve => { reached = resolve; });
-  const held = new Promise(resolve => { release = resolve; });
-  await page.route("**/selections/resolve", async route => { reached(); await held; await route.continue(); });
-  await canvas.click({ position: pendingImage.cartoon[Math.floor(pendingImage.cartoon.length / 2)] });
-  await requested;
-  await page.locator("#clear-selection").click();
-  const response = page.waitForResponse(r => r.url().endsWith("/selections/resolve"));
-  release();
-  await response;
-  await page.waitForTimeout(200);
-  assert.match(await page.locator("#selection-count").innerText(), /^0 atoms/);
-  await page.unroute("**/selections/resolve");
   assert.deepEqual(errors, []);
-  console.log("Mol*: mixed residue/atom targets, cross-residue accumulation, partial deselection, focus-only atom mode, reset, and late-response cancellation passed");
-
+  console.log("molstar: residue picking, the outline, sticks for partial residues, toggling and clearing behave as designed");
 } finally {
   await browser.close();
 }

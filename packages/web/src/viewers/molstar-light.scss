@@ -1,0 +1,7 @@
+// Mol*'s light skin, applied only while the page is light (a `data-host-theme` containing "light" on the root or the
+// body); the dark skin (molstar.ts) is the default. Nesting prefixes every Mol* selector, so it outranks the dark one.
+@use "sass:meta";
+
+:is([data-host-theme="light"], [data-host-theme="high-contrast-light"]) {
+  @include meta.load-css("../../node_modules/molstar/lib/mol-plugin-ui/skin/light");
+}

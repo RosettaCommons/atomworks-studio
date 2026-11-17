@@ -128,13 +128,30 @@ export type ViewerMarker = { label: string; position: [number, number, number]; 
 /** `keepCamera` leaves the view where it is, for successive frames of the same structure. */
 export type ViewerLoadOptions = { keepCamera?: boolean };
 
-/** How a display-only overlay structure is drawn (ball-and-stick; element colours unless `color` is set). */
+/**
+ * How a display-only overlay structure is drawn: ball-and-stick unless `representation` says otherwise, element colours
+ * unless `color` is set. `sizeAspectRatio` applies to ball-and-stick only. The options take effect when the overlay is
+ * created; to change them, remove it (`null`) and set it again.
+ */
 export type ViewerOverlayOptions = {
   label?: string;
+  representation?: "ball-and-stick" | "cartoon";
   alpha?: number;
   color?: number;
   sizeAspectRatio?: number;
+  /** A cartoon's thickness (Mol*'s sizeFactor, 0.2 by default): a thicker copy behind another outlines it. */
+  sizeFactor?: number;
 };
+
+/**
+ * A residue by chain and author residue number, as a host names it (stable across live frames and designs). With
+ * `insCode` ("" for none) only the residue with that insertion code: without it, an antibody's H82 is H82, H82A, H82B
+ * and H82C alike.
+ */
+export type ViewerResidue = { chain: string; residue: number; insCode?: string };
+
+/** A highlight's look: a colour (the default, amber), or a transparency (0 solid to 1 invisible) instead. */
+export type ViewerHighlightOptions = { color?: number; transparency?: number };
 
 export type AnnotationColor = {
   name: string;
@@ -175,6 +192,12 @@ export interface ViewerAdapter {
    */
   setOverlayCif?(key: string, cif: string | null, options?: ViewerOverlayOptions): Promise<void>;
   /**
+   * Colour `residues` of the shown structure under `key` (e.g. a design's hotspots), or with `transparency` fade them
+   * instead, in its own representations rather than as extra geometry; `null` or an empty list removes it. Kept across
+   * loads and live frames until removed. Optional: a no-op on backends without it.
+   */
+  setHighlight?(key: string, residues: ViewerResidue[] | null, options?: ViewerHighlightOptions): Promise<void>;
+  /**
    * Trade picture quality for frame rate while a stream of frames is arriving, restoring exactly what was in force
    * when it ends. Optional: a no-op on backends that do not distinguish the two.
    */
@@ -190,6 +213,8 @@ export interface ViewerAdapter {
   setColor?(color: ViewerColor, target: ViewerTarget): void;
   setBackground?(color: "black" | "white"): void;
   camera?(action: ViewerCameraAction): void;
+  /** Pan to put these atoms (document indices) in the middle of the view, keeping the zoom. Optional. */
+  centerOn?(atomIndices: number[]): void;
   executeCommand?(command: string): unknown;
   evaluateSelection?(expression: string): number[];
   getObjectList?(): ViewerObject[];

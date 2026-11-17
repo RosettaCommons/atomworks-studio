@@ -1,0 +1,1 @@
+function e(){return(document.body?.dataset.hostTheme||document.documentElement.dataset.hostTheme||``).includes(`light`)?`white`:`black`}export{e as t};

@@ -59,9 +59,12 @@ AtomWorks can derive. Derived fields are evaluated on a temporary copy; selectin
 atoms does not change the saved document or undo history.
 
 `chain_id` is the source chain identifier. Assembly copies can share it.
-`chain_iid` identifies the chain instance shown in Studio; for example,
-`chain_iid == 'A_1'` selects that instance if it exists. Inspect your structure
-before assuming either identifier. `res_id` is a residue number, not its position
+`chain_iid` identifies the chain instance (chain and transformation); for example,
+`chain_iid == 'A_1'` selects transformation 1 of chain A if it exists. Studio
+labels a chain with the name its CIF carries, which is `chain_id` unless assembly
+copies make that ambiguous (then it is `chain_iid`, `A_1` and `A_2`). The
+annotations of an atom report all three: `chain` (the label), `chain_id` and
+`chain_iid`. Inspect your structure before assuming either identifier. `res_id` is a residue number, not its position
 in the displayed sequence; `atom_id` is an annotation, not a zero-based row index.
 
 ## Selection paths

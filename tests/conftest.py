@@ -8,9 +8,9 @@ import pytest
 from atomworks.io.utils import io_utils
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def stable_cif_metadata(monkeypatch):
-    """Keep CIF export timestamps fixed when comparing document contents."""
+    """Keep CIF export timestamps fixed in every test, so two exports of one document compare equal."""
 
     class FixedDateTime(datetime):
         @classmethod

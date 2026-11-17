@@ -57,7 +57,7 @@ try {
     assert.equal(result.structure.condition_counts[key], ["coordinate", "hotspot"].includes(key) ? 2 : 1);
     const row = page.locator(`[data-view-key="annotations/${key}"]`);
     assert.equal(await row.isVisible(), true, "active conditions can be browsed without searching");
-    assert.equal(await page.locator("#annotation-list details").count(), 0);
+    // No `#annotation-list details` assertion here: that UI was removed in bbe0d70, so it could never be non-zero.
     await row.click();
     await page.waitForFunction(() => document.querySelector("#viewer")?.dataset.annotationAtoms === "2");
     assert.match(await page.locator("#selection-count").innerText(), /^0 atoms/);

@@ -150,6 +150,15 @@ use an echo runner locally or explicitly enable it against a model deployment.
 For private Spaces, supply <code class="docutils literal notranslate"><span class="pre">HF_TOKEN</span></code> through the environment and set
 <code class="docutils literal notranslate"><span class="pre">STUDIO_PARENT_ORIGIN=https://huggingface.co</span></code> to reproduce the Hub’s nested iframe.
 The test sends authentication only to the configured Studio origin.</p>
+<p>The Refold panel has two checks of its own. <code class="docutils literal notranslate"><span class="pre">packages/web/tests/refold-panel.mjs</span></code>
+runs the panel against a fake provider without any server (terms dialog, Refold
+all, Stop, rows, overlays); <code class="docutils literal notranslate"><span class="pre">packages/web/tests/embed-api.mjs</span></code> mounts it through
+<code class="docutils literal notranslate"><span class="pre">window.atomworksStudio</span></code>. For the Gradio host, start the simulated deployment and
+drive it end to end:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>scripts/preview_generation.py<span class="w"> </span>--delay<span class="w"> </span><span class="m">1</span><span class="w"> </span>--refold<span class="w"> </span>--port<span class="w"> </span><span class="m">8792</span><span class="w"> </span><span class="p">&amp;</span>
+<span class="nv">GRADIO_URL</span><span class="o">=</span>http://127.0.0.1:8792/design/<span class="w"> </span>node<span class="w"> </span>packages/web/tests/gradio-refold.mjs
+</pre></div>
+</div>
 </section>
 <section id="selection-invariants">
 <h2>Selection invariants<a class="headerlink" href="#selection-invariants" title="Link to this heading">¶</a></h2>
@@ -169,6 +178,23 @@ source indices. Missing coordinates and design placeholders stay in the editable
 they must never enter geometry, focus surroundings, camera bounds, or picking. The shared
 coordinate filter also constrains Patinae representation changes. The close/reopen regression
 in <code class="docutils literal notranslate"><span class="pre">packages/web/tests/unresolved-rendering.mjs</span></code> checks scene isolation and sequence coverage.</p>
+</section>
+<section id="design-card-parity">
+<h2>Design card parity<a class="headerlink" href="#design-card-parity" title="Link to this heading">¶</a></h2>
+<p>The design card edits a job through Studio’s REST API. The RFD4-Proteina page serves that API in the browser with its
+own engine (<code class="docutils literal notranslate"><span class="pre">web/studio-api.js</span></code>), so the Python server must give the same atoms for the same edits.
+<code class="docutils literal notranslate"><span class="pre">tests/test_design_card_parity.py</span></code> runs the card’s recipes (protein and small-molecule binders, motif scaffolding,
+enzyme, antibody, nanobody, inverse folding, partial diffusion, and every kind of part a chain can be rebuilt from)
+through both engines and compares atom order, chain names, residue numbers and names, coordinates, bonds, the
+conditions the card reads, plans, origins and previews, with an Undo after each. Opening the RCSB entries the
+recipes use is compared too.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">RFD4P_PAGE_DIR</span><span class="o">=</span>/path/to/rfd4-proteina-webgpu<span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/run_pytest.py<span class="w"> </span>-q<span class="w"> </span>tests/test_design_card_parity.py
+</pre></div>
+</div>
+<p>It needs node, and skips without <code class="docutils literal notranslate"><span class="pre">RFD4P_PAGE_DIR</span></code> or an entry. Entries are looked up in <code class="docutils literal notranslate"><span class="pre">STUDIO_PARITY_CIF_DIR</span></code>,
+<code class="docutils literal notranslate"><span class="pre">tests/fixtures/rcsb</span></code> and the system temp directory, and downloaded once otherwise.
+<code class="docutils literal notranslate"><span class="pre">tests/parity/js_engine_driver.mjs</span></code> is the page side of the comparison; <code class="docutils literal notranslate"><span class="pre">tests/test_design_card_routes.py</span></code> covers the
+same operations and routes without it.</p>
 </section>
 </section>
 

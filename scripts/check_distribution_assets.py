@@ -50,7 +50,14 @@ def check_archive(path: Path) -> None:
         assert init in contents, f"{path.name}: missing {init}"
     prefix = "annotation_studio/web/" if path.suffix == ".whl" else "packages/api/annotation_studio/web/"
     names = {name.removeprefix(prefix) for name in contents if name.startswith(prefix)}
-    required = {"index.html", "manifest.webmanifest", "sw.js", "assets/patinae_web_bg.wasm"}
+    required = {
+        "index.html",
+        "manifest.webmanifest",
+        "sw.js",
+        "refold-panel.js",
+        "design-card.js",
+        "assets/patinae_web_bg.wasm",
+    }
     assert required <= names, f"{path.name}: missing {sorted(required - names)}"
     assert any(name.startswith("assets/annotation_studio_core_bg-") and name.endswith(".wasm") for name in names), (
         f"{path.name}: CIF WASM is missing"
@@ -70,6 +77,13 @@ def check_archive(path: Path) -> None:
         "_static/studio.js",
     ):
         assert contents.get(guide_prefix + name), f"{path.name}: missing guide/{name}"
+    # The packaged guide is opened from a local server on the user's own machine, often beside a structure they are
+    # working on in confidence, so it must not load scripts from anywhere else. Usage analytics belong to the hosted
+    # documentation only (docs/conf.py, STUDIO_DOCS_ANALYTICS), which is built separately.
+    for name, data in contents.items():
+        if name.startswith(guide_prefix) and name.endswith(".html"):
+            external = re.findall(rb'<script[^>]*\bsrc="(https?://[^"]+)"', data)
+            assert not external, f"{path.name}: {name} loads third-party scripts: {[x.decode() for x in external]}"
     print(f"{path.name}: {len(names)} browser assets and packaged interactive guide verified")
 
 

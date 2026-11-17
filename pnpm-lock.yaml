@@ -14,8 +14,8 @@ importers:
         specifier: ^26.6.4
         version: 26.6.4
       '@types/vscode':
-        specifier: 1.95.0
-        version: 1.95.0
+        specifier: 1.140.0
+        version: 1.140.0
       '@vscode/vsce':
         specifier: ^3.9.2
         version: 3.9.2(supports-color@10.2.2)
@@ -957,8 +957,8 @@ packages:
   '@types/unist@3.0.3':
     resolution: {integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==}
 
-  '@types/vscode@1.95.0':
-    resolution: {integrity: sha512-0LBD8TEiNbet3NvWsmn59zLzOFu/txSlGxnv5yAFHCrhG9WvAnR3IvfHzMOs2aeWqgvNjq9pO99IUw8d3n+unw==}
+  '@types/vscode@1.140.0':
+    resolution: {integrity: sha512-KAB5RBZIgnUhpp4mKsVJPPHLOQKu6WtGy2xpfWjaajEXO4xIIC+UESAXLiQ9ewx6QD1uBmvC/S8BJzkbvv4bRA==}
 
   '@typescript/typescript-aix-ppc64@7.0.2':
     resolution: {integrity: sha512-MTKKkWB7p/0E9xi1d1tHtZ5PiLkGEMIq88pK2CubZjOsLtYTLqhgIgi6zepFa+9GHZ6h05NMCkQxGKiPXMxXtQ==}
@@ -2184,6 +2184,7 @@ packages:
   molstar@5.13.0:
     resolution: {integrity: sha512-pMXXhPGkbjYeZwPbHSTvQmUJ+wXpLVphDF0n90piy1OtYrUCCr6Z3MFqWjV6Kjcd44hU0U2myQMnPulb4MC1FQ==}
     engines: {node: '>=22.0.0'}
+    hasBin: true
     peerDependencies:
       '@google-cloud/storage': ^7.14.0
       canvas: ^2.11.2
@@ -2287,6 +2288,7 @@ packages:
 
   openapi-typescript@7.13.0:
     resolution: {integrity: sha512-EFP392gcqXS7ntPvbhBzbF8TyBA+baIYEm791Hy5YkjDYKTnk/Tn5OQeKm5BIZvJihpp8Zzr4hzx0Irde1LNGQ==}
+    hasBin: true
     peerDependencies:
       typescript: ^5.x
 
@@ -3669,7 +3671,7 @@ snapshots:
 
   '@types/unist@3.0.3': {}
 
-  '@types/vscode@1.95.0': {}
+  '@types/vscode@1.140.0': {}
 
   '@typescript/typescript-aix-ppc64@7.0.2':
     optional: true

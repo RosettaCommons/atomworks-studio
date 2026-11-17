@@ -441,13 +441,38 @@ export class DesignPanel {
       }
       void this._openFile(file);
     }, true);
+    // Studio's own Open button (its file input) opens an mmCIF the same way; taken first, so Studio's loader sees only
+    // files it is to open (not an mmCIF, which `_openFile` hands back to it when it has saved annotations).
+    this.listen(document, "change", (e) => {
+      const input = e.target as HTMLInputElement | null;
+      const file = input?.id === "file-input" ? input.files?.[0] : undefined;
+      if (!file || !/\.(cif|mmcif)$/i.test(file.name)) return;
+      e.stopImmediatePropagation();
+      input!.value = "";
+      void this._openFile(file);
+    }, true);
   }
 
-  /** A file opened as a new job, as Studio's Open button does. */
+  /**
+   * A file opened as a new job. One with saved annotations is Studio's to open (it keeps them); one without opens as an
+   * entry does, held as the file has it, so a server's job starts where the page's engine does (not completed with
+   * atoms the file lacks, not free to redesign).
+   */
   private async _openFile(file: File): Promise<void> {
     const studio = this.studio();
     if (!studio?.openFile) return;
-    const opened = await studio.openFile(file);
+    const text = /\.(cif|mmcif)$/i.test(file.name) ? await file.text() : "";
+    let opened: boolean | undefined;
+    if (text && !/condition_|annotation_expseg|mask_/.test(text)) {
+      try {
+        const { doc } = await this._openEntry(text, file.name.replace(/\.(cif|mmcif)$/i, ""));
+        this.host.setUndoFloor(doc.sid, doc.undoDepth);
+        await studio.openSession?.(doc.sid);
+        await this.setInputSession(this.host.inputSessionId() ?? doc.sid);
+        opened = true;
+      } catch { /* the file loader says what is wrong with it */ }
+    }
+    opened ??= await studio.openFile(file);
     if (opened !== false) this.showStart = false;
     this.render();
   }

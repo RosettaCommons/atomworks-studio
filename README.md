@@ -11,9 +11,9 @@
 </p>
 
 <p align="center">
-<a href="https://github.com/RosettaCommons/atomworks-studio/blob/main/docs/index.md">Documentation</a> ·
-<a href="https://github.com/RosettaCommons/atomworks-studio/blob/main/docs/INSTALLATION.md">Installation</a> ·
-<a href="https://github.com/RosettaCommons/atomworks-studio/blob/main/docs/TUTORIAL.md">Tutorial</a>
+<a href="https://rosettacommons.github.io/atomworks-studio/v0.0.6/">Documentation</a> ·
+<a href="https://rosettacommons.github.io/atomworks-studio/v0.0.6/INSTALLATION.html">Installation</a> ·
+<a href="https://rosettacommons.github.io/atomworks-studio/v0.0.6/TUTORIAL.html">Tutorial</a>
 </p>
 
 <p align="center"><img src="https://raw.githubusercontent.com/RosettaCommons/atomworks-studio/main/docs/images/web-molstar-editor.png" alt="AtomWorks Studio in the browser: sequence view, Mol* viewer and annotation panel" width="860"></p>
@@ -71,7 +71,7 @@ The PyMOL plugin offers the same controls natively, here on a nanobody design wi
 
 <p align="center"><img src="https://raw.githubusercontent.com/RosettaCommons/atomworks-studio/main/packages/pymol-plugin/assets/antibody_design.png" alt="AtomWorks Studio panel inside PyMOL on a nanobody design" width="860"></p>
 
-See the [documentation](https://github.com/RosettaCommons/atomworks-studio/blob/main/docs/index.md) for selection syntax, interface guides, Python and HTTP
+See the [documentation](https://rosettacommons.github.io/atomworks-studio/v0.0.6/) for selection syntax, interface guides, Python and HTTP
 integration, and development notes.
 
 ## Build from source

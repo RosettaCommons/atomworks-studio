@@ -10,8 +10,8 @@ html_theme = "alabaster"
 html_title = project
 templates_path = ["_templates"]
 html_static_path = ["_static"]
-html_css_files = ["studio.css"]
-html_js_files = ["studio.js"]
+html_css_files = ["studio.css", "page_feedback.css"]
+html_js_files = ["studio.js", "page_feedback.js"]
 # Usage analytics for the HOSTED documentation only. This build is also the guide bundled in the wheel and the
 # documentation archive attached to a release, which people open on their own machines (often with proprietary
 # structures loaded in the editor beside it), so a third-party script must not be in it. The hosted-docs job in

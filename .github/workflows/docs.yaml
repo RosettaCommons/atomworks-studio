@@ -1,0 +1,54 @@
+name: Publish docs
+
+# Rebuilds and republishes the hosted documentation without cutting a release (no PyPI, GitHub release or
+# Marketplace upload). Use it to fix the docs between releases, or to point /latest/ at a given version.
+# Normal releases publish docs from release.yaml; this workflow is only ever run by hand.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Tag or branch to build the docs from (e.g. v0.0.12, or main for an unreleased docs fix)
+        required: true
+      destination:
+        description: Folder on gh-pages to publish to, either "latest" or a version folder such as "v0.0.12"
+        required: true
+        default: latest
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # Shares the group with release.yaml's docs job so the two never push to gh-pages at the same time.
+    concurrency:
+      group: studio-versioned-docs
+      cancel-in-progress: false
+    steps:
+      # Only "latest" or a version folder: any other value (empty, "/", "..") could delete the rest of the site.
+      - name: Check the destination folder
+        env:
+          DESTINATION: ${{ inputs.destination }}
+        run: |
+          if [[ ! "$DESTINATION" =~ ^(latest|v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?)$ ]]; then
+            echo "::error::destination must be 'latest' or a version folder like 'v0.0.12', not '$DESTINATION'"
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      # The hosted copy carries usage analytics, as in release.yaml (see docs/conf.py).
+      - run: make docs
+        env:
+          STUDIO_DOCS_ANALYTICS: "1"
+      # Without keep_files, only the destination folder is replaced; every other folder on gh-pages is left alone.
+      - name: Publish
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs/_build/html
+          destination_dir: ${{ inputs.destination }}

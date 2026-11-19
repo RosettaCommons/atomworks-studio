@@ -127,3 +127,12 @@ jobs:
           publish_dir: docs/_build/html
           destination_dir: ${{ github.ref_name }}
           keep_files: true
+      # A stable address for links (the README, the PyPI page) that should not change when the version is bumped.
+      # Prereleases keep only their versioned copy, so /latest/ always means the newest stable release.
+      - name: Point /latest/ at this release
+        if: ${{ !contains(needs.verify.outputs.version, '-') }}
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs/_build/html
+          destination_dir: latest

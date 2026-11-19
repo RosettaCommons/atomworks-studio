@@ -30,7 +30,11 @@ Optional destinations:
   The VSIX is always attached to the GitHub release.
 - Enable GitHub Pages from `gh-pages` and set the repository variable
   `STUDIO_PUBLISH_DOCS=true` to publish docs under `/v<version>/`.
-  Earlier versions are retained. The documentation archive is always attached
+  Earlier versions are retained. Stable (non-prerelease) versions are also
+  copied to `/latest/`, which the README links to, so links never need a
+  version bump. To fix the hosted docs between releases, run the
+  "Publish docs" workflow (`docs.yaml`) by hand with the tag or branch to build
+  and the folder to publish to (`latest` or `v<version>`). The documentation archive is always attached
   to the GitHub release, even when Pages is disabled.
 
 ## Release downloads

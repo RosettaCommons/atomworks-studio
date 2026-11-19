@@ -346,7 +346,7 @@ export class MolstarAdapter implements ViewerAdapter {
     // Frames served by the live path; `liveRebuilds` counts the subset that rebuilt the scene instead.
     dataset.liveUpdates = String(Number(dataset.liveUpdates ?? 0) + 1);
     dataset.renderedAtoms = String(
-      plugin.managers.structure.hierarchy.current.structures.reduce((count, entry) => count + (entry.cell.obj?.data.elementCount ?? 0), 0),
+      plugin.managers.structure.hierarchy.current.structures.reduce((count, entry) => count + (entry.cell.obj?.data?.elementCount ?? 0), 0),
     );
     if (!options?.keepCamera) plugin.managers.camera.reset();
   }
@@ -480,7 +480,7 @@ export class MolstarAdapter implements ViewerAdapter {
       }
     }
     // Atom count drawn per overlay, for tests.
-    dataset[`overlay_${key}`] = String(component ? structure.obj?.data.elementCount ?? 0 : 0);
+    dataset[`overlay_${key}`] = String(component ? structure.obj?.data?.elementCount ?? 0 : 0);
   }
 
   private async loadPositionedStructure(
@@ -494,7 +494,7 @@ export class MolstarAdapter implements ViewerAdapter {
     const structure = await plugin.state.data.build().to(model).apply(PositionedStructure, {
       excluded: unpositionedAtomIndices(cif),
     }).commit();
-    if (structure.obj?.data.elementCount) {
+    if (structure.obj?.data?.elementCount) {
       await plugin.builders.structure.representation.applyPreset(structure, preset);
       // The preset colours by Mol*'s order-based chain palette, which drifts from the sequence bar as chains are
       // added or removed. Use the shared id-keyed one instead; the Style menu can still override it.
@@ -507,7 +507,7 @@ export class MolstarAdapter implements ViewerAdapter {
       }
     }
     this.context.container.dataset.renderedAtoms = String(
-      plugin.managers.structure.hierarchy.current.structures.reduce((count, ref) => count + (ref.cell.obj?.data.elementCount ?? 0), 0),
+      plugin.managers.structure.hierarchy.current.structures.reduce((count, ref) => count + (ref.cell.obj?.data?.elementCount ?? 0), 0),
     );
     this.context.container.dataset.renderedStructures = String(plugin.managers.structure.hierarchy.current.structures.length);
     return structure.ref;
@@ -642,11 +642,18 @@ export class MolstarAdapter implements ViewerAdapter {
     }
     this.selectedAtomIndices = [...new Set(atomIndices)];
     if (!this.viewer.plugin.managers.structure.hierarchy.current.structures.length) return;
-    const loci = this.lociFor(this.selectedAtomIndices);
+    // Atoms without coordinates (a chain typed as a sequence, unresolved residues) are selected but not drawn: Mol* is
+    // handed only the drawn ones, as centerOn and the annotations are (with none drawn, nothing to mark).
+    const drawn = this.selectedAtomIndices.filter(index => !this.unpositionedAtoms.has(index));
+    if (!drawn.length) {
+      focus.clear();
+      return;
+    }
+    const loci = this.lociFor(drawn);
     this.viewer.plugin.managers.interactivity.lociSelects.select({ loci });
     const residues = StructureElement.Loci.extendToWholeResidues(loci);
     const atomsPicked = StructureElement.Loci.size(residues) > StructureElement.Loci.size(loci);
-    if (atomsPicked && this.selectedAtomIndices.length <= 600) focus.setFromLoci(residues);
+    if (atomsPicked && drawn.length <= 600) focus.setFromLoci(residues);
     else focus.clear();
   }
 

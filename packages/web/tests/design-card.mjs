@@ -253,6 +253,19 @@ try {
     await page.waitForFunction(() => !document.querySelector('#rfd4p-design').hidden, null, { timeout: 30000 });
     assert.equal(await chainList(), 'A[A1–20 sequence fixed]');
     assert.equal(await page.locator('#rfd4p-task-label').textContent(), 'Fold from sequence');
+    // Its piece shows Structure free and Sequence fixed as text, not as choices (no coordinates to hold; freed it
+    // would be + new); Hotspots and More stay.
+    await page.locator('#rfd4p-chain-list .rfd4p-sub-open').first().click();
+    const pop = page.locator('.rfd4p-piece-pop:not([hidden])').first();
+    await pop.waitFor();
+    const rowOf = (label) => pop.locator('.rfd4p-pop-row').filter({ has: page.locator('.rfd4p-pop-label', { hasText: new RegExp(`^${label}$`) }) });
+    assert.equal(await rowOf('Structure').locator('select').count(), 0);
+    assert.equal(await rowOf('Structure').locator('.rfd4p-pop-static').textContent(), 'free');
+    assert.equal(await rowOf('Sequence').locator('select').count(), 0);
+    assert.equal(await rowOf('Sequence').locator('.rfd4p-pop-static').textContent(), 'fixed');
+    assert.equal(await rowOf('Position').isVisible(), false);
+    assert.equal(await rowOf('Hotspots').locator('input').count(), 1);
+    await page.keyboard.press('Escape');
     await page.locator('#rfd4p-add-seq').click();
     await page.waitForFunction(() => document.querySelectorAll('#rfd4p-chain-list .rfd4p-chain').length === 2);
     assert.equal(await page.locator('#rfd4p-task-label').textContent(), 'Binder design');

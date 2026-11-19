@@ -27,6 +27,10 @@ import type { ViewerResidue } from "../viewers/contract.ts";
 type Child = Node | string | null | undefined | false;
 type Attrs = Record<string, string | number | boolean | null | undefined | ((event: Event) => void)>;
 
+/** Why residues with no coordinates (+ seq) show their Structure and Sequence without offering them. */
+const NO_COORDS_STRUCTURE = "No coordinates to hold: the model builds it";
+const NO_COORDS_SEQUENCE = "Typed as a sequence: these amino acids are kept (for a designed chain, + new)";
+
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...children: Child[]): HTMLElementTagNameMap[K] => {
   const node = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
@@ -1700,6 +1704,9 @@ export class DesignPanel {
       "Fixed: these amino acids. Free: the model writes them.");
     const position = select("Position in chain", POSITION_OPTIONS, now.position,
       "Free: the model chooses where in the chain these residues go.");
+    // No coordinates (+ seq): the structure is the model's and the sequence is kept; neither is offered.
+    const noCoords = this._noCoords(p.atomIndices);
+    if (noCoords) { structure.value = "designed"; sequence.value = "fixed"; position.value = "fixed"; }
     // A residue taken from the entry and renumbered (a motif's "A38") has no range here: its number would not match.
     const plan = p.source ? null : this._plan(c);
     const src = plan?.source?.length ? plan.source : null;
@@ -1764,7 +1771,7 @@ export class DesignPanel {
       atomsRow.hidden = structure.value === "designed";
       const free = structure.value === "designed" && sequence.value === "designed";
       if (free) position.value = "fixed";
-      positionRow.hidden = free;
+      positionRow.hidden = free || noCoords;
       lengthRow.hidden = !free;
     };
     structure.addEventListener("change", sync);
@@ -1913,9 +1920,9 @@ export class DesignPanel {
         : row("Residues", el("span", { class: "rfd4p-pop-static", text: p.source ?? name,
           title: p.source ? `From the entry's ${p.source}; ${name} in this chain` : undefined })),
       crop,
-      row("Structure", structure),
+      row("Structure", noCoords ? this._staticSetting("free", NO_COORDS_STRUCTURE) : structure),
       atomsRow,
-      row("Sequence", sequence),
+      row("Sequence", noCoords ? this._staticSetting("fixed", NO_COORDS_SEQUENCE) : sequence),
       positionRow,
       lengthRow,
       row("Hotspots", hot),
@@ -1925,6 +1932,20 @@ export class DesignPanel {
       note,
       this._popActions(apply),
     ];
+  }
+
+  /**
+   * Whether none of `atoms` has coordinates (a chain typed with + seq, an entry's unresolved residues). Such residues
+   * can only be built with their sequence kept: nothing to hold in place, and freed they would be + new.
+   */
+  private _noCoords(atoms: number[]): boolean {
+    const coord = this._inputDoc()?.atoms?.coord;
+    return Boolean(coord && atoms.length) && atoms.every((i) => !coord![i]?.every?.(Number.isFinite));
+  }
+
+  /** A setting a popup shows but does not offer: its value as text. */
+  private _staticSetting(text: string, title: string): HTMLElement {
+    return el("span", { class: "rfd4p-pop-static", text, title });
   }
 
   /** A piece's three properties, as the popup and the row name them. */
@@ -2480,6 +2501,9 @@ export class DesignPanel {
       const structure = select("Structure", STRUCTURE_OPTIONS, common("structure"));
       const sequence = select("Sequence", SEQUENCE_OPTIONS, common("sequence"));
       const position = select("Position in chain", POSITION_OPTIONS, common("position"));
+      // Picked residues with no coordinates (+ seq): structure free and sequence kept, shown, not offered.
+      const noCoords = hits.every((h) => this._noCoords(h.atoms));
+      if (noCoords) { structure.value = "designed"; sequence.value = "fixed"; position.value = "fixed"; }
       // One stretch of one chain can become new residues of another length.
       const oneStretch = byChain.size === 1 && parts.length === 1;
       const lenMin = el("input", { type: "number", min: 1, max: 1000, value: nRes, "aria-label": "Fewest residues" });
@@ -2512,9 +2536,10 @@ export class DesignPanel {
       const same = (key: "ss" | "rasa" | "inter"): string | number => { const v = new Set(hits.map((h) => h.p[key] ?? (key === "inter" ? "" : 0))); return v.size === 1 ? [...v][0] : "mixed"; };
       const extra = this._extraFields({ ss: same("ss"), rasa: same("rasa"), inter: same("inter") as string });
       // A pick asks little at first: fixed or free, a hotspot, in or out; the finer settings are under More.
-      rows.push(row("Structure", structure), row("Sequence", sequence), lengthRow,
+      rows.push(row("Structure", noCoords ? this._staticSetting("free", NO_COORDS_STRUCTURE) : structure),
+        row("Sequence", noCoords ? this._staticSetting("fixed", NO_COORDS_SEQUENCE) : sequence), lengthRow,
         el("label", { class: "rfd4p-pop-row" }, el("span", { class: "rfd4p-pop-label", text: "Hotspot" }), hot));
-      more.push(atomsRow, positionRow, ...extra.rows.filter(Boolean));
+      more.push(...(noCoords ? [] : [atomsRow, positionRow]), ...extra.rows.filter(Boolean));
       apply = async () => {
         done();
         if (hotTouched && !await this._batch([{ condition: "hotspot", atom_indices: polymerAtoms, enabled: hot.checked }])) return;

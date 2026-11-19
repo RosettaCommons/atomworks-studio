@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = "BSD-3-Clause"
 dependencies = [
-    "atomworks[ml]==3.0.4",
+    "atomworks[ml]==3.1.0",
     "fastapi>=0.115,<2",
     "numpy>=1.26,<3",
     "pydantic>=2.10,<3",

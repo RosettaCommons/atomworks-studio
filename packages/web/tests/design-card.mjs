@@ -175,7 +175,7 @@ try {
     assert.equal(await page.locator('#rfd4p-start').isVisible(), true);
     assert.equal(await page.locator('#rfd4p-design').isHidden(), true);
     assert.equal(await page.locator('#rfd4p-run-settings').isHidden(), true, 'run settings wait for a job');
-    assert.deepEqual(await page.locator('#rfd4p-start-seq, #rfd4p-start-pdb, #rfd4p-start-lig').allTextContents(), ['+ new', '+ pdb', '+ lig']);
+    assert.deepEqual(await page.locator('#rfd4p-start-seq, #rfd4p-start-pdb, #rfd4p-start-sq, #rfd4p-start-lig').allTextContents(), ['+ new', '+ pdb', '+ seq', '+ lig']);
     assert.equal(await page.locator('#rfd4p-start-seq').getAttribute('title'), 'A new chain for the model to design (sequence and structure), 60–100 residues to start');
     assert.equal(await page.locator('#rfd4p-start-pdb').getAttribute('title'), 'Chains from a PDB entry or file, kept as they are (e.g. a target to bind)');
     assert.equal(await page.locator('#rfd4p-start-lig').getAttribute('title'), 'A small molecule by its PDB code (HEM, ATP, ZN…)');
@@ -238,6 +238,32 @@ try {
     await page.waitForFunction(() => !document.querySelector('#rfd4p-design').hidden, null, { timeout: 30000 });
     assert.equal(await chainList(), '{HEM · L} L[HEM free]');
     assert.ok(bed.rcsb.requests.some((u) => u.endsWith('/ligands/view/HEM.cif')), 'its entry was fetched from RCSB');
+  });
+
+  await check('+ seq: a chain typed as its sequence, structure free; beside + new it is a binder job', async () => {
+    await page.locator('#rfd4p-new').click();
+    await page.locator('#rfd4p-start-sq').click();
+    const seq = page.locator('#rfd4p-start form.rfd4p-add-structure').filter({ hasText: 'Add a sequence' });
+    await seq.locator('textarea').fill('GSXB');
+    await seq.getByRole('button', { name: 'Add' }).click();
+    assert.match(await seq.locator('.rfd4p-add-status').textContent(), /not one of the twenty amino acids: X, B/);
+    // A FASTA paste keeps its lines in the text area: the header is dropped, not run into the sequence.
+    await seq.locator('textarea').fill('>peptide\nGSSPEEDLRK\nLLEELKRRSG');
+    await seq.getByRole('button', { name: 'Add' }).click();
+    await page.waitForFunction(() => !document.querySelector('#rfd4p-design').hidden, null, { timeout: 30000 });
+    assert.equal(await chainList(), 'A[A1–20 sequence fixed]');
+    assert.equal(await page.locator('#rfd4p-task-label').textContent(), 'Fold from sequence');
+    await page.locator('#rfd4p-add-seq').click();
+    await page.waitForFunction(() => document.querySelectorAll('#rfd4p-chain-list .rfd4p-chain').length === 2);
+    assert.equal(await page.locator('#rfd4p-task-label').textContent(), 'Binder design');
+    // Under a job: another one, then Undo takes it out again.
+    await page.locator('#rfd4p-add-sq').click();
+    const add = page.locator('#rfd4p-design form.rfd4p-add-structure').filter({ hasText: 'Add a sequence' });
+    await add.locator('textarea').fill('GWK');
+    await add.locator('textarea').press('Enter');
+    await page.waitForFunction(() => document.querySelectorAll('#rfd4p-chain-list .rfd4p-chain').length === 3, null, { timeout: 30000 });
+    await page.locator('#rfd4p-undo').click();
+    await page.waitForFunction(() => document.querySelectorAll('#rfd4p-chain-list .rfd4p-chain').length === 2);
   });
 
   await check('Protein from scratch opens Studio\'s own example', async () => {

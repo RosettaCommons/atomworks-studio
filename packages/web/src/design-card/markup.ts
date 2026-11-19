@@ -27,6 +27,7 @@ export function cardMarkup(): string {
             <div class="rfd4p-chain-actions rfd4p-start-actions" role="group" aria-label="Start with">
                 <button id="rfd4p-start-seq" type="button" class="secondary compact" title="A new chain for the model to design (sequence and structure), 60–100 residues to start">+ new</button>
                 <button id="rfd4p-start-pdb" type="button" class="secondary compact" title="Chains from a PDB entry or file, kept as they are (e.g. a target to bind)">+ pdb</button>
+                <button id="rfd4p-start-sq" type="button" class="secondary compact" title="A chain given by its sequence alone, structure free: a peptide or a disordered target to bind">+ seq</button>
                 <button id="rfd4p-start-lig" type="button" class="secondary compact" title="A small molecule by its PDB code (HEM, ATP, ZN…)">+ lig</button>
             </div>
             <p id="rfd4p-fetch-status" class="inline-feedback muted" aria-live="polite"></p>
@@ -41,6 +42,7 @@ export function cardMarkup(): string {
             <div class="rfd4p-chain-actions" role="group" aria-label="Add to the design">
                 <button id="rfd4p-add-seq" type="button" class="secondary compact" title="A new chain for the model to design (sequence and structure), 60–100 residues to start">+ new</button>
                 <button id="rfd4p-add-pdb" type="button" class="secondary compact" title="Chains from a PDB entry or file, kept as they are (e.g. a target to bind)">+ pdb</button>
+                <button id="rfd4p-add-sq" type="button" class="secondary compact" title="A chain given by its sequence alone, structure free: a peptide or a disordered target to bind">+ seq</button>
                 <button id="rfd4p-add-lig" type="button" class="secondary compact" title="A small molecule by its PDB code (HEM, ATP, ZN…)">+ lig</button>
             </div>
             <div id="rfd4p-warnings" class="rfd4p-warnings"></div>

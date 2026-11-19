@@ -159,6 +159,16 @@ test("a fixed target plus a new chain is binder design; a segment's range sets t
   assert.equal(spec.contig, "A1-12/0 70-80");
 });
 
+test("a target given by its sequence alone (+ seq) plus a new chain is binder design", () => {
+  const spec = designSpec(build([...run("A", 1, 12, { seq: true }), { chain: "B", id: 1, segment: [60, 80] }]));
+  assert.equal(spec.chains.find((c) => c.id === "A")?.role, "sequence");
+  assert.equal(spec.task.key, "binder");
+  // with a kept chain beside them it is not this rule's (a sequence-only chain there is part of a larger set-up)
+  const mixed = designSpec(build([...run("A", 1, 12, { seq: true }), ...run("C", 1, 5, { hold: "all", seq: true }),
+    { chain: "B", id: 1, segment: [60, 80] }]));
+  assert.notEqual(mixed.task.detail, "New protein designed to bind the target, given by its sequence.");
+});
+
 test("sequence-only chains fold; everything fixed is nothing to design; no conditions is a full redesign", () => {
   const fold = designSpec(build(run("A", 1, 8, { seq: true })));
   assert.equal(fold.task.key, "fold");

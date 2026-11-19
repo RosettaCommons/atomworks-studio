@@ -686,6 +686,13 @@ function inferTask(
       ? T("antibody", "Antibody / VHH design", "Framework sequence kept; loops designed against the target.")
       : T("binder", "Binder design", "New protein designed to bind the fixed target.");
   }
+  // A target given by its sequence alone (+ seq: a peptide or disordered target, its structure built by the model)
+  // beside new chains: a binder for it.
+  const sequenceChains = polymers.filter((c) => c.role === "sequence");
+  if (!fixedChains.length && sequenceChains.length && polymers.some((c) => c.role === "new")
+    && polymers.every((c) => c.role === "sequence" || c.role === "new")) {
+    return T("binder", "Binder design", "New protein designed to bind the target, given by its sequence.");
+  }
   if (hasLigand && !fixedChains.length) {
     return T("sm_binder", "Small-molecule binder", "Protein designed around the ligand.");
   }

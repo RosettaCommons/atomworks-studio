@@ -13,6 +13,7 @@ import { parseCifBlock } from "./cif.ts";
 import { SessionDoc, createSession, deleteSession } from "./doc.ts";
 import type { ChainPlan, PlanPart, RebuildPart } from "./doc.ts";
 import { fetchCcdComponents, isCcdCode, ligandCifFromCcd } from "./ligand.ts";
+import { cleanSequence, sequenceChainCif } from "./sequence.ts";
 import { INTERACTIONS, designSpec, formatResidueList, parseResidueList } from "./spec.ts";
 import type { ChainSpec, DesignSpec, LigandSpec, NewPiece, PieceSpec, RunPiece } from "./spec.ts";
 import {
@@ -257,8 +258,10 @@ export class DesignPanel {
       startSeq: $("rfd4p-start-seq"),
       startPdb: $("rfd4p-start-pdb"),
       startLig: $("rfd4p-start-lig"),
+      startSq: $("rfd4p-start-sq"),
       addPdb: $("rfd4p-add-pdb"),
       addLig: $("rfd4p-add-lig"),
+      addSq: $("rfd4p-add-sq"),
       undo: $("rfd4p-undo"),
       warnings: $("rfd4p-warnings"),
       runSettings: $("rfd4p-run-settings"),
@@ -684,6 +687,23 @@ export class DesignPanel {
     return doc;
   }
 
+  /** A chain's session from its sequence alone: no coordinates, so sequence fixed and structure free (`sequence.ts`). */
+  private async _sequenceSession(text: string, chainId: string): Promise<SessionDoc> {
+    const { cif } = sequenceChainCif(text, { chainId });
+    const doc = new SessionDoc(await createSession(cif, "sequence", { preset: "rcsb", keepUnresolved: true, fixAll: true }));
+    await doc.refresh();
+    return doc;
+  }
+
+  /** + seq: a chain by its sequence, its structure free (a peptide or disordered target to bind). */
+  async _addSequence(text: string): Promise<void> {
+    const added = await this._combine(await this._sequenceSession(text, "B"));
+    // Typed, not loaded: it sits outside the source groups, as + new and + lig do.
+    const a = this._inputDoc()!.atoms;
+    this._rememberSource([...new Set(added.map((i) => String(a.chain_id[i])))], null);
+    this.render();
+  }
+
   /**
    * A ligand by its dictionary code, its pose free (the model places it). With `replace` (a ligand's atoms), it
    * takes that ligand's place: same chain letter, started from the same spot.
@@ -705,7 +725,7 @@ export class DesignPanel {
    * line of what it takes, the input and its button (and any more, a file for a structure), and a status line.
    */
   private _addForm({ label, note, input, button, extra = [], onSubmit, onClose }: {
-    label: string; note: string; input: HTMLInputElement; button: string; extra?: HTMLElement[];
+    label: string; note: string; input: HTMLInputElement | HTMLTextAreaElement; button: string; extra?: HTMLElement[];
     onSubmit: (status: HTMLElement) => void | Promise<void>; onClose: () => void;
   }): { form: HTMLFormElement; status: HTMLElement; title: HTMLElement; submit: HTMLButtonElement } {
     const status = el("p", { class: "rfd4p-add-status muted", "aria-live": "polite" });
@@ -739,6 +759,37 @@ export class DesignPanel {
       onSubmit: async (status) => {
         status.textContent = `Looking up ${input.value.trim().toUpperCase()}…`;
         try {
+          await onSubmit(input.value);
+          status.textContent = "";
+        } catch (err) {
+          status.textContent = `Could not add it: ${msg(err)}`;
+        }
+      },
+    });
+    queueMicrotask(() => input.focus());
+    return form;
+  }
+
+  /** + seq's form: a protein sequence, typed or pasted (FASTA too). Shares the ligand form's slot: one form at a time. */
+  private _sequenceForm({ onSubmit, onCancel }: {
+    onSubmit: (text: string) => Promise<void>; onCancel: () => void;
+  }): HTMLFormElement {
+    // A text area, one row: a pasted FASTA keeps its line breaks (a text input drops them and runs the header into
+    // the sequence). Enter adds it, as in the other forms; Shift+Enter is a new line.
+    const input = el("textarea", {
+      class: "rfd4p-add-id rfd4p-add-seq-text", spellcheck: "false", autocomplete: "off", rows: 1,
+      placeholder: "Sequence", "aria-label": "Protein sequence",
+    }) as HTMLTextAreaElement;
+    input.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); input.form?.requestSubmit(); }
+    });
+    const { form } = this._addForm({
+      label: "Add a sequence", button: "Add", input, onClose: onCancel,
+      note: "One-letter codes (GSSPEEDLRK…). The sequence is kept and the model builds the structure: a peptide or disordered target to bind.",
+      onSubmit: async (status) => {
+        status.textContent = "Adding…";
+        try {
+          cleanSequence(input.value);
           await onSubmit(input.value);
           status.textContent = "";
         } catch (err) {
@@ -794,6 +845,20 @@ export class DesignPanel {
       });
       els.startLig!.parentElement!.after(this.startLigandForm);
     });
+    els.startSq?.addEventListener("click", () => {
+      if (this.startStructure) this.startStructure.form.hidden = true;
+      this.startLigandForm?.remove();
+      this.startLigandForm = this._sequenceForm({
+        onSubmit: async (text) => {
+          await this._startNew(() => this._sequenceSession(text, "A"), { rethrow: true });
+          // Typed, not loaded from anything: no source caption over it, as + new and + lig.
+          this._rememberSource([...new Set(Array.from(this._inputDoc()?.atoms?.chain_id ?? [], String))], null);
+          this.render();
+        },
+        onCancel: () => { this.startLigandForm?.remove(); this.startLigandForm = null; },
+      });
+      els.startSq!.parentElement!.after(this.startLigandForm);
+    });
     // Clear empties the viewer and the sequence and shows the start screen; opening anything from it replaces the
     // document, and Undo there brings back what was shown (the session is kept).
     els.newDoc?.addEventListener("click", () => {
@@ -830,6 +895,19 @@ export class DesignPanel {
         onCancel: () => { this.addLigandForm?.remove(); this.addLigandForm = null; },
       });
       els.addLig!.parentElement!.after(this.addLigandForm);
+    });
+    els.addSq?.addEventListener("click", () => {
+      if (this.addStructure) this.addStructure.form.hidden = true;
+      this.addLigandForm?.remove();
+      this.addLigandForm = this._sequenceForm({
+        onSubmit: async (text) => {
+          await this._addSequence(text);
+          this.addLigandForm?.remove();
+          this.addLigandForm = null;
+        },
+        onCancel: () => { this.addLigandForm?.remove(); this.addLigandForm = null; },
+      });
+      els.addSq!.parentElement!.after(this.addLigandForm);
     });
     // Undo on the start screen undoes Clear; otherwise it is Studio's Undo.
     els.undo?.addEventListener("click", () => {

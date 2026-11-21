@@ -65,8 +65,12 @@ fn tokenize(input: &str) -> Result<Vec<Token>, String> {
                 index += 1;
             }
             let closing = closing.ok_or_else(|| "unterminated semicolon text field".to_owned())?;
+            // The line terminator before the closing ';' is not part of the value.
+            let value = &input[content_start..closing];
+            let value = value.strip_suffix('\n').unwrap_or(value);
+            let value = value.strip_suffix('\r').unwrap_or(value);
             tokens.push(Token {
-                value: input[content_start..closing].to_owned(),
+                value: value.to_owned(),
                 bare: false,
             });
             index = closing + 1;
@@ -77,10 +81,16 @@ fn tokenize(input: &str) -> Result<Vec<Token>, String> {
             let quote = bytes[index];
             index += 1;
             let content_start = index;
-            while index < bytes.len() && bytes[index] != quote {
+            // CIF 1.1: a quote only closes the value when followed by whitespace or EOF.
+            while index < bytes.len()
+                && bytes[index] != b'\n'
+                && bytes[index] != b'\r'
+                && !(bytes[index] == quote
+                    && bytes.get(index + 1).is_none_or(u8::is_ascii_whitespace))
+            {
                 index += 1;
             }
-            if index == bytes.len() {
+            if index == bytes.len() || bytes[index] != quote {
                 return Err("unterminated quoted CIF value".to_owned());
             }
             tokens.push(Token {
@@ -91,7 +101,7 @@ fn tokenize(input: &str) -> Result<Vec<Token>, String> {
             continue;
         }
 
-        while index < bytes.len() && !bytes[index].is_ascii_whitespace() && bytes[index] != b'#' {
+        while index < bytes.len() && !bytes[index].is_ascii_whitespace() {
             index += 1;
         }
         tokens.push(Token {
@@ -305,6 +315,58 @@ mod tests {
         let summary = inspect(input).unwrap();
         assert_eq!(summary.atom_count, 1);
         assert_eq!(summary.chain_ids, ["loop_"]);
+    }
+
+    #[test]
+    fn quotes_close_only_before_whitespace() {
+        let input = "data_x\nloop_\n_atom_site.id\n_atom_site.label_comp_id\n_atom_site.label_asym_id\n1 'N'-ACE' A\n2 \"O\"X\" B\n3 'C1''\tC\n#\n";
+        let tokens = tokenize(input).unwrap();
+        let values: Vec<_> = tokens.iter().map(|token| token.value.as_str()).collect();
+        assert!(values.contains(&"N'-ACE"));
+        assert!(values.contains(&"O\"X"));
+        assert!(values.contains(&"C1'"));
+        let summary = inspect(input).unwrap();
+        assert_eq!(summary.atom_count, 3);
+        assert_eq!(summary.chain_ids, ["A", "B", "C"]);
+    }
+
+    #[test]
+    fn quoted_value_may_end_at_eof_but_not_span_lines() {
+        let tokens = tokenize("_atom_site.id 'a b'").unwrap();
+        assert_eq!(tokens[1].value, "a b");
+        assert!(tokenize("_atom_site.id 'a\nb'\n").is_err());
+    }
+
+    #[test]
+    fn hash_starts_a_comment_only_at_token_start() {
+        let input = "data_x\nloop_\n_atom_site.id\n_atom_site.label_atom_id\n_atom_site.label_asym_id\n1 A#1 A # trailing comment\n#\n2 'B #2' B#\n";
+        let summary = inspect(input).unwrap();
+        assert_eq!(summary.atom_count, 2);
+        assert_eq!(summary.chain_ids, ["A", "B#"]);
+    }
+
+    #[test]
+    fn semicolon_text_field_excludes_the_final_line_terminator() {
+        for newline in ["\n", "\r\n"] {
+            let input = [
+                "data_x",
+                "loop_",
+                "_atom_site.id",
+                "_atom_site.label_asym_id",
+                "1",
+                ";A",
+                ";",
+                "2",
+                ";B; 'x' #y",
+                ";",
+                "#",
+                "",
+            ]
+            .join(newline);
+            let summary = inspect(&input).unwrap();
+            assert_eq!(summary.atom_count, 2);
+            assert_eq!(summary.chain_ids, ["A", "B; 'x' #y"]);
+        }
     }
 
     #[test]

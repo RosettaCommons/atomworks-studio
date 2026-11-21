@@ -211,6 +211,7 @@ export interface ViewerAdapter {
   clearSelection(): void;
   setRepresentation?(representation: ViewerRepresentation, target: ViewerTarget, action: ViewerRepresentationAction): void | Promise<void>;
   setColor?(color: ViewerColor, target: ViewerTarget): void;
+  clearColors?(): void;
   setBackground?(color: "black" | "white"): void;
   camera?(action: ViewerCameraAction): void;
   /** Pan to put these atoms (document indices) in the middle of the view, keeping the zoom. Optional. */

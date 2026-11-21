@@ -18,6 +18,17 @@ export function nativeAtomIndices(
   return atoms.map((atom) => atom.atom_index);
 }
 
+/** Map a pick to its document atom, or null when the hit is not part of the document. */
+export function documentAtomIndexForHit(
+  identities: readonly AtomIdentity[],
+  hit: { object_name: string | null; atom_index: number },
+): number | null {
+  if (!identities.length) return hit.atom_index;
+  return identities.find(
+    (atom) => atom.object_name === hit.object_name && atom.atom_index === hit.atom_index,
+  )?.document_index ?? null;
+}
+
 export function documentAtomIndices(
   identities: readonly AtomIdentity[],
   selection: SelectionEvaluation,

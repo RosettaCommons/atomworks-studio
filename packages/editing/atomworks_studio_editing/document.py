@@ -159,6 +159,9 @@ def prepare_for_design(array: AtomArrayPlus, *, keep_unresolved: bool) -> AtomAr
     crystallisation buffer are never part of a design, on top of the preset's own additive list.
     """
     names = np.asarray(array.res_name).astype(str)
+    # A CIF's "?" coordinates read as 0.0 (a chain typed as a sequence, the card's + seq): atoms with no position, as an
+    # entry's unresolved ones are; nothing real sits exactly at the origin.
+    array.coord[~np.asarray(array.coord).any(axis=1)] = np.nan
     coordinates = np.isfinite(np.asarray(array.coord)).all(axis=1)
     drop = np.isin(names, BUFFER_IONS)
     # Hydrogens the preset added to complete residues: no coordinates. Those the file has are kept.

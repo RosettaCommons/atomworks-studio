@@ -137,8 +137,9 @@ export class SessionDoc {
     const key = String(cid);
     let found = this.sources.get(key);
     if (!found) {
-      found = api<{ chain: string; cif: string }>(this.path(`/chains/${enc(key)}/source`)).then(
-        (r) => ({ chain: r.chain, atoms: parseCifToAtoms(r.cif) }), () => null);
+      found = api<{ chain: string; cif: string }>(this.path(`/chains/${enc(key)}/source`))
+        .then((r) => ({ chain: r.chain, atoms: parseCifToAtoms(r.cif) }))
+        .catch(() => null);
       this.sources.set(key, found);
     }
     return found;

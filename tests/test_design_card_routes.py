@@ -391,6 +391,24 @@ def test_import_options_hold_everything_and_keep_unresolved() -> None:
     assert plain.json()["structure"]["condition_counts"].get("coordinate", 0) == 0
 
 
+def test_a_chain_typed_as_a_sequence_has_no_coordinates_and_holds_none() -> None:
+    """`+ seq` sends every heavy atom with "?" coordinates (read as 0.0): they are unresolved atoms, sequence fixed."""
+    client = TestClient(app)
+    typed = (FIXTURES / "sequence_target.cif").read_bytes()
+    opened = client.post(
+        "/api/v1/sessions",
+        files={"file": ("sequence.cif", typed)},
+        data={"parse_preset": "rcsb", "keep_unresolved": "true", "fix_all": "true"},
+    )
+    assert opened.status_code == 200, opened.text
+    counts = opened.json()["structure"]["condition_counts"]
+    assert counts.get("sequence", 0) > 0
+    assert counts.get("coordinate", 0) == 0
+    # Nothing positioned to draw as the chain as loaded: 404, as the page's engine answers, not an empty overlay.
+    base = f"/api/v1/sessions/{opened.json()['session_id']}"
+    assert client.get(f"{base}/chains/A/source").status_code == 404
+
+
 def test_session_files_keep_sources_and_origins(tmp_path) -> None:
     store = DocumentStore(tmp_path, condition_provider=condition_provider, validation_provider=validation_provider)
     doc = load()

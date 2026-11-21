@@ -428,7 +428,7 @@ fold.
 
 The Design card is the whole interface for making designs, owned by Studio so every
 host shows the same one: the RFD4-Proteina page and a Gradio Space mount it and
-supply only the engine. It holds a start screen (**+ new**, **+ pdb**, **+ lig**
+supply only the engine. It holds a start screen (**+ new**, **+ pdb**, **+ seq**, **+ lig**
 and ten examples), the job editor (every chain as pieces you click: structure,
 sequence, position, hotspots, shape, exposure, interactions, fold, lengths, the
 "+" between pieces, the chain's name and order, ligands), the **Thinking** and

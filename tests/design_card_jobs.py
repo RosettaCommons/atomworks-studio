@@ -460,7 +460,25 @@ def label_assembly_copies() -> dict[str, Any]:
     }
 
 
+def label_sequence_target() -> dict[str, Any]:
+    """A target typed as its sequence (`+ seq`: no coordinates, sequence fixed), `+ new` beside it, renamed, undone.
+
+    tests/fixtures/sequence_target.cif is the card's `sequenceChainCif` output (packages/web/tests/
+    design-sequence.test.ts holds the two together); it opens as `+ seq` opens it, the rcsb preset keeping its
+    unresolved residues.
+    """
+    return {
+        "documents": {"main": {"path": str(FIXTURES / "sequence_target.cif"), "name": "sequence", "open": RCSB}},
+        "ops": [
+            _new_chain(),
+            {"op": "assign_chain", "select": {"chain": "A"}, "chain_id": "P"},
+            {"op": "undo"},
+        ],
+    }
+
+
 LABEL_JOBS = {
+    "sequence_target": label_sequence_target,
     "single_chain": label_single_chain,
     "ligand_only": label_ligand_only,
     "combine_and_rename": label_combine_and_rename,

@@ -388,7 +388,8 @@ def _annotation_map(state: dict[str, Any]) -> dict[str, dict[str, list[int]]]:
             json.dumps(v["value"] if v["value"] is not None else v["label"]): sorted(set(v["atom_indices"]) - skip)
             for v in entry["values"]
         }
-        out[name] = {k: v for k, v in values.items() if v}
+        if held := {k: v for k, v in values.items() if v}:
+            out[name] = held
     return out
 
 

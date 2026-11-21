@@ -7,6 +7,7 @@ import { inputAnchors, type Anchors } from "./align.ts";
 import { parseCifBlock, parseCifToAtoms, catRows } from "./cif.ts";
 import type { DesignOverlay } from "./types.ts";
 import type { AtomArray } from "./types.ts";
+import { isSentinel } from "./spec.ts";
 import type { ViewerResidue } from "../viewers/contract.ts";
 
 /** The ghost the reference motif is drawn in: one colour, so it never reads as extra bonds on the sampled side chain. */
@@ -91,6 +92,18 @@ export function motifOverlayCif(a: AtomArray): string | null {
     c.total += 1;
     if (tokenHasCrd.get(t)) c.fixed += 1;
     chains.set(chain, c);
+  }
+  // A block of new residues is one placeholder in the input; it counts for the length it asks for (its range's middle).
+  const segMin = a.annotations["annotation_expsegmin_1_residue"];
+  const segMax = a.annotations["annotation_expsegmax_1_residue"];
+  const counted = new Set<string>();
+  for (let i = 0; i < a.nAtoms; i += 1) {
+    const t = tokenKey(a, i);
+    if (counted.has(t) || !unmodelled.has(t) || !isSentinel(a, i)) continue;
+    counted.add(t);
+    const c = chains.get(a.chain_id[i]) ?? { total: 0, fixed: 0 };
+    c.total += ((Number(segMin?.[i]) || 1) + (Number(segMax?.[i]) || 1)) / 2;
+    chains.set(a.chain_id[i], c);
   }
   const isMotif = (t: string): boolean => {
     if (!tokenHasCrd.get(t)) return false;

@@ -239,7 +239,8 @@ to host a model with Studio.
 
 Open the editor with `?card=1` (or let a host mount it, see [integrations](INTEGRATIONS.md#design-card))
 and the right sidebar becomes the Design card: an **Input** tab with **+ new**,
-**+ pdb**, **+ lig** and ten examples, then the design as chains made of pieces you
+**+ pdb**, **+ seq** (a chain typed as its sequence, its structure left to the model: a peptide
+or disordered target to bind), **+ lig** and ten examples, then the design as chains made of pieces you
 click (structure, sequence, position, hotspots, lengths, shape, exposure, interactions,
 fold; a "+" between pieces adds residues; the chain's letter opens its name and order;
 **Undo** and **Clear** sit at the tab row's right end). Under it, the **Thinking** and

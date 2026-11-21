@@ -738,7 +738,7 @@ try {
     await frame.locator('#seed-input').fill('21');
     await frame.locator('#predict').click();
     await frame.locator('.refold-dtable tbody tr').waitFor({ timeout: 30000 });
-    assert.equal(await frame.locator('#rfd4p-status-message').textContent(), 'Done by the host.');
+    await frame.locator('#rfd4p-status-message').filter({ hasText: /^Done by the host\.$/ }).waitFor({ timeout: 30000 });
     assert.deepEqual(await frame.locator('.refold-dtable tbody tr .refold-dt-name').allTextContents(), ['21']);
     const request = await page.evaluate(() => window.__request);
     assert.equal(request.task, 'unconditional');

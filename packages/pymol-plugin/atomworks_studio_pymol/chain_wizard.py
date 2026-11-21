@@ -83,6 +83,9 @@ class ChainWizard:
             QtWidgets.QMessageBox.warning(self._widget, "No active object", "Load a structure first.")
             return None
         arr = self._state.get_synced_array(obj_name)
+        if arr is None:
+            QtWidgets.QMessageBox.warning(self._widget, "No active object", "Load a structure first.")
+            return None
         if "chain_id" not in arr.get_annotation_categories():
             raise ValueError("AtomArray has no 'chain_id' annotation.")
         return obj_name, arr
@@ -92,7 +95,7 @@ class ChainWizard:
         if active is None:
             return None
         obj_name, arr = active
-        indices = selection_to_indices("sele", self._state.index_maps[obj_name])
+        indices = selection_to_indices("sele", self._state.index_maps[obj_name], obj_name)
         if not indices:
             QtWidgets.QMessageBox.warning(self._widget, "No selection", "Make a selection in PyMOL first.")
             return None
@@ -103,6 +106,9 @@ class ChainWizard:
         return None if data is None else str(data)
 
     def _post_edit(self, obj_name: str, status: str) -> None:
+        # Chain assignment renames atom identities; bump the structure version so
+        # identity keys picked before the edit are rejected.
+        self._state.set_array(obj_name, self._state.documents[obj_name].array)
         reload_structure_in_pymol(obj_name)
         self._status.setText(status)
         self.refresh()
@@ -121,6 +127,10 @@ class ChainWizard:
             return
 
         arr = self._state.get_synced_array(obj_name)
+        if arr is None:
+            self._chain_combo.addItem("(no active object)", None)
+            self._chain_combo.blockSignals(False)
+            return
         if "chain_id" not in arr.get_annotation_categories():
             self._chain_combo.addItem("(no chain_id annotation)", None)
             self._chain_combo.blockSignals(False)

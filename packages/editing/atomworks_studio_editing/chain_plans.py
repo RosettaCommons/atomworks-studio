@@ -520,7 +520,8 @@ class ChainPlanMixin:
         return {"chain": info.chain, "source": info.residues, "parts": parts}
 
     def chain_source_cif(self, chain: str) -> dict[str, str] | None:
-        """The chain as it was loaded, as a minimal overlay mmCIF (`{chain, cif}`), or None when unknown."""
+        """The chain as it was loaded, as a minimal overlay mmCIF (`{chain, cif}`), or None when unknown or when no atom
+        of it has a position (a chain typed as a sequence): the page's engine answers 404 then too."""
         key = self.chain_key(chain)
         src = self._sources.get(key)
         if src is None:
@@ -562,7 +563,7 @@ class ChainPlanMixin:
                 f"ATOM {len(rows) + 1} {element} {quoted} {b.res_name[i]} {src.label} 1 {int(b.res_id[i])} "
                 f"{int(b.res_id[i])} {src.label} {x:.3f} {y:.3f} {z:.3f} 1.00 0.00 1"
             )
-        return {"chain": src.label, "cif": ("\n".join([*header, *rows]) + "\n") if rows else ""}
+        return {"chain": src.label, "cif": "\n".join([*header, *rows]) + "\n"} if rows else None
 
     # -- low-level edits (used inside a transaction) ---------------------------------------------------------------
     def _permute(self, order) -> None:

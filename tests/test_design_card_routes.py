@@ -404,6 +404,9 @@ def test_a_chain_typed_as_a_sequence_has_no_coordinates_and_holds_none() -> None
     counts = opened.json()["structure"]["condition_counts"]
     assert counts.get("sequence", 0) > 0
     assert counts.get("coordinate", 0) == 0
+    # Nothing positioned to draw as the chain as loaded: 404, as the page's engine answers, not an empty overlay.
+    base = f"/api/v1/sessions/{opened.json()['session_id']}"
+    assert client.get(f"{base}/chains/A/source").status_code == 404
 
 
 def test_session_files_keep_sources_and_origins(tmp_path) -> None:

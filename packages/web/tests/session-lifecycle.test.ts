@@ -13,6 +13,7 @@ const STUBBED_BY_MAIN = new Set([
   "./studio/sequence-controller", "./studio/session-file-controller",
   "./studio/structure-edit-controller", "./studio/viewer-toolbar-controller",
   "./studio/trajectory-controller", "./viewers", "./style.css",
+  "./design-card", "./design-card/bridge", "./refold",
 ]);
 
 interface Harness {
@@ -30,6 +31,9 @@ const stubSource = (specifier: string): string => {
       export function inspect_cif(cif) { return globalThis.studioHarness.inspectCif(cif); }`;
   }
   if (specifier === "./style.css") return "export {};";
+  if (specifier === "./design-card") return "export function mountDesignCard() {}";
+  if (specifier === "./design-card/bridge") return "export function connectDesignHost() {}";
+  if (specifier === "./refold") return "export function mountRefoldPanel() {}";
   if (specifier === "./viewers") {
     return `export class MolecularViewer {
       get initialized() { return globalThis.studioHarness.viewerInitialized; }
@@ -66,8 +70,10 @@ registerHooks({
       return { url: `stub:${specifier}`, shortCircuit: true };
     }
     if (specifier.startsWith(".") && !/\.[cm]?[jt]s(\?.*)?$|\.json$/.test(specifier) && context.parentURL) {
-      const candidate = new URL(`${specifier}.ts`, context.parentURL);
-      if (existsSync(fileURLToPath(candidate))) return nextResolve(candidate.href, context);
+      for (const suffix of [".ts", "/index.ts"]) {
+        const candidate = new URL(`${specifier}${suffix}`, context.parentURL);
+        if (existsSync(fileURLToPath(candidate))) return nextResolve(candidate.href, context);
+      }
     }
     return nextResolve(specifier, context);
   },
@@ -77,7 +83,10 @@ registerHooks({
     }
     const path = url.startsWith("file:") ? fileURLToPath(url.split("?")[0]) : "";
     if (path.endsWith(".ts") && !path.includes("/tests/")) {
-      const source = readFileSync(path, "utf8").replaceAll("import.meta.env.PROD", "false");
+      // Build-time constants Vite substitutes into the bundle.
+      const source = readFileSync(path, "utf8")
+        .replaceAll("import.meta.env.PROD", "false")
+        .replaceAll("__STUDIO_VERSION__", JSON.stringify("test"));
       const { outputText } = ts.transpileModule(source, {
         compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
         fileName: path,
@@ -124,6 +133,8 @@ function resetEnvironment(route: Route, savedSession: string | null = null): voi
   const fakeWindow = {
     location: { search: "", href: "http://studio.test/" },
     addEventListener() {},
+    removeEventListener() {},
+    dispatchEvent() { return true; },
     parent: null as unknown,
     innerWidth: 1024,
   };

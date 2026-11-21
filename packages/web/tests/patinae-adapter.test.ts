@@ -24,8 +24,10 @@ registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "@baker-laboratory/patinae-viewer") return { url: STUB_URL, shortCircuit: true };
     if (specifier.startsWith(".") && !/\.[cm]?[jt]s$|\.json$/.test(specifier) && context.parentURL) {
-      const candidate = new URL(`${specifier}.ts`, context.parentURL);
-      if (existsSync(fileURLToPath(candidate))) return nextResolve(candidate.href, context);
+      for (const suffix of [".ts", "/index.ts"]) {
+        const candidate = new URL(`${specifier}${suffix}`, context.parentURL);
+        if (existsSync(fileURLToPath(candidate))) return nextResolve(candidate.href, context);
+      }
     }
     return nextResolve(specifier, context);
   },
@@ -76,6 +78,11 @@ registerHooks({
     };
   },
 });
+
+// Browser APIs the adapter reaches for: the next paint, and the page's theme on the root elements.
+const browser = globalThis as Record<string, unknown>;
+browser.requestAnimationFrame ??= (callback: (time: number) => void) => setTimeout(() => callback(performance.now()), 0);
+browser.document ??= { body: { dataset: {} }, documentElement: { dataset: {} } };
 
 const { PatinaeAdapter } = await import("../src/viewers/patinae.ts");
 const { MolecularViewer } = await import("../src/viewers/index.ts");

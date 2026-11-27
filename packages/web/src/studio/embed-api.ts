@@ -13,7 +13,14 @@
  */
 import type { DesignCardHandle, DesignCardOptions, DesignCardProvider } from "../design-card";
 import type { RefoldPanelHandle, RefoldPanelOptions, RefoldProvider } from "../refold";
-import type { ViewerHighlightOptions, ViewerLoadOptions, ViewerOverlayOptions, ViewerResidue } from "../viewers";
+import type {
+  TransformGizmoMode,
+  TransformGizmoMotion,
+  ViewerHighlightOptions,
+  ViewerLoadOptions,
+  ViewerOverlayOptions,
+  ViewerResidue,
+} from "../viewers";
 
 export type StudioEmbedApi = {
   /** The Studio release this page was built from, so a host can check what it is talking to. */
@@ -46,6 +53,20 @@ export type StudioEmbedApi = {
 
   /** Go back to showing the open document, after frames or a failed run. */
   showDocument(): Promise<void>;
+
+  /**
+   * Draw move or rotate handles at the centre of `atomIndices` and report each drag. The handles
+   * measure motion only: acting on it is the caller's, which is what `transformSelection` is for.
+   * A no-op on a renderer without them (Patinae today).
+   */
+  showTransformGizmo(mode: TransformGizmoMode, atomIndices: number[],
+    onChange: (motion: TransformGizmoMotion) => void): Promise<void>;
+
+  /** Take the handles away, abandoning any motion they were reporting. */
+  hideTransformGizmo(): void;
+
+  /** Whether this renderer draws the move/rotate handles. */
+  canTransform(): boolean;
 
   /**
    * Put the editor back as it is with nothing open: an empty viewer and sequence, no selection. The session is kept,

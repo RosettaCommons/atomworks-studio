@@ -1,3 +1,4 @@
+import type { TransformGizmoMode, TransformGizmoMotion } from "../viewers/contract";
 /**
  * Types of the Design card: the atom array it reads from a session's CIF, and (further down) the contract between
  * the card and whatever generates designs. The card speaks only Studio's REST API and `window.atomworksStudio`, so
@@ -236,6 +237,11 @@ export type StudioHandle = {
   /** The session Studio shows, if the page can say; the card also follows `atomworks-studio` events. */
   getSessionId?(): string | null;
   undo?(): Promise<void>;
+  /** Move/rotate handles in the viewer; absent or `canTransform() === false` hides the controls. */
+  showTransformGizmo?(mode: TransformGizmoMode, atomIndices: number[],
+    onChange: (motion: TransformGizmoMotion) => void): Promise<void>;
+  hideTransformGizmo?(): void;
+  canTransform?(): boolean;
 };
 
 export type DesignCardOptions = {

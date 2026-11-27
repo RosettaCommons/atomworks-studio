@@ -77,13 +77,19 @@ export function fitRigid(from: Vec[], to: Vec[]): { move: (p: Vec) => Vec; befor
   return { move, before: rmsd((p) => p), after: rmsd(move) };
 }
 
-/** `text` (mmCIF, one atom per line) with every atom's coordinates moved by `move`; unchanged if it cannot be read. */
-export function moveCif(text: string, move: (p: Vec) => Vec): string {
+/**
+ * `text` (mmCIF, one atom per line) with atoms' coordinates moved by `move`; unchanged if it cannot be read.
+ *
+ * `select` limits the move to chosen atoms, by their row order in `_atom_site` — which is the atom
+ * index the rest of Studio uses. Without it every atom moves.
+ */
+export function moveCif(text: string, move: (p: Vec) => Vec, select?: (index: number) => boolean): string {
   const lines = text.split("\n");
   const out: string[] = [];
   let columns: string[] = [];
   let inLoop = false;
   const token = /'[^']*'|"[^"]*"|\S+/g;
+  let atomIndex = -1;
   for (const line of lines) {
     if (line.startsWith("_atom_site.")) { columns.push(line.trim().slice("_atom_site.".length)); out.push(line); continue; }
     const header = columns.length > 0 && !inLoop;
@@ -92,8 +98,11 @@ export function moveCif(text: string, move: (p: Vec) => Vec): string {
     if (inLoop && ix >= 0 && iy >= 0 && iz >= 0 && line && !/^(#|loop_|_|data_)/.test(line)) {
       const fields = line.match(token) ?? [];
       if (fields.length !== columns.length) return text;
+      atomIndex += 1;
       const p = [fields[ix], fields[iy], fields[iz]].map(Number) as Vec;
-      if (p.every(Number.isFinite)) [fields[ix], fields[iy], fields[iz]] = move(p).map((c) => c.toFixed(3));
+      if (p.every(Number.isFinite) && (!select || select(atomIndex))) {
+        [fields[ix], fields[iy], fields[iz]] = move(p).map((c) => c.toFixed(3));
+      }
       out.push(fields.join(" "));
       continue;
     }

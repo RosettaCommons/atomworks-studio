@@ -111,6 +111,8 @@ export class PatinaeAdapter implements ViewerAdapter {
     commandCatalog: false,
     measurements: false,
     interactionOverlays: false,
+    // The handles are drawn with Mol*'s shape representation; Patinae has no equivalent yet.
+    transformGizmo: false,
   };
   private viewer: PatinaeViewer | null = null;
   private atomIdentities: AtomIdentity[] = [];

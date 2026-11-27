@@ -41,6 +41,7 @@ import "./molstar-light.scss";
 import { FxaaParams } from "molstar/lib/mol-canvas3d/passes/fxaa";
 import { unpositionedAtomIndices } from "./unpositioned-atoms";
 import { StudioChainColorThemeProvider } from "./studio-chain-theme";
+import { TransformGizmo } from "./transform-gizmo";
 
 import {
   ANNOTATION_CONTEXT_COLOR,
@@ -66,6 +67,8 @@ import {
   type ViewerHighlightOptions,
   type ViewerOverlayOptions,
   type ViewerResidue,
+  type TransformGizmoMode,
+  type TransformGizmoMotion,
 } from "./contract";
 
 // Mol* types colour-theme names as a union of its built-ins, so a registered theme needs a cast. Keeping it in one
@@ -158,6 +161,7 @@ export class MolstarAdapter implements ViewerAdapter {
     commandCatalog: false,
     measurements: true,
     interactionOverlays: true,
+    transformGizmo: true,
   } as const;
   private viewer: MolstarViewer | null = null;
   private resizeObserver: ResizeObserver | null = null;
@@ -185,6 +189,8 @@ export class MolstarAdapter implements ViewerAdapter {
 
   private chargeRepresentation: ShapeRepresentation<AtomCharge[], Text, typeof Text.Params> | null = null;
   private markerRepresentation: ShapeRepresentation<ViewerMarker[], Mesh, typeof Mesh.Params> | null = null;
+
+  private transformGizmo: TransformGizmo | null = null;
 
   constructor(private readonly context: ViewerAdapterContext) {}
 
@@ -946,9 +952,33 @@ export class MolstarAdapter implements ViewerAdapter {
     this.markerRepresentation = representation;
   }
 
+  async showTransformGizmo(
+    mode: TransformGizmoMode,
+    atomIndices: number[],
+    onChange: (motion: TransformGizmoMotion) => void,
+  ): Promise<void> {
+    if (!this.viewer) throw new Error("Mol* is not initialized");
+    this.hideTransformGizmo();
+    const { structure } = this.currentStructure();
+    // Positioned atoms only: an unpositioned one has no coordinate to average in.
+    const positioned = atomIndices.filter((index) => !this.unpositionedAtoms.has(index));
+    const center = positioned.length
+      ? StructureElement.Loci.getBoundary(atomLoci(structure, positioned)).sphere.center
+      : structure.boundary.sphere.center;
+    const gizmo = new TransformGizmo(this.viewer.plugin, mode, [center[0], center[1], center[2]], onChange);
+    this.transformGizmo = gizmo;
+    await gizmo.show();
+  }
+
+  hideTransformGizmo(): void {
+    this.transformGizmo?.hide();
+    this.transformGizmo = null;
+  }
+
   destroy(): void {
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
+    this.hideTransformGizmo();
     this.interactionRepresentation?.destroy();
     this.interactionRepresentation = null;
     this.chargeRepresentation?.destroy();

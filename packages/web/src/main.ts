@@ -762,6 +762,12 @@ async function initialize(): Promise<void> {
       try { molecularViewer.setBackground(light ? "white" : "black"); } catch { /* no renderer yet: kept for when it starts */ }
     },
     centerOn: (atomIndices) => molecularViewer.centerOn(atomIndices.filter((index) => Number.isInteger(index) && index >= 0)),
+    showTransformGizmo: (mode, atomIndices, onChange) => molecularViewer.showTransformGizmo(
+      mode, atomIndices.filter((index) => Number.isInteger(index) && index >= 0), onChange),
+    hideTransformGizmo: () => molecularViewer.hideTransformGizmo(),
+    canTransform: () => {
+      try { return molecularViewer.capabilities.transformGizmo; } catch { return false; }
+    },
   });
   // Card mode (`?card=1`): the Design card in the sidebar, Studio's page as the design interface. A host that brings an
   // engine mounts its own card with `window.atomworksStudio.mountDesignCard`, which replaces this one.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import re
 import secrets
@@ -476,6 +477,36 @@ class InteractionAnalysisRequest(BaseModel):
 
 class DeleteMutation(SelectionRequest):
     close_residue_gaps: bool = False
+
+
+class TransformMutation(ScopedSelectionRequest):
+    """A rigid motion of the selection: rotate `rotation_angle` radians about `rotation_axis`, then translate.
+
+    The pivot is `center` when given, otherwise the selection's own centroid, so a rotation turns the body in place.
+    Offsets are in angstroms and bounded well past any structure's own size; an interface that drags a gizmo sends
+    the total motion, not each step.
+    """
+
+    translation: list[float] = Field(default_factory=lambda: [0.0, 0.0, 0.0], min_length=3, max_length=3)
+    rotation_axis: list[float] | None = Field(default=None, min_length=3, max_length=3)
+    rotation_angle: float = 0.0
+    center: list[float] | None = Field(default=None, min_length=3, max_length=3)
+
+    @field_validator("translation", "rotation_axis", "center")
+    @classmethod
+    def finite_vector(cls, value: list[float] | None) -> list[float] | None:
+        if value is not None and not all(math.isfinite(component) for component in value):
+            raise ValueError("coordinates must be finite")
+        if value is not None and any(abs(component) > 10_000 for component in value):
+            raise ValueError("coordinates must be within 10000 angstroms")
+        return value
+
+    @field_validator("rotation_angle")
+    @classmethod
+    def finite_angle(cls, value: float) -> float:
+        if not math.isfinite(value):
+            raise ValueError("rotation angle must be finite")
+        return value
 
 
 class SegmentMutation(BaseModel):
@@ -1066,6 +1097,21 @@ def delete_atoms(session_id: str, mutation: DeleteMutation) -> dict:
     return _apply(
         session_id,
         lambda document: document.delete_atoms(mutation.atom_indices, mutation.close_residue_gaps),
+    )
+
+
+@app.post("/api/sessions/{session_id}/transform")
+def transform_selection(session_id: str, mutation: TransformMutation) -> dict:
+    return _apply(
+        session_id,
+        lambda document: document.transform_selection(
+            mutation.atom_indices,
+            scope=mutation.scope,
+            translation=mutation.translation,
+            rotation_axis=mutation.rotation_axis,
+            rotation_angle=mutation.rotation_angle,
+            center=mutation.center,
+        ),
     )
 
 

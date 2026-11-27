@@ -756,6 +756,15 @@ textarea.rfd4p-add-seq-text {
 
 .rfd4p-pop-spacer { flex: 1; }
 
+/* Move / Rotate at the start of the action row: a pressed state, because the handles stay on until
+   Apply keeps the motion or the popup closes and drops it. */
+.rfd4p-pop-toggle[aria-pressed="true"],
+.rfd4p-pop-toggle.rfd4p-pop-toggle-on {
+  border-color: var(--accent, #82aaff);
+  color: var(--accent, #82aaff);
+  font-weight: 600;
+}
+
 /* Studio styles every label, input and checkbox in the page; the popup's own sizes win. */
 .rfd4p-piece-pop label.rfd4p-pop-row { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; margin: 0; font-size: 12px; }
 

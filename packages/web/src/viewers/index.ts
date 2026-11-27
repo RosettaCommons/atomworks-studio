@@ -25,6 +25,8 @@ import type {
   ViewerResidue,
   ViewerHighlightOptions,
   AtomCharge,
+  TransformGizmoMode,
+  TransformGizmoMotion,
 } from "./contract";
 import {
   normalizeViewerMeasurementRequest,
@@ -52,6 +54,8 @@ export type {
   ViewerOverlayOptions,
   ViewerResidue,
   ViewerHighlightOptions,
+  TransformGizmoMode,
+  TransformGizmoMotion,
 } from "./contract";
 
 const BACKEND_LABELS: Record<ViewerBackend, string> = {
@@ -315,6 +319,23 @@ export class MolecularViewer {
   camera(action: ViewerCameraAction): void {
     if (!this.adapter?.camera) throw new Error("Camera controls are unavailable.");
     this.adapter.camera(action);
+  }
+
+  /**
+   * See `ViewerAdapter.showTransformGizmo`. A no-op on a backend without the handles, so a caller
+   * checks `capabilities.transformGizmo` before offering them. Not replayed across a renderer
+   * switch: a half-finished drag does not survive one.
+   */
+  async showTransformGizmo(
+    mode: TransformGizmoMode,
+    atomIndices: number[],
+    onChange: (motion: TransformGizmoMotion) => void,
+  ): Promise<void> {
+    await this.adapter?.showTransformGizmo?.(mode, atomIndices, onChange);
+  }
+
+  hideTransformGizmo(): void {
+    this.adapter?.hideTransformGizmo?.();
   }
 
   /** See `ViewerAdapter.centerOn`; a no-op on backends without it. */

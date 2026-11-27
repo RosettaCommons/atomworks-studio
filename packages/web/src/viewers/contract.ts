@@ -39,6 +39,8 @@ export type ViewerCapabilities = {
   commandCatalog: boolean;
   measurements: boolean;
   interactionOverlays: boolean;
+  /** Whether the backend draws the move/rotate handles (`showTransformGizmo`). */
+  transformGizmo: boolean;
 };
 
 export type ViewerSelection = {
@@ -122,6 +124,22 @@ export type AnnotationGroup = {
 };
 
 export type AtomCharge = { atomIndex: number; charge: number };
+
+export type TransformGizmoMode = "move" | "rotate";
+
+/**
+ * What a drag of the move or rotate handles has added up to: an offset in angstroms, or a turn of
+ * `angle` radians about `axis` through `center`. `dragging` is false on release, which is when a
+ * caller commits the motion as one edit.
+ */
+export type TransformGizmoMotion = {
+  mode: TransformGizmoMode;
+  translation: [number, number, number];
+  axis: [number, number, number] | null;
+  angle: number;
+  center: [number, number, number];
+  dragging: boolean;
+};
 
 export type ViewerMarker = { label: string; position: [number, number, number]; color: number };
 
@@ -227,6 +245,15 @@ export interface ViewerAdapter {
   clearMeasurements?(): Promise<void>;
   showMarkers?(markers: ViewerMarker[]): Promise<void>;
   showCharges(charges: AtomCharge[]): Promise<void>;
+  /**
+   * Draw move or rotate handles at the centre of `atomIndices` (the whole structure when empty) and
+   * report each drag through `onChange`. The handles only measure motion: nothing in the document or
+   * the scene moves until a caller acts on it. Optional — a no-op on backends without them, so ask
+   * `capabilities.transformGizmo` before offering the controls.
+   */
+  showTransformGizmo?(mode: TransformGizmoMode, atomIndices: number[],
+    onChange: (motion: TransformGizmoMotion) => void): Promise<void>;
+  hideTransformGizmo?(): void;
   destroy(): void;
 }
 

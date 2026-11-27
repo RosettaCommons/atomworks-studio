@@ -43,6 +43,7 @@ from atomworks_studio_editing.query import resolve_mask
 from atomworks_studio_editing.structure_mutations import (
     assign_chain_id,
     refresh_chain_derived_annotations,
+    rigid_transform,
     set_formal_charge,
 )
 from atomworks_studio_editing.structure_mutations import (
@@ -1263,6 +1264,91 @@ class StudioDocument(ChainPlanMixin):
             )
             reinstall_sentinel_bonds(self.array, touched)
             refresh_chain_derived_annotations(self.array)
+
+    @staticmethod
+    def _position_conditions() -> list[Any]:
+        """Conditions whose stored value is an absolute position in the structure's own frame.
+
+        Only coordinate conditioning qualifies. Internal coordinates and saved rigid-body shapes are relative and a
+        rigid motion leaves them correct, so moving them would corrupt them. A chain's centroid target is one point
+        for a whole chain, which a selection may cover only part of, so it is left for the user to re-set rather than
+        guessed at here.
+        """
+        try:
+            return [STANDARD_ANNOTATIONS.get("condition_coordinate_1_atom")]
+        except KeyError:
+            return []
+
+    def _coupled_position_annotations(self) -> list[tuple[Any, np.ndarray]]:
+        """Those conditions' stored values, as writable (n_atoms, 3) arrays, where this document carries them."""
+        coupled: list[tuple[Any, np.ndarray]] = []
+        for condition in self._position_conditions():
+            if not condition.has_annotation(self.array):
+                continue
+            values = np.asarray(condition.annotation(self.array, default="generate"), dtype=np.float64)
+            if values.shape == (len(self.array), 3) and np.isfinite(values).any():
+                coupled.append((condition, values.copy()))
+        return coupled
+
+    def transform_selection(
+        self,
+        indices: list[int],
+        *,
+        scope: ConditionScope = "atom",
+        translation: list[float] | None = None,
+        rotation_axis: list[float] | None = None,
+        rotation_angle: float = 0.0,
+        center: list[float] | None = None,
+        expected_revision: int | None = None,
+    ) -> dict[str, object]:
+        """Move the selection as one rigid body in one undo step, rotating about `center` before translating.
+
+        Saved absolute-coordinate conditioning moves with the atoms. A model builds from those stored positions, not
+        from the CIF's columns, so moving one without the other would leave the structure and what it conditions in
+        different places -- the design would come back where the atoms used to be.
+
+        Distances, internal coordinates and saved rigid-body shapes are relative, so a rigid motion leaves them as
+        they are. Atoms conditioned only as a rigid body (a coordinate group with a saved internal shape) are placed
+        by the model itself, so moving them changes the input without changing what is generated. A transform that
+        moves nothing is not an edit, so Undo does not gain an empty step.
+        """
+        if expected_revision is not None and self.revision != expected_revision:
+            raise DocumentRevisionConflictError(expected_revision, self.revision)
+        moved = 0
+
+        def unchanged(before: AtomArrayPlus, after: AtomArrayPlus) -> bool:
+            if not np.array_equal(before.coord, after.coord, equal_nan=True):
+                return False
+            return all(
+                np.array_equal(
+                    np.asarray(condition.annotation(before, default="generate")),
+                    np.asarray(condition.annotation(after, default="generate")),
+                    equal_nan=True,
+                )
+                for condition in self._position_conditions()
+            )
+
+        with self.edit(unchanged=unchanged):
+            selected = self.resolve_indices(indices, scope)
+            coupled = self._coupled_position_annotations()
+            nonlocal_moved = rigid_transform(
+                self.array,
+                selected,
+                translation=translation or (0.0, 0.0, 0.0),
+                rotation_axis=rotation_axis,
+                rotation_angle=rotation_angle,
+                center=center,
+                coupled=[values for _, values in coupled],
+            )
+            for condition, values in coupled:
+                condition.set_annotation(self.array, values)
+            moved = nonlocal_moved
+        return {
+            "moved_atom_count": moved,
+            "message": f"Moved {moved} atom{'' if moved == 1 else 's'}."
+            if moved
+            else "The selection has no coordinates to move.",
+        }
 
     def reset_residue_ids(self) -> None:
         with self.edit():

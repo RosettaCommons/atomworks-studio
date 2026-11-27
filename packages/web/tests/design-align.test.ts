@@ -38,3 +38,20 @@ test("a design already in the input's frame, one with too few held atoms, and an
   assert.equal(alignToInput(inputAnchors(parseCifToAtoms(cif(POINTS, [2, 2, -1, -1, -1, -1]))), cif(POINTS.map(place))).cif, cif(POINTS.map(place)));
   assert.equal(moveCif("not a cif", (p) => p), "not a cif");
 });
+
+test("moveCif can move a subset of atoms, addressed by their atom_site row order", () => {
+  const before = parseCifToAtoms(cif(POINTS));
+  const moved = parseCifToAtoms(moveCif(cif(POINTS), (p) => [p[0] + 10, p[1], p[2]], (index) => index === 1 || index === 4));
+  POINTS.forEach((_p, i) => {
+    const shift = i === 1 || i === 4 ? 10 : 0;
+    assert.ok(Math.abs(moved.coord[i][0] - (before.coord[i][0] + shift)) < 2e-3,
+      `atom ${i} x moved by ${moved.coord[i][0] - before.coord[i][0]}, expected ${shift}`);
+    assert.ok(Math.abs(moved.coord[i][1] - before.coord[i][1]) < 2e-3);
+    assert.ok(Math.abs(moved.coord[i][2] - before.coord[i][2]) < 2e-3);
+  });
+});
+
+test("moveCif with no selector still moves every atom", () => {
+  const moved = parseCifToAtoms(moveCif(cif(POINTS), (p) => [p[0], p[1], p[2] + 1]));
+  POINTS.forEach((p, i) => assert.ok(Math.abs(moved.coord[i][2] - (p[2] + 1)) < 2e-3));
+});

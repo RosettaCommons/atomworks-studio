@@ -9,6 +9,7 @@
  * built lives in a session Studio does not show until it is finished, and is edited by the same requests.
  */
 import { api, apiText } from "../api.ts";
+import { moveCif } from "./align.ts";
 import { parseCifBlock } from "./cif.ts";
 import { SessionDoc, createSession, deleteSession } from "./doc.ts";
 import type { ChainPlan, PlanPart, RebuildPart } from "./doc.ts";
@@ -22,7 +23,7 @@ import {
 } from "./tasks.ts";
 import type { Option, Task } from "./tasks.ts";
 import type { AtomArray, StudioHandle } from "./types.ts";
-import type { ViewerResidue } from "../viewers/contract.ts";
+import type { ViewerResidue, TransformGizmoMode, TransformGizmoMotion } from "../viewers/contract.ts";
 
 type Child = Node | string | null | undefined | false;
 type Attrs = Record<string, string | number | boolean | null | undefined | ((event: Event) => void)>;
@@ -203,6 +204,33 @@ const lastIndexOf = <T>(items: T[], f: (item: T) => boolean): number => {
 };
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+/** `motion` as a point transform: turn about its centre, then shift. Mirrors the server's rigid_transform. */
+function transformPoint(motion: TransformGizmoMotion): (p: [number, number, number]) => [number, number, number] {
+  const [cx, cy, cz] = motion.center;
+  const [tx, ty, tz] = motion.translation;
+  const axis = motion.axis;
+  const length = axis ? Math.hypot(axis[0], axis[1], axis[2]) : 0;
+  if (!axis || length === 0 || !motion.angle) {
+    return (p) => [p[0] + tx, p[1] + ty, p[2] + tz];
+  }
+  const [ux, uy, uz] = [axis[0] / length, axis[1] / length, axis[2] / length];
+  const cos = Math.cos(motion.angle);
+  const sin = Math.sin(motion.angle);
+  // Rodrigues, written out so the preview needs no matrix library.
+  return (p) => {
+    const [x, y, z] = [p[0] - cx, p[1] - cy, p[2] - cz];
+    const dot = ux * x + uy * y + uz * z;
+    const crossX = uy * z - uz * y;
+    const crossY = uz * x - ux * z;
+    const crossZ = ux * y - uy * x;
+    return [
+      x * cos + crossX * sin + ux * dot * (1 - cos) + cx + tx,
+      y * cos + crossY * sin + uy * dot * (1 - cos) + cy + ty,
+      z * cos + crossZ * sin + uz * dot * (1 - cos) + cz + tz,
+    ];
+  };
+}
 
 export class DesignPanel {
   readonly host: PanelHost;
@@ -1460,6 +1488,7 @@ export class DesignPanel {
   _closePop(): void {
     if (this.piecePop) this.piecePop.hidden = true;
     this._endPreview();
+    void this._endTransform();
     // A row's residues were selected only while its popup was open.
     if (this.cardSelected) {
       this.cardSelected = false;
@@ -1567,6 +1596,10 @@ export class DesignPanel {
   }
 
   /** A popup's title, and its × (top right) to close it. */
+  private transformMode: TransformGizmoMode | null = null;
+  private pendingTransform: TransformGizmoMotion | null = null;
+  private readonly transformPreview: { busy: boolean; next: TransformGizmoMotion | null } = { busy: false, next: null };
+
   private _popHead(title: string, close: () => void = () => this._closePop(), detail: string | null = null): HTMLElement {
     return el("div", { class: "rfd4p-pop-title" },
       el("strong", { text: title }),
@@ -1574,10 +1607,122 @@ export class DesignPanel {
       el("button", { type: "button", class: "rfd4p-pop-x", "aria-label": "Close", title: "Close", text: "×", onclick: close }));
   }
 
-  private _popActions(apply: () => unknown): HTMLElement {
+  /** `left` sits at the start of the row, before the spacer that pushes Apply to the right end. */
+  private _popActions(apply: () => unknown, ...left: (HTMLElement | null)[]): HTMLElement {
     return el("div", { class: "rfd4p-pop-actions" },
+      ...left.filter((node): node is HTMLElement => Boolean(node)),
       el("span", { class: "rfd4p-pop-spacer" }),
       el("button", { type: "button", class: "primary compact", text: "Apply", onclick: () => { this.applying = Promise.resolve(apply()); } }));
+  }
+
+  /**
+   * Move and Rotate for the picked atoms: the handles go on in the viewer, each drag is previewed by
+   * redrawing the document with those atoms moved, and the motion is committed by the popup's Apply
+   * as one undoable edit. Returns null on a renderer without the handles, so the row keeps its shape.
+   */
+  private _transformControls(atoms: number[]): HTMLElement | null {
+    const studio = this.studio();
+    if (!studio?.showTransformGizmo || studio.canTransform?.() === false || !atoms.length) return null;
+
+    const buttons = new Map<TransformGizmoMode, HTMLButtonElement>();
+    const paint = (): void => {
+      for (const [mode, button] of buttons) {
+        const on = this.transformMode === mode;
+        button.setAttribute("aria-pressed", String(on));
+        button.classList.toggle("rfd4p-pop-toggle-on", on);
+      }
+    };
+    const start = async (mode: TransformGizmoMode): Promise<void> => {
+      if (this.transformMode === mode) {
+        await this._endTransform();
+        paint();
+        return;
+      }
+      await this._endTransform();
+      this.transformMode = mode;
+      paint();
+      await studio.showTransformGizmo!(mode, atoms, (motion) => {
+        this.pendingTransform = motion.dragging || this._hasMotion(motion) ? motion : null;
+        this._previewTransform(atoms, motion);
+      });
+    };
+    for (const [mode, label, title] of [
+      ["move", "Move", "Drag the arrows to move the picked atoms; Apply keeps it"],
+      ["rotate", "Rotate", "Drag the rings to turn the picked atoms; Apply keeps it"],
+    ] as [TransformGizmoMode, string, string][]) {
+      buttons.set(mode, el("button", {
+        type: "button", class: "compact rfd4p-pop-toggle", text: label, title,
+        "aria-pressed": "false",
+        onclick: () => { void start(mode); },
+      }) as HTMLButtonElement);
+    }
+    paint();
+    return el("span", { class: "rfd4p-pop-inline" }, ...buttons.values());
+  }
+
+  /** Is there motion worth committing? Sub-milliangstrom drags are a click, not an edit. */
+  private _hasMotion(motion: TransformGizmoMotion): boolean {
+    const [x, y, z] = motion.translation;
+    return Math.hypot(x, y, z) > 1e-3 || Math.abs(motion.angle) > 1e-3;
+  }
+
+  /** The document redrawn with `atoms` moved by `motion`, so a drag is seen before it is kept. */
+  private _previewTransform(atoms: number[], motion: TransformGizmoMotion): void {
+    const studio = this.studio();
+    const cif = this._inputDoc()?.cif;
+    if (typeof studio?.renderFrame !== "function" || !cif) return;
+    this.transformPreview.next = motion;
+    if (this.transformPreview.busy) return;
+    this.transformPreview.busy = true;
+    void (async () => {
+      try {
+        while (this.transformPreview.next) {
+          const want = this.transformPreview.next;
+          this.transformPreview.next = null;
+          if (!this.transformMode) break;
+          const chosen = new Set(atoms);
+          const moved = moveCif(cif, transformPoint(want), (index) => chosen.has(index));
+          this.planPreview = true;
+          await studio.renderFrame!(moved, this._inputDoc()?.name || "transform", { keepCamera: true });
+        }
+      } catch (err) {
+        console.warn("Transform preview failed:", err);
+      } finally {
+        this.transformPreview.busy = false;
+      }
+    })();
+  }
+
+  /** Handles off, pending motion dropped, document back in the viewer. */
+  private async _endTransform(): Promise<void> {
+    const studio = this.studio();
+    this.transformMode = null;
+    this.pendingTransform = null;
+    this.transformPreview.next = null;
+    studio?.hideTransformGizmo?.();
+    if (this.planPreview) {
+      this.planPreview = false;
+      await studio?.showDocument?.();
+    }
+  }
+
+  /** Keep the pending motion as one edit. False only when the edit itself failed. */
+  private async _commitTransform(atoms: number[]): Promise<boolean> {
+    const motion = this.pendingTransform;
+    if (!motion || !this._hasMotion(motion)) {
+      await this._endTransform();
+      return true;
+    }
+    const body = {
+      atom_indices: atoms,
+      translation: motion.translation,
+      rotation_axis: motion.mode === "rotate" ? motion.axis : null,
+      rotation_angle: motion.mode === "rotate" ? motion.angle : 0,
+      center: motion.center,
+    };
+    // The handles come off first: the edit redraws the document, and the preview must not outlive it.
+    await this._endTransform();
+    return this._mutate("/transform", body);
   }
 
   /** The rest of a popup, folded: opened by More. Three rows or fewer are not worth folding, and are shown as they are. */
@@ -2492,7 +2637,10 @@ export class DesignPanel {
     const more: (HTMLElement | null)[] = [];
     const title = [parts.join(", "), ligNames.join(", ")].filter(Boolean).join(" · ");
     // Its × closes it and lets go of the selection.
-    const head = this._popHead(title || `${sel.length} atoms`, () => this.studio()?.setSelection?.([]),
+    const head = this._popHead(title || `${sel.length} atoms`, () => {
+      void this._endTransform();
+      this.studio()?.setSelection?.([]);
+    },
       nRes ? `${nRes} residue${nRes === 1 ? "" : "s"}` : null);
     const done = (): void => { pop.hidden = true; };
     let apply: () => Promise<unknown> = async () => {};
@@ -2601,11 +2749,18 @@ export class DesignPanel {
       el("span", { class: "rfd4p-pop-label", text: "Include" }), include));
     const applyEdits = apply;
     apply = async () => {
-      if (include.checked) return applyEdits();
-      done();
-      return this._mutate("/delete", { atom_indices: residues });
+      if (!include.checked) {
+        done();
+        await this._endTransform();
+        return this._mutate("/delete", { atom_indices: residues });
+      }
+      // The motion first: it is a coordinate edit, and the condition edits below read the same atoms.
+      if (!await this._commitTransform(residues)) return undefined;
+      return applyEdits();
     };
-    pop.replaceChildren(...[head, ...rows, more.length ? this._moreFold(...more) : null, this._popActions(apply)].filter((n): n is HTMLElement | DocumentFragment => Boolean(n)));
+    void this._endTransform();
+    pop.replaceChildren(...[head, ...rows, more.length ? this._moreFold(...more) : null,
+      this._popActions(apply, this._transformControls(residues))].filter((n): n is HTMLElement | DocumentFragment => Boolean(n)));
     pop.hidden = false;
     // Next to the pointer that made the selection, kept on screen.
     const p = this.lastPointer ?? (() => {
